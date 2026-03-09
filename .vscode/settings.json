@@ -1,0 +1,13 @@
+{
+    "go.alternateTools": {
+        "dlv": "/root/go/bin/dlv"
+    },
+    "go.toolsManagement.autoUpdate": true,
+    "go.useLanguageServer": true,
+    "go.delveConfig": {
+        "debugAdapter": "dlv-dap",
+        "apiVersion": 2,
+        "showRegisters": false,
+        "showGlobalVariables": false
+    }
+}

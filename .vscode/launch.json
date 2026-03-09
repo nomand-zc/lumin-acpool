@@ -1,0 +1,60 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Token Refresh",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cli/main.go",
+            "args": [
+                "token",
+                "refresh",
+                "--file",
+                "${workspaceFolder}/cli/testdata/kiro/creds-src/8.json",
+                "--provider",
+                "kiro"
+            ],
+            "env": {},
+            "showLog": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Usage CMD",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cli/main.go",
+            "args": [
+                "usage",
+                "view",
+                "--file",
+                "${workspaceFolder}/cli/testdata/kiro/creds-src/52.json",
+                "--provider",
+                "kiro"
+            ],
+            "env": {},
+            "showLog": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Stream CMD",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cli/main.go",
+            "args": [
+                "stream",
+                "--creds",
+                "${workspaceFolder}/cli/testdata/kiro/creds-src/8.json",
+                "--data",
+                "${workspaceFolder}/cli/testdata/kiro/data.json",
+                "--provider",
+                "kiro"
+            ],
+            "env": {},
+            "showLog": true,
+            "console": "integratedTerminal"
+        }
+    ]
+}
