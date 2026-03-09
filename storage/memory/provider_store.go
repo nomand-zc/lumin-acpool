@@ -46,7 +46,7 @@ func (s *ProviderStore) Get(_ context.Context, key provider.ProviderKey) (*provi
 	return s.copyProviderInfo(info), nil
 }
 
-func (s *ProviderStore) List(_ context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
+func (s *ProviderStore) Search(_ context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return nil, err
@@ -57,60 +57,6 @@ func (s *ProviderStore) List(_ context.Context, filter *filtercond.Filter) ([]*p
 
 	result := make([]*provider.ProviderInfo, 0)
 	for _, info := range s.providers {
-		if filterFn(info) {
-			result = append(result, s.copyProviderInfo(info))
-		}
-	}
-	return result, nil
-}
-
-func (s *ProviderStore) ListByType(_ context.Context, providerType string, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
-	filterFn, err := s.converter.Convert(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	keys, ok := s.typeIndex[providerType]
-	if !ok {
-		return []*provider.ProviderInfo{}, nil
-	}
-
-	result := make([]*provider.ProviderInfo, 0, len(keys))
-	for key := range keys {
-		info, exists := s.providers[key]
-		if !exists {
-			continue
-		}
-		if filterFn(info) {
-			result = append(result, s.copyProviderInfo(info))
-		}
-	}
-	return result, nil
-}
-
-func (s *ProviderStore) ListByModel(_ context.Context, model string, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
-	filterFn, err := s.converter.Convert(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	keys, ok := s.modelIndex[model]
-	if !ok {
-		return []*provider.ProviderInfo{}, nil
-	}
-
-	result := make([]*provider.ProviderInfo, 0, len(keys))
-	for key := range keys {
-		info, exists := s.providers[key]
-		if !exists {
-			continue
-		}
 		if filterFn(info) {
 			result = append(result, s.copyProviderInfo(info))
 		}

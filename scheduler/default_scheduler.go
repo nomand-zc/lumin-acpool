@@ -143,29 +143,32 @@ func (s *defaultScheduler) scheduleAuto(ctx context.Context, selReq *selector.Se
 // getCandidateProviders 获取候选供应商列表
 func (s *defaultScheduler) getCandidateProviders(ctx context.Context, selReq *selector.SelectRequest) ([]*provider.ProviderInfo, error) {
 	// 构建过滤条件：只要活跃的供应商
-	statusFilter := &filtercond.Filter{
-		Field:    storage.ProviderFieldStatus,
-		Operator: filtercond.OperatorIn,
-		Value:    []int{int(provider.ProviderStatusActive), int(provider.ProviderStatusDegraded)},
-	}
+	statusFilter := filtercond.In(storage.ProviderFieldStatus, int(provider.ProviderStatusActive), int(provider.ProviderStatusDegraded))
 
 	if selReq.IsProviderTypeOnly() {
-		// 模式 2: 按类型筛选
-		candidates, err := s.opts.ProviderStorage.ListByType(ctx, selReq.ProviderKey.Type, statusFilter)
+		// 模式 2: 按类型筛选 + 活跃状态 + 支持指定模型
+		filter := filtercond.And(
+			filtercond.Equal(storage.ProviderFieldType, selReq.ProviderKey.Type),
+			statusFilter,
+			filtercond.Equal(storage.ProviderFieldSupportedModel, selReq.Model),
+		)
+		candidates, err := s.opts.ProviderStorage.Search(ctx, filter)
 		if err != nil {
-			return nil, fmt.Errorf("scheduler: list providers by type: %w", err)
+			return nil, fmt.Errorf("scheduler: search providers by type: %w", err)
 		}
-		// 过滤支持该模型的供应商
-		return filterByModel(candidates, selReq.Model), nil
+		return candidates, nil
 	}
 
-	// 模式 3: 全自动，按模型查找
-	candidates, err := s.opts.ProviderStorage.ListByModel(ctx, selReq.Model, statusFilter)
+	// 模式 3: 全自动，按模型 + 活跃状态查找
+	filter := filtercond.And(
+		filtercond.Equal(storage.ProviderFieldSupportedModel, selReq.Model),
+		statusFilter,
+	)
+	candidates, err := s.opts.ProviderStorage.Search(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("scheduler: list providers by model: %w", err)
+		return nil, fmt.Errorf("scheduler: search providers by model: %w", err)
 	}
-	// ListByModel 已按模型过滤，但再过滤一次活跃状态
-	return filterActiveProviders(candidates), nil
+	return candidates, nil
 }
 
 // selectAccountFromProvider 从指定供应商下选号（带重试）
@@ -224,16 +227,16 @@ func (s *defaultScheduler) selectAccountFromProvider(
 
 // getAvailableAccounts 获取指定供应商下的可用账号
 func (s *defaultScheduler) getAvailableAccounts(ctx context.Context, key provider.ProviderKey, selReq *selector.SelectRequest) ([]*account.Account, error) {
-	// 只查可用状态的账号
-	filter := &filtercond.Filter{
-		Field:    storage.AccountFieldStatus,
-		Operator: filtercond.OperatorEqual,
-		Value:    int(account.StatusAvailable),
-	}
+	// 只查指定供应商下可用状态的账号
+	filter := filtercond.And(
+		filtercond.Equal(storage.AccountFieldProviderType, key.Type),
+		filtercond.Equal(storage.AccountFieldProviderName, key.Name),
+		filtercond.Equal(storage.AccountFieldStatus, int(account.StatusAvailable)),
+	)
 
-	accounts, err := s.opts.AccountStorage.ListByProviderKey(ctx, key, filter)
+	accounts, err := s.opts.AccountStorage.Search(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("scheduler: list accounts: %w", err)
+		return nil, fmt.Errorf("scheduler: search accounts: %w", err)
 	}
 
 	// 过滤掉 ExcludeAccountIDs 中的账号
@@ -344,29 +347,6 @@ func (s *defaultScheduler) filterProviders(candidates []*provider.ProviderInfo, 
 	return result
 }
 
-// filterByModel 过滤支持指定模型的供应商
-func filterByModel(providers []*provider.ProviderInfo, model string) []*provider.ProviderInfo {
-	var result []*provider.ProviderInfo
-	for _, p := range providers {
-		if p.SupportsModel(model) {
-			result = append(result, p)
-		}
-	}
-	return result
-}
-
-// filterActiveProviders 过滤活跃的供应商
-func filterActiveProviders(providers []*provider.ProviderInfo) []*provider.ProviderInfo {
-	var result []*provider.ProviderInfo
-	for _, p := range providers {
-		if p.IsActive() {
-			result = append(result, p)
-		}
-	}
-	return result
-}
-
-// filterExcluded 过滤掉排除列表中的账号
 func filterExcluded(accounts []*account.Account, excludeIDs []string) []*account.Account {
 	var result []*account.Account
 	for _, acct := range accounts {

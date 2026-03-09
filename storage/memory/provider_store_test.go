@@ -86,7 +86,7 @@ func TestProviderStore_Update(t *testing.T) {
 	}
 
 	// 验证模型索引已更新
-	gpt4List, _ := store.ListByModel(ctx, "gpt-4", nil)
+	gpt4List, _ := store.Search(ctx, filtercond.Equal("supported_model", "gpt-4"))
 	if len(gpt4List) != 1 {
 		t.Fatalf("expected 1 provider for gpt-4 after update, got %d", len(gpt4List))
 	}
@@ -111,13 +111,13 @@ func TestProviderStore_UpdateModelIndex(t *testing.T) {
 	_ = store.Update(ctx, updated)
 
 	// model-a 应该查不到了
-	listA, _ := store.ListByModel(ctx, "model-a", nil)
+	listA, _ := store.Search(ctx, filtercond.Equal("supported_model", "model-a"))
 	if len(listA) != 0 {
 		t.Fatalf("expected 0 providers for model-a, got %d", len(listA))
 	}
 
 	// model-b 应该能查到
-	listB, _ := store.ListByModel(ctx, "model-b", nil)
+	listB, _ := store.Search(ctx, filtercond.Equal("supported_model", "model-b"))
 	if len(listB) != 1 {
 		t.Fatalf("expected 1 provider for model-b, got %d", len(listB))
 	}
@@ -142,11 +142,11 @@ func TestProviderStore_Remove(t *testing.T) {
 	}
 
 	// 确认索引已清理
-	typeList, _ := store.ListByType(ctx, "kiro", nil)
+	typeList, _ := store.Search(ctx, filtercond.Equal("provider_type", "kiro"))
 	if len(typeList) != 0 {
 		t.Fatalf("expected 0 in type index after Remove, got %d", len(typeList))
 	}
-	modelList, _ := store.ListByModel(ctx, "claude-sonnet-4-20250514", nil)
+	modelList, _ := store.Search(ctx, filtercond.Equal("supported_model", "claude-sonnet-4-20250514"))
 	if len(modelList) != 0 {
 		t.Fatalf("expected 0 in model index after Remove, got %d", len(modelList))
 	}
@@ -166,7 +166,7 @@ func TestProviderStore_List(t *testing.T) {
 	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, []string{"gpt-4"}))
 
 	// 全量
-	all, err := store.List(ctx, nil)
+	all, err := store.Search(ctx, nil)
 	if err != nil {
 		t.Fatalf("List(nil) failed: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestProviderStore_List(t *testing.T) {
 	}
 
 	// 按状态过滤
-	active, err := store.List(ctx, filtercond.Equal("provider_status", int(provider.ProviderStatusActive)))
+	active, err := store.Search(ctx, filtercond.Equal("provider_status", int(provider.ProviderStatusActive)))
 	if err != nil {
 		t.Fatalf("List(status=active) failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestProviderStore_List(t *testing.T) {
 	}
 
 	// 按优先级过滤
-	highPrio, err := store.List(ctx, filtercond.GreaterThanOrEqual("priority", 5))
+	highPrio, err := store.Search(ctx, filtercond.GreaterThanOrEqual("priority", 5))
 	if err != nil {
 		t.Fatalf("List(priority>=5) failed: %v", err)
 	}
@@ -193,77 +193,7 @@ func TestProviderStore_List(t *testing.T) {
 	}
 }
 
-func TestProviderStore_ListByType(t *testing.T) {
-	ctx := context.Background()
-	store := NewProviderStore()
 
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, nil))
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusDisabled, 3, 5, nil))
-	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, nil))
-
-	// 查 kiro 类型
-	kiroList, err := store.ListByType(ctx, "kiro", nil)
-	if err != nil {
-		t.Fatalf("ListByType failed: %v", err)
-	}
-	if len(kiroList) != 2 {
-		t.Fatalf("expected 2 kiro, got %d", len(kiroList))
-	}
-
-	// 查 kiro 类型 + 只要 Active
-	activeKiro, err := store.ListByType(ctx, "kiro", filtercond.Equal("provider_status", int(provider.ProviderStatusActive)))
-	if err != nil {
-		t.Fatalf("ListByType(active) failed: %v", err)
-	}
-	if len(activeKiro) != 1 {
-		t.Fatalf("expected 1 active kiro, got %d", len(activeKiro))
-	}
-
-	// 不存在的类型
-	empty, err := store.ListByType(ctx, "nonexistent", nil)
-	if err != nil {
-		t.Fatalf("ListByType(nonexistent) failed: %v", err)
-	}
-	if len(empty) != 0 {
-		t.Fatalf("expected 0, got %d", len(empty))
-	}
-}
-
-func TestProviderStore_ListByModel(t *testing.T) {
-	ctx := context.Background()
-	store := NewProviderStore()
-
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"}))
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusDisabled, 3, 5, []string{"claude-sonnet-4-20250514", "gpt-4"}))
-	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, []string{"gpt-4"}))
-
-	// 查支持 claude-sonnet-4-20250514 的
-	claudeList, err := store.ListByModel(ctx, "claude-sonnet-4-20250514", nil)
-	if err != nil {
-		t.Fatalf("ListByModel(claude) failed: %v", err)
-	}
-	if len(claudeList) != 2 {
-		t.Fatalf("expected 2 providers for claude, got %d", len(claudeList))
-	}
-
-	// 查支持 gpt-4 的 + 只要 Active
-	activeGpt4, err := store.ListByModel(ctx, "gpt-4", filtercond.Equal("provider_status", int(provider.ProviderStatusActive)))
-	if err != nil {
-		t.Fatalf("ListByModel(gpt-4, active) failed: %v", err)
-	}
-	if len(activeGpt4) != 1 {
-		t.Fatalf("expected 1 active for gpt-4, got %d", len(activeGpt4))
-	}
-
-	// 不存在的模型
-	empty, err := store.ListByModel(ctx, "nonexistent-model", nil)
-	if err != nil {
-		t.Fatalf("ListByModel(nonexistent) failed: %v", err)
-	}
-	if len(empty) != 0 {
-		t.Fatalf("expected 0, got %d", len(empty))
-	}
-}
 
 func TestProviderStore_TimeAutoSet(t *testing.T) {
 	ctx := context.Background()
@@ -292,7 +222,7 @@ func TestProviderStore_FilterBySupportedModel(t *testing.T) {
 	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, []string{"model-c"}))
 
 	// 通过 filtercond 查 supported_model = "model-a"
-	result, err := store.List(ctx, filtercond.Equal("supported_model", "model-a"))
+	result, err := store.Search(ctx, filtercond.Equal("supported_model", "model-a"))
 	if err != nil {
 		t.Fatalf("List(supported_model=model-a) failed: %v", err)
 	}
@@ -301,7 +231,7 @@ func TestProviderStore_FilterBySupportedModel(t *testing.T) {
 	}
 
 	// 通过 filtercond 查 supported_model in ["model-a", "model-c"]
-	result2, err := store.List(ctx, filtercond.In("supported_model", "model-a", "model-c"))
+	result2, err := store.Search(ctx, filtercond.In("supported_model", "model-a", "model-c"))
 	if err != nil {
 		t.Fatalf("List(supported_model in) failed: %v", err)
 	}
@@ -319,7 +249,7 @@ func TestProviderStore_CombinedFilter(t *testing.T) {
 	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, []string{"model-b"}))
 
 	// And: active + 支持 model-a
-	result, err := store.List(ctx, filtercond.And(
+	result, err := store.Search(ctx, filtercond.And(
 		filtercond.Equal("provider_status", int(provider.ProviderStatusActive)),
 		filtercond.Equal("supported_model", "model-a"),
 	))
@@ -334,7 +264,7 @@ func TestProviderStore_CombinedFilter(t *testing.T) {
 	}
 
 	// Or: weight >= 20 或 priority >= 5
-	orResult, err := store.List(ctx, filtercond.Or(
+	orResult, err := store.Search(ctx, filtercond.Or(
 		filtercond.GreaterThanOrEqual("weight", 20),
 		filtercond.GreaterThanOrEqual("priority", 5),
 	))
@@ -350,7 +280,7 @@ func TestProviderStore_InvalidField(t *testing.T) {
 	ctx := context.Background()
 	store := NewProviderStore()
 
-	_, err := store.List(ctx, filtercond.Equal("nonexistent_field", "value"))
+	_, err := store.Search(ctx, filtercond.Equal("nonexistent_field", "value"))
 	if err == nil {
 		t.Fatal("expected error for invalid field, got nil")
 	}

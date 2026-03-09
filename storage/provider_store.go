@@ -14,17 +14,9 @@ type ProviderStorage interface {
 	// 如果不存在，返回 ErrNotFound
 	Get(ctx context.Context, key provider.ProviderKey) (*provider.ProviderInfo, error)
 
-	// List 查询供应商列表
+	// Search 查询供应商列表
 	// filter 为 nil 时返回全部供应商
-	List(ctx context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error)
-
-	// ListByType 查询指定类型下的所有供应商
-	// filter 为 nil 时返回该类型下的全部供应商
-	ListByType(ctx context.Context, providerType string, filter *filtercond.Filter) ([]*provider.ProviderInfo, error)
-
-	// ListByModel 查询支持指定模型的所有供应商
-	// filter 为 nil 时返回所有支持该模型的供应商
-	ListByModel(ctx context.Context, model string, filter *filtercond.Filter) ([]*provider.ProviderInfo, error)
+	Search(ctx context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error)
 
 	// Add 添加供应商
 	// 如果 ProviderKey 已存在，返回 ErrAlreadyExists

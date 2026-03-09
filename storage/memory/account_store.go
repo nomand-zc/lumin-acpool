@@ -44,7 +44,7 @@ func (s *AccountStore) Get(_ context.Context, id string) (*account.Account, erro
 	return s.copyAccount(acct), nil
 }
 
-func (s *AccountStore) List(_ context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
+func (s *AccountStore) Search(_ context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return nil, err
@@ -55,33 +55,6 @@ func (s *AccountStore) List(_ context.Context, filter *filtercond.Filter) ([]*ac
 
 	result := make([]*account.Account, 0)
 	for _, acct := range s.accounts {
-		if filterFn(acct) {
-			result = append(result, s.copyAccount(acct))
-		}
-	}
-	return result, nil
-}
-
-func (s *AccountStore) ListByProviderKey(_ context.Context, key provider.ProviderKey, filter *filtercond.Filter) ([]*account.Account, error) {
-	filterFn, err := s.converter.Convert(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	ids, ok := s.providerIndex[key]
-	if !ok {
-		return []*account.Account{}, nil
-	}
-
-	result := make([]*account.Account, 0, len(ids))
-	for id := range ids {
-		acct, exists := s.accounts[id]
-		if !exists {
-			continue
-		}
 		if filterFn(acct) {
 			result = append(result, s.copyAccount(acct))
 		}
@@ -144,6 +117,24 @@ func (s *AccountStore) Remove(_ context.Context, id string) error {
 	return nil
 }
 
+func (s *AccountStore) RemoveFilter(_ context.Context, filter *filtercond.Filter) error {
+	filterFn, err := s.converter.Convert(filter)
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for id, acct := range s.accounts {
+		if filterFn(acct) {
+			s.removeFromIndex(acct)
+			delete(s.accounts, id)
+		}
+	}
+	return nil
+}
+
 func (s *AccountStore) Count(_ context.Context, filter *filtercond.Filter) (int, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
@@ -162,7 +153,7 @@ func (s *AccountStore) Count(_ context.Context, filter *filtercond.Filter) (int,
 	return count, nil
 }
 
-func (s *AccountStore) CountByProviderKey(_ context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error) {
+func (s *AccountStore) CountByProvider(_ context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return 0, err

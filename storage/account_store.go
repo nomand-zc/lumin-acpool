@@ -15,13 +15,9 @@ type AccountStorage interface {
 	// 如果不存在，返回 ErrNotFound
 	Get(ctx context.Context, id string) (*account.Account, error)
 
-	// List 查询账号列表
+	// Search 查询账号列表
 	// filter 为 nil 时返回全部账号
-	List(ctx context.Context, filter *filtercond.Filter) ([]*account.Account, error)
-
-	// ListByProviderKey 查询指定供应商下的账号列表
-	// filter 为 nil 时返回该供应商下的全部账号
-	ListByProviderKey(ctx context.Context, key provider.ProviderKey, filter *filtercond.Filter) ([]*account.Account, error)
+	Search(ctx context.Context, filter *filtercond.Filter) ([]*account.Account, error)
 
 	// Add 添加账号
 	// 如果 ID 已存在，返回 ErrAlreadyExists
@@ -35,11 +31,15 @@ type AccountStorage interface {
 	// 如果 ID 不存在，返回 ErrNotFound
 	Remove(ctx context.Context, id string) error
 
+	// RemoveFilter 按条件批量删除账号
+	// filter 为 nil 时删除全部账号
+	RemoveFilter(ctx context.Context, filter *filtercond.Filter) error
+
 	// Count 统计账号数量
 	// filter 为 nil 时返回全部账号数量
 	Count(ctx context.Context, filter *filtercond.Filter) (int, error)
 
-	// CountByProviderKey 统计指定供应商下的账号数量
+	// CountByProvider 统计指定供应商下的账号数量
 	// filter 为 nil 时返回该供应商下的全部账号数量
-	CountByProviderKey(ctx context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error)
+	CountByProvider(ctx context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error)
 }
