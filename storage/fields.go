@@ -22,6 +22,14 @@ const (
 	AccountFieldConsecutiveFailures = "consecutive_failures"
 	// AccountFieldLastUsedAt 上次使用时间
 	AccountFieldLastUsedAt = "last_used_at"
+	// AccountFieldLastErrorAt 上次调用失败时间
+	AccountFieldLastErrorAt = "last_error_at"
+	// AccountFieldLastErrorMsg 上次调用失败错误信息
+	AccountFieldLastErrorMsg = "last_error_msg"
+	// AccountFieldCooldownUntil 冷却截止时间
+	AccountFieldCooldownUntil = "cooldown_until"
+	// AccountFieldCircuitOpenUntil 熔断截止时间
+	AccountFieldCircuitOpenUntil = "circuit_open_until"
 	// AccountFieldCreatedAt 创建时间
 	AccountFieldCreatedAt = "created_at"
 	// AccountFieldUpdatedAt 最后更新时间
@@ -46,4 +54,8 @@ const (
 	ProviderFieldAccountCount = "account_count"
 	// ProviderFieldAvailableAccountCount 可用账号数
 	ProviderFieldAvailableAccountCount = "available_account_count"
+	// ProviderFieldCreatedAt 创建时间
+	ProviderFieldCreatedAt = "created_at"
+	// ProviderFieldUpdatedAt 最后更新时间
+	ProviderFieldUpdatedAt = "updated_at"
 )

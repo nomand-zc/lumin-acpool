@@ -5,10 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nomand-zc/lumin-acpool/filtercond"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	"github.com/nomand-zc/lumin-client/usagerule"
+	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
 // ProviderStore 供应商的内存存储实现
@@ -43,7 +42,7 @@ func (s *ProviderStore) Get(_ context.Context, key provider.ProviderKey) (*provi
 	if !ok {
 		return nil, storage.ErrNotFound
 	}
-	return s.copyProviderInfo(info), nil
+	return info.Clone(), nil
 }
 
 func (s *ProviderStore) Search(_ context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
@@ -58,7 +57,7 @@ func (s *ProviderStore) Search(_ context.Context, filter *filtercond.Filter) ([]
 	result := make([]*provider.ProviderInfo, 0)
 	for _, info := range s.providers {
 		if filterFn(info) {
-			result = append(result, s.copyProviderInfo(info))
+			result = append(result, info.Clone())
 		}
 	}
 	return result, nil
@@ -73,7 +72,7 @@ func (s *ProviderStore) Add(_ context.Context, info *provider.ProviderInfo) erro
 	}
 
 	now := time.Now()
-	stored := s.copyProviderInfo(info)
+	stored := info.Clone()
 	if stored.CreatedAt.IsZero() {
 		stored.CreatedAt = now
 	}
@@ -96,7 +95,7 @@ func (s *ProviderStore) Update(_ context.Context, info *provider.ProviderInfo) e
 	// 先从旧索引中移除
 	s.removeFromIndex(old)
 
-	stored := s.copyProviderInfo(info)
+	stored := info.Clone()
 	stored.UpdatedAt = time.Now()
 
 	s.providers[info.Key] = stored
@@ -157,39 +156,4 @@ func (s *ProviderStore) removeFromIndex(info *provider.ProviderInfo) {
 			}
 		}
 	}
-}
-
-// copyProviderInfo 深拷贝 ProviderInfo，防止外部修改内部存储数据
-func (s *ProviderStore) copyProviderInfo(src *provider.ProviderInfo) *provider.ProviderInfo {
-	dst := *src
-
-	// 深拷贝 Tags
-	if src.Tags != nil {
-		dst.Tags = make(map[string]string, len(src.Tags))
-		for k, v := range src.Tags {
-			dst.Tags[k] = v
-		}
-	}
-
-	// 深拷贝 SupportedModels
-	if src.SupportedModels != nil {
-		dst.SupportedModels = make([]string, len(src.SupportedModels))
-		copy(dst.SupportedModels, src.SupportedModels)
-	}
-
-	// 深拷贝 UsageRules
-	if src.UsageRules != nil {
-		dst.UsageRules = make([]*usagerule.UsageRule, len(src.UsageRules))
-		copy(dst.UsageRules, src.UsageRules)
-	}
-
-	// 深拷贝 Metadata
-	if src.Metadata != nil {
-		dst.Metadata = make(map[string]any, len(src.Metadata))
-		for k, v := range src.Metadata {
-			dst.Metadata[k] = v
-		}
-	}
-
-	return &dst
 }

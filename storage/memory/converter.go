@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/filtercond"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
 const (
@@ -243,6 +243,29 @@ func accountFieldExtractor(field string) (func(*account.Account) any, error) {
 				return time.Time{}
 			}
 			return *a.LastUsedAt
+		}, nil
+	case storage.AccountFieldLastErrorAt:
+		return func(a *account.Account) any {
+			if a.LastErrorAt == nil {
+				return time.Time{}
+			}
+			return *a.LastErrorAt
+		}, nil
+	case storage.AccountFieldLastErrorMsg:
+		return func(a *account.Account) any { return a.LastErrorMsg }, nil
+	case storage.AccountFieldCooldownUntil:
+		return func(a *account.Account) any {
+			if a.CooldownUntil == nil {
+				return time.Time{}
+			}
+			return *a.CooldownUntil
+		}, nil
+	case storage.AccountFieldCircuitOpenUntil:
+		return func(a *account.Account) any {
+			if a.CircuitOpenUntil == nil {
+				return time.Time{}
+			}
+			return *a.CircuitOpenUntil
 		}, nil
 	case storage.AccountFieldCreatedAt:
 		return func(a *account.Account) any { return a.CreatedAt }, nil
@@ -503,6 +526,10 @@ func providerFieldExtractor(field string) (func(*provider.ProviderInfo) any, err
 		return func(p *provider.ProviderInfo) any { return p.AccountCount }, nil
 	case storage.ProviderFieldAvailableAccountCount:
 		return func(p *provider.ProviderInfo) any { return p.AvailableAccountCount }, nil
+	case storage.ProviderFieldCreatedAt:
+		return func(p *provider.ProviderInfo) any { return p.CreatedAt }, nil
+	case storage.ProviderFieldUpdatedAt:
+		return func(p *provider.ProviderInfo) any { return p.UpdatedAt }, nil
 	default:
 		return nil, fmt.Errorf("memory: unsupported provider field: %s", field)
 	}

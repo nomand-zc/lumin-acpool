@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/filtercond"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
 func newTestAccount(id, provType, provName string, status account.Status, priority int) *account.Account {

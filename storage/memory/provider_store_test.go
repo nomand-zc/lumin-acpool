@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nomand-zc/lumin-acpool/filtercond"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
 func newTestProviderInfo(pType, pName string, status provider.ProviderStatus, priority, weight int, models []string) *provider.ProviderInfo {

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"maps"
 	"slices"
 	"time"
 
@@ -75,6 +76,39 @@ func (p *ProviderInfo) SupportsModel(model string) bool {
 // IsActive 判断供应商是否处于活跃状态
 func (p *ProviderInfo) IsActive() bool {
 	return p.Status == ProviderStatusActive || p.Status == ProviderStatusDegraded
+}
+
+// Clone 深拷贝 ProviderInfo，防止外部修改内部存储数据
+func (p *ProviderInfo) Clone() *ProviderInfo {
+	dst := *p
+
+	// 深拷贝 Tags
+	if p.Tags != nil {
+		dst.Tags = make(map[string]string, len(p.Tags))
+		for k, v := range p.Tags {
+			dst.Tags[k] = v
+		}
+	}
+
+	// 深拷贝 SupportedModels
+	if p.SupportedModels != nil {
+		dst.SupportedModels = make([]string, len(p.SupportedModels))
+		copy(dst.SupportedModels, p.SupportedModels)
+	}
+
+	// 深拷贝 UsageRules
+	if p.UsageRules != nil {
+		dst.UsageRules = make([]*usagerule.UsageRule, len(p.UsageRules))
+		copy(dst.UsageRules, p.UsageRules)
+	}
+
+	// 深拷贝 Metadata
+	if p.Metadata != nil {
+		dst.Metadata = make(map[string]any, len(p.Metadata))
+		maps.Copy(dst.Metadata, p.Metadata)
+	}
+
+	return &dst
 }
 
 // ProviderInstance 供应商运行时实例
