@@ -22,9 +22,9 @@ type Option func(*Options)
 
 // Options 负载均衡器完整配置
 type Options struct {
-	// AccountStorage 账号存储（必选）
+	// AccountStorage 账号存储（必选，用于 ReportSuccess/ReportFailure 更新账号状态）
 	AccountStorage storage.AccountStorage
-	// ProviderStorage 供应商存储（必选）
+	// ProviderStorage 供应商存储（当未注入 Resolver 时必选，用于构建默认的 StorageResolver）
 	ProviderStorage storage.ProviderStorage
 	// Resolver 解析器（可选，默认使用基于 Storage 的实现）
 	Resolver resolver.Resolver

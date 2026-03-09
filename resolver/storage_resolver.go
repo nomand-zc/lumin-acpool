@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -23,6 +24,29 @@ func NewStorageResolver(providerStorage storage.ProviderStorage, accountStorage 
 		providerStorage: providerStorage,
 		accountStorage:  accountStorage,
 	}
+}
+
+// ResolveProvider 精确解析指定供应商
+func (r *storageResolver) ResolveProvider(ctx context.Context, key provider.ProviderKey, model string) (*provider.ProviderInfo, error) {
+	provInfo, err := r.providerStorage.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return nil, ErrProviderNotFound
+		}
+		return nil, fmt.Errorf("resolver: get provider: %w", err)
+	}
+
+	// 校验供应商是否活跃
+	if !provInfo.IsActive() {
+		return nil, ErrProviderInactive
+	}
+
+	// 校验供应商是否支持该模型
+	if !provInfo.SupportsModel(model) {
+		return nil, ErrModelNotSupported
+	}
+
+	return provInfo, nil
 }
 
 // ResolveProviders 从存储中解析出支持指定模型的活跃供应商

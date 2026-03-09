@@ -26,16 +26,16 @@ func New(opts ...Option) (Balancer, error) {
 		opt(&o)
 	}
 
-	// 校验必填依赖
+	// 校验必填依赖：AccountStorage 始终需要（用于 ReportSuccess/ReportFailure）
 	if o.AccountStorage == nil {
 		return nil, fmt.Errorf("balancer: AccountStorage is required")
 	}
-	if o.ProviderStorage == nil {
-		return nil, fmt.Errorf("balancer: ProviderStorage is required")
-	}
 
-	// 如果未设置 Resolver，使用基于 Storage 的默认实现
+	// 如果未设置 Resolver，使用基于 Storage 的默认实现（需要 ProviderStorage）
 	if o.Resolver == nil {
+		if o.ProviderStorage == nil {
+			return nil, fmt.Errorf("balancer: either Resolver or ProviderStorage is required")
+		}
 		o.Resolver = resolver.NewStorageResolver(o.ProviderStorage, o.AccountStorage)
 	}
 
@@ -74,23 +74,19 @@ func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResu
 
 // pickExact 模式 1: 精确指定供应商
 func (b *defaultBalancer) pickExact(ctx context.Context, selReq *selector.SelectRequest, maxRetries int) (*PickResult, error) {
-	// 验证供应商存在
-	provInfo, err := b.opts.ProviderStorage.Get(ctx, *selReq.ProviderKey)
+	// 通过 Resolver 解析供应商（统一校验存在性、活跃状态、模型支持）
+	provInfo, err := b.opts.Resolver.ResolveProvider(ctx, *selReq.ProviderKey, selReq.Model)
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		switch {
+		case errors.Is(err, resolver.ErrProviderNotFound):
 			return nil, ErrProviderNotFound
+		case errors.Is(err, resolver.ErrProviderInactive):
+			return nil, ErrNoAvailableProvider
+		case errors.Is(err, resolver.ErrModelNotSupported):
+			return nil, ErrModelNotSupported
+		default:
+			return nil, fmt.Errorf("balancer: resolve provider: %w", err)
 		}
-		return nil, fmt.Errorf("balancer: get provider: %w", err)
-	}
-
-	// 验证供应商是否支持该模型
-	if !provInfo.SupportsModel(selReq.Model) {
-		return nil, ErrModelNotSupported
-	}
-
-	// 验证供应商是否活跃
-	if !provInfo.IsActive() {
-		return nil, ErrNoAvailableProvider
 	}
 
 	// 从该供应商下选号（带重试）
