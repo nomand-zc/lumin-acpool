@@ -241,7 +241,7 @@ func TestAccountStore_Count(t *testing.T) {
 	}
 
 	// 按 ProviderKey 计数
-	keyCount, err := store.CountByProvider(ctx, provider.ProviderKey{Type: "kiro", Name: "team-a"}, nil)
+	keyCount, err := store.CountByProvider(ctx, provider.BuildProviderKey("kiro", "team-a"), nil)
 	if err != nil {
 		t.Fatalf("CountByProvider failed: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestAccountStore_Count(t *testing.T) {
 
 	// 按 ProviderKey + 状态计数
 	keyAvail, err := store.CountByProvider(ctx,
-		provider.ProviderKey{Type: "kiro", Name: "team-a"},
+		provider.BuildProviderKey("kiro", "team-a"),
 		filtercond.Equal("status", int(account.StatusAvailable)),
 	)
 	if err != nil {

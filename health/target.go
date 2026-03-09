@@ -4,7 +4,6 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-client/credentials"
-	"github.com/nomand-zc/lumin-client/providers"
 )
 
 // defaultCheckTarget 是 CheckTarget 接口的默认实现
@@ -24,23 +23,12 @@ func NewCheckTarget(acct *account.Account, instance *provider.ProviderInstance) 
 	}
 }
 
-func (t *defaultCheckTarget) AccountID() string {
-	return t.acct.ID
-}
-
-func (t *defaultCheckTarget) ProviderKey() provider.ProviderKey {
-	return provider.ProviderKey{
-		Type: t.acct.ProviderType,
-		Name: t.acct.ProviderName,
-	}
-}
-
 func (t *defaultCheckTarget) Credential() credentials.Credential {
 	return t.acct.Credential
 }
 
-func (t *defaultCheckTarget) Provider() providers.Provider {
-	return t.instance.Client
+func (t *defaultCheckTarget) ProviderInstance() *provider.ProviderInstance {
+	return t.instance
 }
 
 func (t *defaultCheckTarget) Account() *account.Account {

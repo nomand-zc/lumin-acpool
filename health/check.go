@@ -7,7 +7,6 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-client/credentials"
-	"github.com/nomand-zc/lumin-client/providers"
 )
 
 // CheckSeverity 检查项严重程度
@@ -152,14 +151,10 @@ func (r *HealthReport) PassedChecks() []*CheckResult {
 // CheckTarget 检查目标，封装被检查对象的所有信息
 // 使用接口而非具体类型，保持 HealthCheck 接口的独立性
 type CheckTarget interface {
-	// AccountID 账号唯一标识
-	AccountID() string
-	// ProviderKey 所属供应商标识
-	ProviderKey() provider.ProviderKey
 	// Credential 账号凭证
 	Credential() credentials.Credential
-	// Provider 底层 lumin-client Provider 实例
-	Provider() providers.Provider
+	// ProviderInstance 获取供应商运行时实例（包含元数据和底层 SDK 实例）
+	ProviderInstance() *provider.ProviderInstance
 	// Account 获取完整的账号对象（供需要访问统计信息等额外字段的检查项使用）
 	Account() *account.Account
 }

@@ -1,4 +1,4 @@
-package health
+package cooldown
 
 import (
 	"time"
@@ -17,15 +17,15 @@ type CooldownManager interface {
 	IsCooldownExpired(acct *account.Account) bool
 }
 
-// CooldownConfig 冷却管理器配置
-type CooldownConfig struct {
+// Config 冷却管理器配置
+type Config struct {
 	// DefaultDuration 默认冷却时长，当限流响应未提供冷却截止时间时使用（默认 30s）
 	DefaultDuration time.Duration
 }
 
-// DefaultCooldownConfig 返回默认的冷却管理器配置
-func DefaultCooldownConfig() CooldownConfig {
-	return CooldownConfig{
+// DefaultConfig 返回默认的冷却管理器配置
+func DefaultConfig() Config {
+	return Config{
 		DefaultDuration: 30 * time.Second,
 	}
 }

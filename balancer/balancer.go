@@ -1,4 +1,4 @@
-package scheduler
+package balancer
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	"github.com/nomand-zc/lumin-acpool/provider"
 )
 
-// Scheduler 调度器接口
+// Balancer 负载均衡器接口
 // 编排完整的"筛选供应商 → 选择供应商 → 筛选账号 → 选择账号"流程
 // 并管理调用结果上报（驱动熔断/冷却状态机流转）
-type Scheduler interface {
+type Balancer interface {
 
-	// Schedule 执行一次调度，返回选中的账号和供应商信息
+	// Pick 从候选中选取一个可用账号，返回选中的账号和供应商信息
 	//
-	// 调度模式（由 ScheduleRequest.ProviderKey 决定）：
+	// 调度模式（由 PickRequest.ProviderKey 决定）：
 	//   模式 1 - 精确指定供应商 (ProviderKey.Type + Name 都非空)
 	//     → 直接从该供应商下的可用账号中选号
 	//   模式 2 - 按类型筛选 (仅 ProviderKey.Type 非空)
@@ -29,7 +29,7 @@ type Scheduler interface {
 	// 重试：
 	//   当 MaxRetries>0 时，选号失败后排除已尝试的账号 ID 重新选号，
 	//   直到成功或重试次数耗尽。
-	Schedule(ctx context.Context, req *ScheduleRequest) (*ScheduleResult, error)
+	Pick(ctx context.Context, req *PickRequest) (*PickResult, error)
 
 	// ReportSuccess 上报调用成功
 	//
@@ -53,8 +53,8 @@ type Scheduler interface {
 	ReportFailure(ctx context.Context, accountID string, callErr error) error
 }
 
-// ScheduleRequest 调度请求
-type ScheduleRequest struct {
+// PickRequest 选取请求
+type PickRequest struct {
 	// Model 请求的模型名称（必填）
 	Model string
 
@@ -75,8 +75,8 @@ type ScheduleRequest struct {
 	EnableFailover bool
 }
 
-// ScheduleResult 调度结果
-type ScheduleResult struct {
+// PickResult 选取结果
+type PickResult struct {
 	// Account 被选中的账号（深拷贝）
 	Account *account.Account
 

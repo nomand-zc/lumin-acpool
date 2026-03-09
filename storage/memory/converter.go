@@ -513,9 +513,9 @@ func (c *ProviderConverter) buildModelFilter(cond *filtercond.Filter) (ProviderF
 func providerFieldExtractor(field string) (func(*provider.ProviderInfo) any, error) {
 	switch field {
 	case storage.ProviderFieldType:
-		return func(p *provider.ProviderInfo) any { return p.Key.Type }, nil
+		return func(p *provider.ProviderInfo) any { return p.ProviderType }, nil
 	case storage.ProviderFieldName:
-		return func(p *provider.ProviderInfo) any { return p.Key.Name }, nil
+		return func(p *provider.ProviderInfo) any { return p.ProviderName }, nil
 	case storage.ProviderFieldStatus:
 		return func(p *provider.ProviderInfo) any { return int(p.Status) }, nil
 	case storage.ProviderFieldPriority:

@@ -67,7 +67,8 @@ func (s *ProviderStore) Add(_ context.Context, info *provider.ProviderInfo) erro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, exists := s.providers[info.Key]; exists {
+	key := info.ProviderKey()
+	if _, exists := s.providers[key]; exists {
 		return storage.ErrAlreadyExists
 	}
 
@@ -78,7 +79,7 @@ func (s *ProviderStore) Add(_ context.Context, info *provider.ProviderInfo) erro
 	}
 	stored.UpdatedAt = now
 
-	s.providers[info.Key] = stored
+	s.providers[key] = stored
 	s.addToIndex(stored)
 	return nil
 }
@@ -87,7 +88,8 @@ func (s *ProviderStore) Update(_ context.Context, info *provider.ProviderInfo) e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	old, exists := s.providers[info.Key]
+	key := info.ProviderKey()
+	old, exists := s.providers[key]
 	if !exists {
 		return storage.ErrNotFound
 	}
@@ -98,7 +100,7 @@ func (s *ProviderStore) Update(_ context.Context, info *provider.ProviderInfo) e
 	stored := info.Clone()
 	stored.UpdatedAt = time.Now()
 
-	s.providers[info.Key] = stored
+	s.providers[key] = stored
 	// 添加到新索引
 	s.addToIndex(stored)
 	return nil
@@ -122,35 +124,37 @@ func (s *ProviderStore) Remove(_ context.Context, key provider.ProviderKey) erro
 
 // addToIndex 将供应商添加到 Type 和 Model 索引
 func (s *ProviderStore) addToIndex(info *provider.ProviderInfo) {
+	key := info.ProviderKey()
 	// 类型索引
-	if s.typeIndex[info.Key.Type] == nil {
-		s.typeIndex[info.Key.Type] = make(map[provider.ProviderKey]struct{})
+	if s.typeIndex[info.ProviderType] == nil {
+		s.typeIndex[info.ProviderType] = make(map[provider.ProviderKey]struct{})
 	}
-	s.typeIndex[info.Key.Type][info.Key] = struct{}{}
+	s.typeIndex[info.ProviderType][key] = struct{}{}
 
 	// 模型索引
 	for _, model := range info.SupportedModels {
 		if s.modelIndex[model] == nil {
 			s.modelIndex[model] = make(map[provider.ProviderKey]struct{})
 		}
-		s.modelIndex[model][info.Key] = struct{}{}
+		s.modelIndex[model][key] = struct{}{}
 	}
 }
 
 // removeFromIndex 从 Type 和 Model 索引中移除供应商
 func (s *ProviderStore) removeFromIndex(info *provider.ProviderInfo) {
+	key := info.ProviderKey()
 	// 类型索引
-	if keys, ok := s.typeIndex[info.Key.Type]; ok {
-		delete(keys, info.Key)
+	if keys, ok := s.typeIndex[info.ProviderType]; ok {
+		delete(keys, key)
 		if len(keys) == 0 {
-			delete(s.typeIndex, info.Key.Type)
+			delete(s.typeIndex, info.ProviderType)
 		}
 	}
 
 	// 模型索引
 	for _, model := range info.SupportedModels {
 		if keys, ok := s.modelIndex[model]; ok {
-			delete(keys, info.Key)
+			delete(keys, key)
 			if len(keys) == 0 {
 				delete(s.modelIndex, model)
 			}

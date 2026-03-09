@@ -184,10 +184,7 @@ func (s *AccountStore) CountByProvider(_ context.Context, key provider.ProviderK
 
 // providerKeyOf 获取 Account 对应的 ProviderKey
 func providerKeyOf(acct *account.Account) provider.ProviderKey {
-	return provider.ProviderKey{
-		Type: acct.ProviderType,
-		Name: acct.ProviderName,
-	}
+	return acct.ProviderKey()
 }
 
 // addToIndex 将账号添加到 ProviderKey 二级索引

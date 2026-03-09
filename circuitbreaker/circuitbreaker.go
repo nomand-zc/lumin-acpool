@@ -1,4 +1,4 @@
-package health
+package circuitbreaker
 
 import (
 	"time"
@@ -21,8 +21,8 @@ type CircuitBreaker interface {
 	ShouldAllow(acct *account.Account) bool
 }
 
-// CircuitBreakerConfig 熔断器配置
-type CircuitBreakerConfig struct {
+// Config 熔断器配置
+type Config struct {
 	// Threshold 触发熔断的连续失败次数阈值（默认 5）
 	Threshold int
 	// Timeout 熔断恢复时间窗口（默认 60s）
@@ -30,9 +30,9 @@ type CircuitBreakerConfig struct {
 	Timeout time.Duration
 }
 
-// DefaultCircuitBreakerConfig 返回默认的熔断器配置
-func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
-	return CircuitBreakerConfig{
+// DefaultConfig 返回默认的熔断器配置
+func DefaultConfig() Config {
+	return Config{
 		Threshold: 5,
 		Timeout:   60 * time.Second,
 	}

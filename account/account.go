@@ -3,6 +3,7 @@ package account
 import (
 	"time"
 
+	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-client/credentials"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
@@ -112,4 +113,9 @@ func (a *Account) IsCircuitOpenExpired() bool {
 		return true
 	}
 	return time.Now().After(*a.CircuitOpenUntil)
+}
+
+// ProviderKey 返回由 ProviderType + ProviderName 组成的供应商复合键
+func (a *Account) ProviderKey() provider.ProviderKey {
+	return provider.BuildProviderKey(a.ProviderType, a.ProviderName)
 }

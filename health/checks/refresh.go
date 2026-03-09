@@ -55,7 +55,7 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 		}
 	}
 
-	err := target.Provider().Refresh(ctx, cred)
+	err := target.ProviderInstance().Client.Refresh(ctx, cred)
 	if err == nil {
 		return &health.CheckResult{
 			CheckName:       CredentialRefreshCheckName,

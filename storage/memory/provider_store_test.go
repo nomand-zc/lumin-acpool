@@ -12,7 +12,8 @@ import (
 
 func newTestProviderInfo(pType, pName string, status provider.ProviderStatus, priority, weight int, models []string) *provider.ProviderInfo {
 	return &provider.ProviderInfo{
-		Key:             provider.ProviderKey{Type: pType, Name: pName},
+		ProviderType:    pType,
+		ProviderName:    pName,
 		Status:          status,
 		Priority:        priority,
 		Weight:          weight,
@@ -38,12 +39,12 @@ func TestProviderStore_AddAndGet(t *testing.T) {
 	}
 
 	// 获取
-	key := provider.ProviderKey{Type: "kiro", Name: "team-a"}
+	key := provider.BuildProviderKey("kiro", "team-a")
 	got, err := store.Get(ctx, key)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
-	if got.Key != key || got.Priority != 5 || got.Weight != 10 {
+	if got.ProviderKey() != key || got.Priority != 5 || got.Weight != 10 {
 		t.Fatalf("Get returned wrong data: %+v", got)
 	}
 	if len(got.SupportedModels) != 2 {
@@ -58,7 +59,7 @@ func TestProviderStore_AddAndGet(t *testing.T) {
 	}
 
 	// 获取不存在的
-	_, err = store.Get(ctx, provider.ProviderKey{Type: "none", Name: "none"})
+	_, err = store.Get(ctx, provider.BuildProviderKey("none", "none"))
 	if err != storage.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got: %v", err)
 	}
@@ -77,7 +78,7 @@ func TestProviderStore_Update(t *testing.T) {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	got, _ := store.Get(ctx, provider.ProviderKey{Type: "kiro", Name: "team-a"})
+	got, _ := store.Get(ctx, provider.BuildProviderKey("kiro", "team-a"))
 	if got.Weight != 20 {
 		t.Fatalf("expected weight 20, got %d", got.Weight)
 	}
@@ -130,7 +131,7 @@ func TestProviderStore_Remove(t *testing.T) {
 	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"})
 	_ = store.Add(ctx, info)
 
-	key := provider.ProviderKey{Type: "kiro", Name: "team-a"}
+	key := provider.BuildProviderKey("kiro", "team-a")
 	if err := store.Remove(ctx, key); err != nil {
 		t.Fatalf("Remove failed: %v", err)
 	}
@@ -204,7 +205,7 @@ func TestProviderStore_TimeAutoSet(t *testing.T) {
 	_ = store.Add(ctx, info)
 	after := time.Now()
 
-	got, _ := store.Get(ctx, provider.ProviderKey{Type: "kiro", Name: "team-a"})
+	got, _ := store.Get(ctx, provider.BuildProviderKey("kiro", "team-a"))
 	if got.CreatedAt.Before(before) || got.CreatedAt.After(after) {
 		t.Fatalf("CreatedAt not auto-set properly: %v", got.CreatedAt)
 	}
@@ -259,8 +260,8 @@ func TestProviderStore_CombinedFilter(t *testing.T) {
 	if len(result) != 1 {
 		t.Fatalf("expected 1, got %d", len(result))
 	}
-	if result[0].Key.Name != "team-a" {
-		t.Fatalf("expected team-a, got %s", result[0].Key.Name)
+	if result[0].ProviderName != "team-a" {
+		t.Fatalf("expected team-a, got %s", result[0].ProviderName)
 	}
 
 	// Or: weight >= 20 或 priority >= 5

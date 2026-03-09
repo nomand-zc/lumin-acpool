@@ -43,7 +43,7 @@ func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) 
 	start := time.Now()
 
 	// 调用 lumin-client 获取最新用量
-	stats, err := target.Provider().GetUsageStats(ctx, target.Credential())
+	stats, err := target.ProviderInstance().Client.GetUsageStats(ctx, target.Credential())
 	if err != nil {
 		return &health.CheckResult{
 			CheckName: UsageQuotaCheckName,

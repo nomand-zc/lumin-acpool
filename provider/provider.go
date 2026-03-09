@@ -22,6 +22,15 @@ func (pk ProviderKey) String() string {
 	return pk.Type + "/" + pk.Name
 }
 
+// BuildProviderKey 创建一个 ProviderKey 实例
+// 统一构建入口，避免外部直接使用字面量构造
+func BuildProviderKey(providerType, providerName string) ProviderKey {
+	return ProviderKey{
+		Type: providerType,
+		Name: providerName,
+	}
+}
+
 // ProviderStatus 供应商状态
 type ProviderStatus int
 
@@ -36,8 +45,10 @@ const (
 
 // ProviderInfo 供应商元数据，描述一个 Provider 实例的静态信息和运行时状态
 type ProviderInfo struct {
-	// Key 供应商唯一标识
-	Key ProviderKey
+	// ProviderType 供应商类型，对应 lumin-client 的 Provider.Type()，如 "kiro"
+	ProviderType string
+	// ProviderName 供应商实例名称，对应 lumin-client 的 Provider.Name()，如 "kiro-team-a"
+	ProviderName string
 	// Status 当前状态
 	Status ProviderStatus
 	// Priority 优先级，数值越大优先级越高（默认 0）
@@ -66,6 +77,11 @@ type ProviderInfo struct {
 	CreatedAt time.Time
 	// UpdatedAt 最后更新时间
 	UpdatedAt time.Time
+}
+
+// ProviderKey 返回由 ProviderType + ProviderName 组成的复合键
+func (p *ProviderInfo) ProviderKey() ProviderKey {
+	return BuildProviderKey(p.ProviderType, p.ProviderName)
 }
 
 // SupportsModel 判断该供应商是否支持指定模型
