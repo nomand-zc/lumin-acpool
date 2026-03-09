@@ -1,4 +1,4 @@
-package strategies
+package account
 
 import (
 	"sort"
@@ -25,6 +25,10 @@ func (p *Priority) Name() string {
 func (p *Priority) Select(candidates []*account.Account, _ *selector.SelectRequest) (*account.Account, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
+	}
+
+	if len(candidates) == 1 {
+		return candidates[0], nil
 	}
 
 	// 按优先级降序排列

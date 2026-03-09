@@ -1,4 +1,4 @@
-package strategies
+package account
 
 import (
 	"github.com/nomand-zc/lumin-acpool/account"

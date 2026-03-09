@@ -1,7 +1,9 @@
-package strategies
+package group
 
 import (
+	rand "math/rand/v2"
 	"sort"
+	"sync/atomic"
 
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/selector"
@@ -106,7 +108,7 @@ func (g *GroupWeighted) Select(candidates []*provider.ProviderInfo, _ *selector.
 		totalWeight += w
 	}
 
-	r := randIntN(totalWeight)
+	r := rand.IntN(totalWeight)
 	cumulative := 0
 	for _, p := range candidates {
 		w := p.Weight
@@ -143,6 +145,6 @@ func (g *GroupRoundRobin) Select(candidates []*provider.ProviderInfo, _ *selecto
 		return nil, selector.ErrEmptyCandidates
 	}
 
-	idx := atomicAddUint64(&g.counter, 1) - 1
+	idx := atomic.AddUint64(&g.counter, 1) - 1
 	return candidates[idx%uint64(len(candidates))], nil
 }

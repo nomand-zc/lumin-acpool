@@ -1,4 +1,4 @@
-package strategies
+package account
 
 import (
 	"math/rand/v2"

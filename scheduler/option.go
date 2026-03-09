@@ -3,8 +3,17 @@ package scheduler
 import (
 	"github.com/nomand-zc/lumin-acpool/health"
 	"github.com/nomand-zc/lumin-acpool/selector"
+	groupstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies"
+	accountstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
 )
+
+var defaultOptions = Options{
+	DefaultMaxRetries:     0,
+	DefaultEnableFailover: false,
+	Selector:              accountstrategies.NewRoundRobin(),
+	GroupSelector:         groupstrategies.NewGroupPriority(),
+}
 
 // Option 调度器功能选项
 type Option func(*Options)

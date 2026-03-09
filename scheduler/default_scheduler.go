@@ -12,7 +12,7 @@ import (
 	"github.com/nomand-zc/lumin-acpool/filtercond"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/selector"
-	"github.com/nomand-zc/lumin-acpool/selector/strategies"
+
 	"github.com/nomand-zc/lumin-acpool/storage"
 )
 
@@ -23,28 +23,17 @@ type defaultScheduler struct {
 
 // New 创建调度器实例
 func New(opts ...Option) (Scheduler, error) {
-	o := Options{
-		DefaultMaxRetries:     0,
-		DefaultEnableFailover: false,
-	}
+	o := defaultOptions
 	for _, opt := range opts {
 		opt(&o)
 	}
 
 	// 校验必填依赖
 	if o.AccountStorage == nil {
-		return nil, errors.New("scheduler: AccountStorage is required")
+		return nil, fmt.Errorf("scheduler: AccountStorage is required")
 	}
 	if o.ProviderStorage == nil {
-		return nil, errors.New("scheduler: ProviderStorage is required")
-	}
-
-	// 填充默认策略
-	if o.Selector == nil {
-		o.Selector = strategies.NewRoundRobin()
-	}
-	if o.GroupSelector == nil {
-		o.GroupSelector = strategies.NewGroupPriority()
+		return nil, fmt.Errorf("scheduler: ProviderStorage is required")
 	}
 
 	return &defaultScheduler{opts: o}, nil
@@ -186,14 +175,10 @@ func (s *defaultScheduler) selectAccountFromProvider(
 	selReq *selector.SelectRequest,
 	maxRetries int,
 ) (*ScheduleResult, error) {
-	attempts := 0
-
 	// 保存原始的 ExcludeAccountIDs
 	originalExclude := selReq.ExcludeAccountIDs
 
-	for {
-		attempts++
-
+	for i := 0; i <= maxRetries; i++ {
 		// 从存储中获取该供应商下可用的账号
 		accounts, err := s.getAvailableAccounts(ctx, provInfo.Key, selReq)
 		if err != nil {
@@ -230,9 +215,11 @@ func (s *defaultScheduler) selectAccountFromProvider(
 		return &ScheduleResult{
 			Account:     deepCopyAccount(chosen),
 			ProviderKey: provInfo.Key,
-			Attempts:    attempts,
+			Attempts:    i,
 		}, nil
 	}
+
+	return nil, nil
 }
 
 // getAvailableAccounts 获取指定供应商下的可用账号
