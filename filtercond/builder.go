@@ -1,8 +1,8 @@
 package filtercond
 
 // Equal creates a condition for equality comparison.
-func Equal(field string, value any) *FilterCondition {
-	return &FilterCondition{
+func Equal(field string, value any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorEqual,
 		Value:    value,
@@ -10,8 +10,8 @@ func Equal(field string, value any) *FilterCondition {
 }
 
 // NotEqual creates a condition for inequality comparison.
-func NotEqual(field string, value any) *FilterCondition {
-	return &FilterCondition{
+func NotEqual(field string, value any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorNotEqual,
 		Value:    value,
@@ -19,8 +19,8 @@ func NotEqual(field string, value any) *FilterCondition {
 }
 
 // GreaterThan creates a condition for greater than comparison.
-func GreaterThan(field string, value any) *FilterCondition {
-	return &FilterCondition{
+func GreaterThan(field string, value any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorGreaterThan,
 		Value:    value,
@@ -28,8 +28,8 @@ func GreaterThan(field string, value any) *FilterCondition {
 }
 
 // GreaterThanOrEqual creates a condition for greater than or equal comparison.
-func GreaterThanOrEqual(field string, value any) *FilterCondition {
-	return &FilterCondition{
+func GreaterThanOrEqual(field string, value any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorGreaterThanOrEqual,
 		Value:    value,
@@ -37,8 +37,8 @@ func GreaterThanOrEqual(field string, value any) *FilterCondition {
 }
 
 // LessThan creates a condition for less than comparison.
-func LessThan(field string, value any) *FilterCondition {
-	return &FilterCondition{
+func LessThan(field string, value any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorLessThan,
 		Value:    value,
@@ -46,8 +46,8 @@ func LessThan(field string, value any) *FilterCondition {
 }
 
 // LessThanOrEqual creates a condition for less than or equal comparison.
-func LessThanOrEqual(field string, value any) *FilterCondition {
-	return &FilterCondition{
+func LessThanOrEqual(field string, value any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorLessThanOrEqual,
 		Value:    value,
@@ -55,8 +55,8 @@ func LessThanOrEqual(field string, value any) *FilterCondition {
 }
 
 // In creates a condition for IN operator.
-func In(field string, values ...any) *FilterCondition {
-	return &FilterCondition{
+func In(field string, values ...any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorIn,
 		Value:    values,
@@ -64,8 +64,8 @@ func In(field string, values ...any) *FilterCondition {
 }
 
 // NotIn creates a condition for NOT IN operator.
-func NotIn(field string, values ...any) *FilterCondition {
-	return &FilterCondition{
+func NotIn(field string, values ...any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorNotIn,
 		Value:    values,
@@ -73,8 +73,8 @@ func NotIn(field string, values ...any) *FilterCondition {
 }
 
 // Like creates a condition for LIKE operator (pattern matching).
-func Like(field string, pattern string) *FilterCondition {
-	return &FilterCondition{
+func Like(field string, pattern string) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorLike,
 		Value:    pattern,
@@ -82,8 +82,8 @@ func Like(field string, pattern string) *FilterCondition {
 }
 
 // NotLike creates a condition for NOT LIKE operator.
-func NotLike(field string, pattern string) *FilterCondition {
-	return &FilterCondition{
+func NotLike(field string, pattern string) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorNotLike,
 		Value:    pattern,
@@ -91,8 +91,8 @@ func NotLike(field string, pattern string) *FilterCondition {
 }
 
 // Between creates a condition for BETWEEN operator.
-func Between(field string, min, max any) *FilterCondition {
-	return &FilterCondition{
+func Between(field string, min, max any) *Filter {
+	return &Filter{
 		Field:    field,
 		Operator: OperatorBetween,
 		Value:    []any{min, max},
@@ -100,16 +100,16 @@ func Between(field string, min, max any) *FilterCondition {
 }
 
 // And creates a condition that combines multiple conditions with AND logic.
-func And(conditions ...*FilterCondition) *FilterCondition {
-	return &FilterCondition{
+func And(conditions ...*Filter) *Filter {
+	return &Filter{
 		Operator: OperatorAnd,
 		Value:    conditions,
 	}
 }
 
 // Or creates a condition that combines multiple conditions with OR logic.
-func Or(conditions ...*FilterCondition) *FilterCondition {
-	return &FilterCondition{
+func Or(conditions ...*Filter) *Filter {
+	return &Filter{
 		Operator: OperatorOr,
 		Value:    conditions,
 	}

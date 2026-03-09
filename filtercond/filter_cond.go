@@ -44,11 +44,11 @@ const (
 // Converter is an interface for converting universal filter conditions to specific query formats.
 type Converter[T any] interface {
 	// Convert converts a universal filter condition to a specific query format.
-	Convert(condition *FilterCondition) (T, error)
+	Convert(condition *Filter) (T, error)
 }
 
-// FilterCondition represents a single condition for a search filter.
-type FilterCondition struct {
+// Filter represents a single condition for a search filter.
+type Filter struct {
 	// Field is the metadata field to filter on.
 	// Required for comparison operators, not used for logical operators (and/or).
 	Field string
@@ -60,6 +60,6 @@ type FilterCondition struct {
 
 	// Value is the value to compare against or sub-conditions for logical operators.
 	// For comparison operators: single value, array for "in"/"not in"/"between"
-	// For logical operators (and/or): array of UniversalFilterCondition objects
+	// For logical operators (and/or): array of UniversalFilter objects
 	Value any
 }
