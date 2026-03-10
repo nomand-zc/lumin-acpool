@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
+	"strings"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
@@ -115,22 +115,6 @@ func scanAccountFields(s scanner) (*account.Account, error) {
 	return &acct, nil
 }
 
-func scanAccount(row *sql.Row) (*account.Account, error) {
-	return scanAccountFields(row)
-}
-
-func scanAccountFromRows(rows *sql.Rows) (*account.Account, error) {
-	return scanAccountFields(rows)
-}
-
-// marshalCredential 将 Credential 接口序列化为 JSON。
-func marshalCredential(cred credentials.Credential) ([]byte, error) {
-	if cred == nil {
-		return []byte("null"), nil
-	}
-	return json.Marshal(cred.ToMap())
-}
-
 // unmarshalCredential 根据 providerType 获取对应的凭证工厂方法，从 JSON 反序列化 Credential。
 func unmarshalCredential(providerType string, data []byte) (credentials.Credential, error) {
 	factory := credentials.GetFactory(providerType)
@@ -152,31 +136,10 @@ func marshalJSON(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-// timePtr 将 *time.Time 转换为 sql 可接受的值。
-func timePtr(t *time.Time) any {
-	if t == nil {
-		return nil
-	}
-	return *t
-}
-
 // isDuplicateEntry 判断是否为主键冲突错误。
 func isDuplicateEntry(err error) bool {
 	if err == nil {
 		return false
 	}
-	return containsString(err.Error(), "Duplicate entry") || containsString(err.Error(), "1062")
-}
-
-func containsString(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsStr(s, sub))
-}
-
-func containsStr(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062")
 }

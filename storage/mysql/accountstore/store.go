@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -68,7 +69,7 @@ func (s *Store) Get(ctx context.Context, id string) (*account.Account, error) {
 			return nil
 		}
 		var scanErr error
-		acct, scanErr = scanAccountFromRows(rows)
+		acct, scanErr = scanAccountFields(rows)
 		return scanErr
 	}, queryGetAccount, id)
 	if err != nil {
@@ -91,7 +92,7 @@ func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*accou
 	var result []*account.Account
 	err = s.client.Query(ctx, func(rows *sql.Rows) error {
 		for rows.Next() {
-			acct, scanErr := scanAccountFromRows(rows)
+			acct, scanErr := scanAccountFields(rows)
 			if scanErr != nil {
 				return fmt.Errorf("accountstore: failed to scan account: %w", scanErr)
 			}
@@ -112,7 +113,7 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 		createdAt = now
 	}
 
-	credentialJSON, err := marshalCredential(acct.Credential)
+	credentialJSON, err := json.Marshal(acct.Credential.ToMap())
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal credential: %w", err)
 	}
@@ -133,7 +134,7 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 		acct.ID, acct.ProviderType, acct.ProviderName,
 		credentialJSON, int(acct.Status), acct.Priority,
 		tagsJSON, metadataJSON, usageRulesJSON,
-		timePtr(acct.CooldownUntil), timePtr(acct.CircuitOpenUntil),
+		acct.CooldownUntil, acct.CircuitOpenUntil,
 		createdAt, now,
 	)
 	if err != nil {
@@ -146,7 +147,7 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 }
 
 func (s *Store) Update(ctx context.Context, acct *account.Account) error {
-	credentialJSON, err := marshalCredential(acct.Credential)
+	credentialJSON, err := json.Marshal(acct.Credential.ToMap())
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal credential: %w", err)
 	}
@@ -167,7 +168,7 @@ func (s *Store) Update(ctx context.Context, acct *account.Account) error {
 		acct.ProviderType, acct.ProviderName,
 		credentialJSON, int(acct.Status), acct.Priority,
 		tagsJSON, metadataJSON, usageRulesJSON,
-		timePtr(acct.CooldownUntil), timePtr(acct.CircuitOpenUntil),
+		acct.CooldownUntil, acct.CircuitOpenUntil,
 		time.Now(), acct.ID,
 	)
 	if err != nil {

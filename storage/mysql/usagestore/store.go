@@ -146,9 +146,9 @@ func (s *Store) Save(ctx context.Context, accountID string, usages []*account.Tr
 				_, err = stmt.ExecContext(ctx,
 					accountID, i,
 					sourceType, timeGranularity, windowSize, ruleTotal,
-					u.LocalUsed, u.RemoteUsed, u.RemoteRemain,
-					timePtr(u.WindowStart), timePtr(u.WindowEnd),
-					u.LastSyncAt,
+				u.LocalUsed, u.RemoteUsed, u.RemoteRemain,
+				u.WindowStart, u.WindowEnd,
+				u.LastSyncAt,
 				)
 				if err != nil {
 					return fmt.Errorf("usagestore: failed to insert usage at index %d: %w", i, err)

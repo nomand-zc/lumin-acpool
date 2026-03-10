@@ -1,7 +1,5 @@
 package usagestore
 
-import "time"
-
 const (
 	// queryGetAllUsages 根据 account_id 查询所有用量追踪数据。
 	queryGetAllUsages = `SELECT rule_index, source_type, time_granularity, window_size, rule_total, 
@@ -21,11 +19,3 @@ const (
 	queryIncrLocalUsed = `UPDATE tracked_usages SET local_used = local_used + ? 
 		WHERE account_id=? AND rule_index=?`
 )
-
-// timePtr 将 *time.Time 转换为 sql 可接受的值。
-func timePtr(t *time.Time) any {
-	if t == nil {
-		return nil
-	}
-	return *t
-}
