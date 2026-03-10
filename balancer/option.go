@@ -5,8 +5,8 @@ import (
 	"github.com/nomand-zc/lumin-acpool/cooldown"
 	"github.com/nomand-zc/lumin-acpool/resolver"
 	"github.com/nomand-zc/lumin-acpool/selector"
-	groupstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies"
 	accountstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies/account"
+	groupstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies/group"
 	"github.com/nomand-zc/lumin-acpool/storage"
 )
 

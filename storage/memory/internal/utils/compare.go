@@ -1,4 +1,4 @@
-package memory
+package utils
 
 import (
 	"fmt"
@@ -8,31 +8,38 @@ import (
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
+const (
+	ValueTypeString = "string"
+	ValueTypeNumber = "number"
+	ValueTypeBool   = "bool"
+	ValueTypeTime   = "time"
+)
+
 // ============================================================
 // Common type checking and comparison functions
 // ============================================================
 
-// valueType returns the type identifier of a value.
-func valueType(value any) string {
+// ValueType returns the type identifier of a value.
+func ValueType(value any) string {
 	switch reflect.ValueOf(value).Kind() {
 	case reflect.String:
-		return valueTypeString
+		return ValueTypeString
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
-		return valueTypeNumber
+		return ValueTypeNumber
 	case reflect.Bool:
-		return valueTypeBool
+		return ValueTypeBool
 	default:
 		if _, ok := value.(time.Time); ok {
-			return valueTypeTime
+			return ValueTypeTime
 		}
 	}
 	return ""
 }
 
-// compareString compares two string values.
-func compareString(docValue any, condValue any, operator string) bool {
+// CompareString compares two string values.
+func CompareString(docValue any, condValue any, operator string) bool {
 	docStr, ok1 := docValue.(string)
 	condStr, ok2 := condValue.(string)
 	if !ok1 || !ok2 {
@@ -56,8 +63,8 @@ func compareString(docValue any, condValue any, operator string) bool {
 	return false
 }
 
-// compareBool compares two boolean values.
-func compareBool(docValue any, condValue any, operator string) bool {
+// CompareBool compares two boolean values.
+func CompareBool(docValue any, condValue any, operator string) bool {
 	docBool, ok1 := docValue.(bool)
 	condBool, ok2 := condValue.(bool)
 	if !ok1 || !ok2 {
@@ -73,10 +80,10 @@ func compareBool(docValue any, condValue any, operator string) bool {
 	return false
 }
 
-// compareTime compares two time values.
-func compareTime(docValue any, condValue any, operator string) bool {
-	docTime, ok1 := toTime(docValue)
-	condTime, ok2 := toTime(condValue)
+// CompareTime compares two time values.
+func CompareTime(docValue any, condValue any, operator string) bool {
+	docTime, ok1 := ToTime(docValue)
+	condTime, ok2 := ToTime(condValue)
 	if !ok1 || !ok2 {
 		return false
 	}
@@ -98,10 +105,10 @@ func compareTime(docValue any, condValue any, operator string) bool {
 	return false
 }
 
-// compareNumber compares two numeric values.
-func compareNumber(docValue any, condValue any, operator string) bool {
-	docNum, ok1 := toFloat64(docValue)
-	condNum, ok2 := toFloat64(condValue)
+// CompareNumber compares two numeric values.
+func CompareNumber(docValue any, condValue any, operator string) bool {
+	docNum, ok1 := ToFloat64(docValue)
+	condNum, ok2 := ToFloat64(condValue)
 	if !ok1 || !ok2 {
 		return false
 	}
@@ -127,8 +134,8 @@ func compareNumber(docValue any, condValue any, operator string) bool {
 // Type conversion helper functions
 // ============================================================
 
-// toFloat64 attempts to convert any to float64.
-func toFloat64(v any) (float64, bool) {
+// ToFloat64 attempts to convert any to float64.
+func ToFloat64(v any) (float64, bool) {
 	switch n := v.(type) {
 	case int:
 		return float64(n), true
@@ -159,8 +166,8 @@ func toFloat64(v any) (float64, bool) {
 	}
 }
 
-// toTime attempts to convert any to time.Time.
-func toTime(v any) (time.Time, bool) {
+// ToTime attempts to convert any to time.Time.
+func ToTime(v any) (time.Time, bool) {
 	switch t := v.(type) {
 	case time.Time:
 		return t, true
@@ -174,8 +181,8 @@ func toTime(v any) (time.Time, bool) {
 	}
 }
 
-// toStringSlice attempts to convert any to []string.
-func toStringSlice(v any) ([]string, error) {
+// ToStringSlice attempts to convert any to []string.
+func ToStringSlice(v any) ([]string, error) {
 	switch s := v.(type) {
 	case []string:
 		return s, nil

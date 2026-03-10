@@ -42,6 +42,12 @@ type Selector interface {
 // SelectRequest holds the context information for a selection request.
 // Carries constraint conditions for this request, for selection strategies to reference.
 type SelectRequest struct {
+	// UserID 是当前请求的用户标识（可选）。
+	// 供亲和策略（Affinity/GroupAffinity）使用，将同一用户的请求绑定到同一个账号/供应商，
+	// 以充分利用 LLM 的 system prompt caching 能力。
+	// 为空时亲和策略会退化为 fallback 策略。
+	UserID string
+
 	// Model is the requested model name (required).
 	Model string
 

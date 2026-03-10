@@ -58,6 +58,10 @@ type PickRequest struct {
 	// Model is the requested model name (required).
 	Model string
 
+	// UserID 是当前请求的用户标识（可选）。
+	// 供亲和策略使用，将同一用户的请求绑定到同一个账号/供应商。
+	UserID string
+
 	// ProviderKey is the provider locator (optional, pointer type).
 	//   - nil: fully automatic selection
 	//   - Type only: restrict to provider type

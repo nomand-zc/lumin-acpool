@@ -1,4 +1,4 @@
-package memory
+package providerstore
 
 import (
 	"context"
@@ -22,9 +22,9 @@ func newTestProviderInfo(pType, pName string, status provider.ProviderStatus, pr
 	}
 }
 
-func TestProviderStore_AddAndGet(t *testing.T) {
+func TestStore_AddAndGet(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514", "gpt-4"})
 
@@ -65,9 +65,9 @@ func TestProviderStore_AddAndGet(t *testing.T) {
 	}
 }
 
-func TestProviderStore_Update(t *testing.T) {
+func TestStore_Update(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"})
 	_ = store.Add(ctx, info)
@@ -99,9 +99,9 @@ func TestProviderStore_Update(t *testing.T) {
 	}
 }
 
-func TestProviderStore_UpdateModelIndex(t *testing.T) {
+func TestStore_UpdateModelIndex(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	// 初始支持 model-a
 	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"model-a"})
@@ -124,9 +124,9 @@ func TestProviderStore_UpdateModelIndex(t *testing.T) {
 	}
 }
 
-func TestProviderStore_Remove(t *testing.T) {
+func TestStore_Remove(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"})
 	_ = store.Add(ctx, info)
@@ -158,9 +158,9 @@ func TestProviderStore_Remove(t *testing.T) {
 	}
 }
 
-func TestProviderStore_List(t *testing.T) {
+func TestStore_List(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"}))
 	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusDisabled, 3, 5, []string{"claude-sonnet-4-20250514", "gpt-4"}))
@@ -194,11 +194,9 @@ func TestProviderStore_List(t *testing.T) {
 	}
 }
 
-
-
-func TestProviderStore_TimeAutoSet(t *testing.T) {
+func TestStore_TimeAutoSet(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	before := time.Now()
 	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, nil)
@@ -214,9 +212,9 @@ func TestProviderStore_TimeAutoSet(t *testing.T) {
 	}
 }
 
-func TestProviderStore_FilterBySupportedModel(t *testing.T) {
+func TestStore_FilterBySupportedModel(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"model-a", "model-b"}))
 	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusActive, 3, 5, []string{"model-b", "model-c"}))
@@ -241,9 +239,9 @@ func TestProviderStore_FilterBySupportedModel(t *testing.T) {
 	}
 }
 
-func TestProviderStore_CombinedFilter(t *testing.T) {
+func TestStore_CombinedFilter(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"model-a"}))
 	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusDisabled, 3, 5, []string{"model-a"}))
@@ -277,9 +275,9 @@ func TestProviderStore_CombinedFilter(t *testing.T) {
 	}
 }
 
-func TestProviderStore_InvalidField(t *testing.T) {
+func TestStore_InvalidField(t *testing.T) {
 	ctx := context.Background()
-	store := NewProviderStore()
+	store := NewStore()
 
 	_, err := store.Search(ctx, filtercond.Equal("nonexistent_field", "value"))
 	if err == nil {

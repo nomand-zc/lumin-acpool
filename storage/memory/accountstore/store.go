@@ -1,4 +1,4 @@
-package memory
+package accountstore
 
 import (
 	"context"
@@ -12,28 +12,31 @@ import (
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
-// AccountStore is the in-memory storage implementation for accounts.
+// Compile-time interface compliance check.
+var _ storage.AccountStorage = (*Store)(nil)
+
+// Store is the in-memory storage implementation for accounts.
 // Uses a read-write lock for concurrency safety and maintains a ProviderKey secondary index for hot-path query acceleration.
-type AccountStore struct {
+type Store struct {
 	mu sync.RWMutex
 	// accounts is the primary storage: id -> Account
 	accounts map[string]*account.Account
 	// providerIndex is the secondary index: ProviderKey -> id set
 	providerIndex map[provider.ProviderKey]map[string]struct{}
 	// converter is the condition converter.
-	converter *AccountConverter
+	converter *Converter
 }
 
-// NewAccountStore creates a new in-memory account storage instance.
-func NewAccountStore() *AccountStore {
-	return &AccountStore{
+// NewStore creates a new in-memory account storage instance.
+func NewStore() *Store {
+	return &Store{
 		accounts:      make(map[string]*account.Account),
 		providerIndex: make(map[provider.ProviderKey]map[string]struct{}),
-		converter:     &AccountConverter{},
+		converter:     &Converter{},
 	}
 }
 
-func (s *AccountStore) Get(_ context.Context, id string) (*account.Account, error) {
+func (s *Store) Get(_ context.Context, id string) (*account.Account, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -44,7 +47,7 @@ func (s *AccountStore) Get(_ context.Context, id string) (*account.Account, erro
 	return s.copyAccount(acct), nil
 }
 
-func (s *AccountStore) Search(_ context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
+func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return nil, err
@@ -62,7 +65,7 @@ func (s *AccountStore) Search(_ context.Context, filter *filtercond.Filter) ([]*
 	return result, nil
 }
 
-func (s *AccountStore) Add(_ context.Context, acct *account.Account) error {
+func (s *Store) Add(_ context.Context, acct *account.Account) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -82,7 +85,7 @@ func (s *AccountStore) Add(_ context.Context, acct *account.Account) error {
 	return nil
 }
 
-func (s *AccountStore) Update(_ context.Context, acct *account.Account) error {
+func (s *Store) Update(_ context.Context, acct *account.Account) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -103,7 +106,7 @@ func (s *AccountStore) Update(_ context.Context, acct *account.Account) error {
 	return nil
 }
 
-func (s *AccountStore) Remove(_ context.Context, id string) error {
+func (s *Store) Remove(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -117,7 +120,7 @@ func (s *AccountStore) Remove(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *AccountStore) RemoveFilter(_ context.Context, filter *filtercond.Filter) error {
+func (s *Store) RemoveFilter(_ context.Context, filter *filtercond.Filter) error {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return err
@@ -135,7 +138,7 @@ func (s *AccountStore) RemoveFilter(_ context.Context, filter *filtercond.Filter
 	return nil
 }
 
-func (s *AccountStore) Count(_ context.Context, filter *filtercond.Filter) (int, error) {
+func (s *Store) Count(_ context.Context, filter *filtercond.Filter) (int, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return 0, err
@@ -153,7 +156,7 @@ func (s *AccountStore) Count(_ context.Context, filter *filtercond.Filter) (int,
 	return count, nil
 }
 
-func (s *AccountStore) CountByProvider(_ context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error) {
+func (s *Store) CountByProvider(_ context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return 0, err
@@ -188,7 +191,7 @@ func providerKeyOf(acct *account.Account) provider.ProviderKey {
 }
 
 // addToIndex adds the account to the ProviderKey secondary index.
-func (s *AccountStore) addToIndex(acct *account.Account) {
+func (s *Store) addToIndex(acct *account.Account) {
 	key := providerKeyOf(acct)
 	if s.providerIndex[key] == nil {
 		s.providerIndex[key] = make(map[string]struct{})
@@ -197,7 +200,7 @@ func (s *AccountStore) addToIndex(acct *account.Account) {
 }
 
 // removeFromIndex removes the account from the ProviderKey secondary index.
-func (s *AccountStore) removeFromIndex(acct *account.Account) {
+func (s *Store) removeFromIndex(acct *account.Account) {
 	key := providerKeyOf(acct)
 	if ids, ok := s.providerIndex[key]; ok {
 		delete(ids, acct.ID)
@@ -208,7 +211,7 @@ func (s *AccountStore) removeFromIndex(acct *account.Account) {
 }
 
 // copyAccount creates a deep copy of an Account to prevent external modification of internal stored data.
-func (s *AccountStore) copyAccount(src *account.Account) *account.Account {
+func (s *Store) copyAccount(src *account.Account) *account.Account {
 	dst := *src
 
 	// Deep copy Tags

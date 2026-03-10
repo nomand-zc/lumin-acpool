@@ -67,3 +67,18 @@ type AccountStorage interface {
 	// Returns the total count under that provider when filter is nil.
 	CountByProvider(ctx context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error)
 }
+
+// AffinityStore 是亲和绑定关系的存储接口。
+// 负责维护 affinityKey → targetID 的映射关系。
+//
+// 在单机部署时，可使用内置的 MemoryAffinityStore（内存实现）；
+// 在集群部署时，应注入基于 Redis/数据库等共享存储的实现，
+// 使多个实例能够共享绑定关系，充分发挥亲和策略的效果。
+type AffinityStore interface {
+	// Get 获取亲和键对应的绑定目标 ID。
+	// 返回目标 ID 和是否存在。
+	Get(affinityKey string) (targetID string, exists bool)
+
+	// Set 设置亲和键到目标 ID 的绑定关系。
+	Set(affinityKey string, targetID string)
+}

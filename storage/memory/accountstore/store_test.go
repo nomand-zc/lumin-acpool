@@ -1,4 +1,4 @@
-package memory
+package accountstore
 
 import (
 	"context"
@@ -22,9 +22,9 @@ func newTestAccount(id, provType, provName string, status account.Status, priori
 	}
 }
 
-func TestAccountStore_AddAndGet(t *testing.T) {
+func TestStore_AddAndGet(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
 
@@ -64,9 +64,9 @@ func TestAccountStore_AddAndGet(t *testing.T) {
 	}
 }
 
-func TestAccountStore_Update(t *testing.T) {
+func TestStore_Update(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
 	_ = store.Add(ctx, acct)
@@ -89,9 +89,9 @@ func TestAccountStore_Update(t *testing.T) {
 	}
 }
 
-func TestAccountStore_UpdateProviderKey(t *testing.T) {
+func TestStore_UpdateProviderKey(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
 	_ = store.Add(ctx, acct)
@@ -119,9 +119,9 @@ func TestAccountStore_UpdateProviderKey(t *testing.T) {
 	}
 }
 
-func TestAccountStore_Remove(t *testing.T) {
+func TestStore_Remove(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
 	_ = store.Add(ctx, acct)
@@ -151,9 +151,9 @@ func TestAccountStore_Remove(t *testing.T) {
 	}
 }
 
-func TestAccountStore_List(t *testing.T) {
+func TestStore_List(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
 	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
@@ -212,11 +212,9 @@ func TestAccountStore_List(t *testing.T) {
 	}
 }
 
-
-
-func TestAccountStore_Count(t *testing.T) {
+func TestStore_Count(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
 	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
@@ -262,9 +260,9 @@ func TestAccountStore_Count(t *testing.T) {
 	}
 }
 
-func TestAccountStore_TimeAutoSet(t *testing.T) {
+func TestStore_TimeAutoSet(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	before := time.Now()
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
@@ -280,9 +278,9 @@ func TestAccountStore_TimeAutoSet(t *testing.T) {
 	}
 }
 
-func TestAccountStore_InOperator(t *testing.T) {
+func TestStore_InOperator(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
 	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
@@ -298,9 +296,9 @@ func TestAccountStore_InOperator(t *testing.T) {
 	}
 }
 
-func TestAccountStore_BetweenOperator(t *testing.T) {
+func TestStore_BetweenOperator(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 1))
 	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusAvailable, 5))
@@ -319,9 +317,9 @@ func TestAccountStore_BetweenOperator(t *testing.T) {
 	}
 }
 
-func TestAccountStore_LikeOperator(t *testing.T) {
+func TestStore_LikeOperator(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-alpha", account.StatusAvailable, 5))
 	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-beta", account.StatusAvailable, 3))
@@ -337,9 +335,9 @@ func TestAccountStore_LikeOperator(t *testing.T) {
 	}
 }
 
-func TestAccountStore_InvalidField(t *testing.T) {
+func TestStore_InvalidField(t *testing.T) {
 	ctx := context.Background()
-	store := NewAccountStore()
+	store := NewStore()
 
 	_, err := store.Search(ctx, filtercond.Equal("nonexistent_field", "value"))
 	if err == nil {

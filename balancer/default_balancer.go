@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"time"
 
@@ -50,6 +51,7 @@ func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResu
 
 	// Build SelectRequest (to be passed to Selector/GroupSelector)
 	selReq := &selector.SelectRequest{
+		UserID:      req.UserID,
 		Model:       req.Model,
 		ProviderKey: req.ProviderKey,
 		Tags:        req.Tags,
@@ -309,17 +311,13 @@ func deepCopyAccount(src *account.Account) *account.Account {
 	// Copy Tags
 	if src.Tags != nil {
 		dst.Tags = make(map[string]string, len(src.Tags))
-		for k, v := range src.Tags {
-			dst.Tags[k] = v
-		}
+		maps.Copy(dst.Tags, src.Tags)
 	}
 
 	// Copy Metadata
 	if src.Metadata != nil {
 		dst.Metadata = make(map[string]any, len(src.Metadata))
-		for k, v := range src.Metadata {
-			dst.Metadata[k] = v
-		}
+		maps.Copy(dst.Metadata, src.Metadata)
 	}
 
 	// Copy time pointers

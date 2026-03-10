@@ -1,4 +1,4 @@
-package memory
+package providerstore
 
 import (
 	"context"
@@ -10,9 +10,12 @@ import (
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
-// ProviderStore is the in-memory storage implementation for providers.
+// Compile-time interface compliance check.
+var _ storage.ProviderStorage = (*Store)(nil)
+
+// Store is the in-memory storage implementation for providers.
 // Uses a read-write lock for concurrency safety and maintains Type and Model secondary indexes for hot-path query acceleration.
-type ProviderStore struct {
+type Store struct {
 	mu sync.RWMutex
 	// providers is the primary storage: ProviderKey -> ProviderInfo
 	providers map[provider.ProviderKey]*provider.ProviderInfo
@@ -21,20 +24,20 @@ type ProviderStore struct {
 	// modelIndex is the model index: model -> ProviderKey set
 	modelIndex map[string]map[provider.ProviderKey]struct{}
 	// converter is the condition converter.
-	converter *ProviderConverter
+	converter *Converter
 }
 
-// NewProviderStore creates a new in-memory provider storage instance.
-func NewProviderStore() *ProviderStore {
-	return &ProviderStore{
+// NewStore creates a new in-memory provider storage instance.
+func NewStore() *Store {
+	return &Store{
 		providers:  make(map[provider.ProviderKey]*provider.ProviderInfo),
 		typeIndex:  make(map[string]map[provider.ProviderKey]struct{}),
 		modelIndex: make(map[string]map[provider.ProviderKey]struct{}),
-		converter:  &ProviderConverter{},
+		converter:  &Converter{},
 	}
 }
 
-func (s *ProviderStore) Get(_ context.Context, key provider.ProviderKey) (*provider.ProviderInfo, error) {
+func (s *Store) Get(_ context.Context, key provider.ProviderKey) (*provider.ProviderInfo, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -45,7 +48,7 @@ func (s *ProviderStore) Get(_ context.Context, key provider.ProviderKey) (*provi
 	return info.Clone(), nil
 }
 
-func (s *ProviderStore) Search(_ context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
+func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return nil, err
@@ -63,7 +66,7 @@ func (s *ProviderStore) Search(_ context.Context, filter *filtercond.Filter) ([]
 	return result, nil
 }
 
-func (s *ProviderStore) Add(_ context.Context, info *provider.ProviderInfo) error {
+func (s *Store) Add(_ context.Context, info *provider.ProviderInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -84,7 +87,7 @@ func (s *ProviderStore) Add(_ context.Context, info *provider.ProviderInfo) erro
 	return nil
 }
 
-func (s *ProviderStore) Update(_ context.Context, info *provider.ProviderInfo) error {
+func (s *Store) Update(_ context.Context, info *provider.ProviderInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -106,7 +109,7 @@ func (s *ProviderStore) Update(_ context.Context, info *provider.ProviderInfo) e
 	return nil
 }
 
-func (s *ProviderStore) Remove(_ context.Context, key provider.ProviderKey) error {
+func (s *Store) Remove(_ context.Context, key provider.ProviderKey) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -123,7 +126,7 @@ func (s *ProviderStore) Remove(_ context.Context, key provider.ProviderKey) erro
 // --- Index maintenance methods ---
 
 // addToIndex adds the provider to the Type and Model indexes.
-func (s *ProviderStore) addToIndex(info *provider.ProviderInfo) {
+func (s *Store) addToIndex(info *provider.ProviderInfo) {
 	key := info.ProviderKey()
 	// Type index
 	if s.typeIndex[info.ProviderType] == nil {
@@ -141,7 +144,7 @@ func (s *ProviderStore) addToIndex(info *provider.ProviderInfo) {
 }
 
 // removeFromIndex removes the provider from the Type and Model indexes.
-func (s *ProviderStore) removeFromIndex(info *provider.ProviderInfo) {
+func (s *Store) removeFromIndex(info *provider.ProviderInfo) {
 	key := info.ProviderKey()
 	// Type index
 	if keys, ok := s.typeIndex[info.ProviderType]; ok {
