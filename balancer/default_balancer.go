@@ -157,6 +157,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 		// Resolve available accounts under this provider via Resolver
 		accounts, err := b.opts.Resolver.ResolveAccounts(ctx, provInfo.ProviderKey(), selReq.Tags, selReq.ExcludeAccountIDs)
 		if err != nil {
+			selReq.ExcludeAccountIDs = originalExclude
 			return nil, fmt.Errorf("balancer: resolve accounts: %w", err)
 		}
 
@@ -173,6 +174,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 				selReq.ExcludeAccountIDs = originalExclude
 				return nil, ErrNoAvailableAccount
 			}
+			selReq.ExcludeAccountIDs = originalExclude
 			return nil, fmt.Errorf("balancer: select account: %w", err)
 		}
 
@@ -181,7 +183,9 @@ func (b *defaultBalancer) selectAccountFromProvider(
 		chosen.LastUsedAt = &now
 		chosen.UpdatedAt = now
 		if err := b.opts.AccountStorage.Update(ctx, chosen); err != nil {
-			return nil, fmt.Errorf("balancer: update last used: %w", err)
+			// 更新失败，将该账号加入排除列表后重试
+			selReq.ExcludeAccountIDs = append(selReq.ExcludeAccountIDs, chosen.ID)
+			continue
 		}
 
 		// Restore the exclude list
@@ -194,7 +198,9 @@ func (b *defaultBalancer) selectAccountFromProvider(
 		}, nil
 	}
 
-	return nil, nil
+	// 重试次数耗尽
+	selReq.ExcludeAccountIDs = originalExclude
+	return nil, ErrMaxRetriesExceeded
 }
 
 // ReportSuccess reports a successful call.
