@@ -23,9 +23,10 @@ type Options struct {
 	SafetyRatio float64
 	// Store 用量追踪数据存储后端。
 	Store storage.UsageStore
-	// OnQuotaExhausted 配额耗尽时的回调函数。
+	// OnQuotaExhausted 配额耗尽时的回调函数列表。
 	// 当 RecordUsage 检测到某条规则的用量达到安全阈值时触发。
-	OnQuotaExhausted QuotaExhaustedCallback
+	// 支持注册多个回调，各自独立处理配额耗尽事件。
+	OnQuotaExhausted []QuotaExhaustedCallback
 }
 
 var defaultOpts = Options{
@@ -44,7 +45,7 @@ func WithUsageStore(store storage.UsageStore) Option {
 }
 
 // WithCallback 统一的回调注册函数（泛型）。
-// 通过传入不同类型的回调函数来配置不同的事件处理。
+// 通过传入不同类型的回调函数来配置不同的事件处理，支持一次注册多个回调。
 // 当前支持的回调类型：
 //   - QuotaExhaustedCallback: 配额耗尽时触发，上层可在此回调中触发冷却
 //
@@ -52,16 +53,19 @@ func WithUsageStore(store storage.UsageStore) Option {
 //
 // 示例:
 //
-//	usagetracker.WithCallback(usagetracker.QuotaExhaustedCallback(func(ctx context.Context, accountID string, rule *usagerule.UsageRule) {
-//	    // 处理配额耗尽
-//	}))
-func WithCallback[T QuotaExhaustedCallback](cb T) Option {
+//	usagetracker.WithCallback(quotaExhaustedCb1, quotaExhaustedCb2)
+func WithCallback[T QuotaExhaustedCallback](cb ...T) Option {
 	return func(o *Options) {
-		switch fn := any(cb).(type) {
-		case QuotaExhaustedCallback:
-			o.OnQuotaExhausted = fn
-		default:
-			panic(fmt.Sprintf("usagetracker: unsupported callback type: %T", cb))
+		for _, item := range cb {
+			if any(item) == nil {
+				continue
+			}
+			switch fn := any(item).(type) {
+			case QuotaExhaustedCallback:
+				o.OnQuotaExhausted = append(o.OnQuotaExhausted, fn)
+			default:
+				panic(fmt.Sprintf("usagetracker: unsupported callback type: %T", item))
+			}
 		}
 	}
 }

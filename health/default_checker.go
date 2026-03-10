@@ -13,7 +13,7 @@ type TargetProvider = func(ctx context.Context) []CheckTarget
 
 // ReportCallback is the callback function type for health check reports.
 // Called after a background check completes; the upper layer can use it to update account status, persist reports, etc.
-type ReportCallback func(ctx context.Context, report *HealthReport)
+type ReportCallback = func(ctx context.Context, report *HealthReport)
 
 // CheckerOption is a functional option for configuring defaultHealthChecker.
 type CheckerOption = func(*defaultHealthChecker)
@@ -26,7 +26,7 @@ func WithTargetProvider(tp TargetProvider) CheckerOption {
 }
 
 // WithCallback 统一的回调注册函数（泛型）。
-// 通过传入不同类型的回调函数来配置不同的事件处理。
+// 通过传入不同类型的回调函数来配置不同的事件处理，支持一次注册多个回调。
 // 当前支持的回调类型：
 //   - ReportCallback: 健康检查报告回调，每次后台检查完成后触发
 //
@@ -34,16 +34,16 @@ func WithTargetProvider(tp TargetProvider) CheckerOption {
 //
 // 示例:
 //
-//	health.WithCallback(health.ReportCallback(func(ctx context.Context, report *HealthReport) {
-//	    // 处理检查报告
-//	}))
-func WithCallback[T ReportCallback](cb T) CheckerOption {
+//	health.WithCallback(reportCb1, reportCb2)
+func WithCallback[T ReportCallback](cb ...T) CheckerOption {
 	return func(c *defaultHealthChecker) {
-		switch fn := any(cb).(type) {
-		case ReportCallback:
-			c.onReport = fn
-		default:
-			panic(fmt.Sprintf("health: unsupported callback type: %T", cb))
+		for _, item := range cb {
+			switch fn := any(item).(type) {
+			case ReportCallback:
+				c.onReports = append(c.onReports, fn)
+			default:
+				panic(fmt.Sprintf("health: unsupported callback type: %T", item))
+			}
 		}
 	}
 }
@@ -61,8 +61,9 @@ type defaultHealthChecker struct {
 
 	// targetProvider provides the list of targets to check during background scanning.
 	targetProvider TargetProvider
-	// onReport is the health check report callback.
-	onReport ReportCallback
+	// onReports is the list of health check report callbacks.
+	// Multiple callbacks can be registered to handle reports independently.
+	onReports []ReportCallback
 
 	// Background check lifecycle control
 	cancel context.CancelFunc
@@ -77,6 +78,7 @@ func NewHealthChecker(opts ...CheckerOption) HealthChecker {
 	for _, opt := range opts {
 		opt(c)
 	}
+
 	return c
 }
 
@@ -294,8 +296,8 @@ func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastR
 			}
 		}
 
-		// 将 tick 检查结果通过 onReport 回调通知上层
-		if c.onReport != nil && len(results) > 0 {
+		// 将 tick 检查结果通过 onReports 回调通知上层
+		if len(c.onReports) > 0 && len(results) > 0 {
 			report := &HealthReport{
 				AccountID:     target.Account().ID,
 				ProviderKey:   target.Account().ProviderKey(),
@@ -303,7 +305,9 @@ func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastR
 				TotalDuration: time.Since(start),
 				Timestamp:     time.Now(),
 			}
-			c.onReport(ctx, report)
+			for _, cb := range c.onReports {
+				cb(ctx, report)
+			}
 		}
 	}
 }
@@ -317,8 +321,10 @@ func (c *defaultHealthChecker) runFullScan(ctx context.Context) {
 			return
 		default:
 			report, err := c.RunAll(ctx, target)
-			if err == nil && c.onReport != nil {
-				c.onReport(ctx, report)
+			if err == nil {
+				for _, cb := range c.onReports {
+					cb(ctx, report)
+				}
 			}
 		}
 	}

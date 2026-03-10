@@ -172,7 +172,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 
 	for i := 0; i <= maxRetries; i++ {
 		// Resolve available accounts under this provider via Resolver
-accounts, err := b.opts.Resolver.ResolveAccounts(ctx, resolver.ResolveAccountsRequest{
+		accounts, err := b.opts.Resolver.ResolveAccounts(ctx, resolver.ResolveAccountsRequest{
 			Key:        provInfo.ProviderKey(),
 			Tags:       selReq.Tags,
 			ExcludeIDs: selReq.ExcludeAccountIDs,

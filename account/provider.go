@@ -5,12 +5,18 @@ import (
 	"slices"
 	"time"
 
-	"github.com/nomand-zc/lumin-client/providers"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
-// ProviderKey is the two-level identifier for a provider; Type + Name uniquely identifies a provider group.
-type ProviderKey = providers.ProviderKey
+type ProviderKey struct {
+	Type string
+	Name string
+}
+
+// String returns a "type/name" formatted string representation.
+func (pk ProviderKey) String() string {
+	return pk.Type + "/" + pk.Name
+}
 
 // BuildProviderKey creates a ProviderKey instance.
 // Provides a unified construction entry point to avoid direct literal construction externally.

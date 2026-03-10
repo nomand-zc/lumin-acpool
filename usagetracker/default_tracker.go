@@ -55,7 +55,7 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 	}
 
 	// 检测配额是否达到安全阈值，触发回调
-	if t.opts.OnQuotaExhausted != nil {
+	if len(t.opts.OnQuotaExhausted) > 0 {
 		// 重新获取最新数据（IncrLocalUsed 后数据已变更）
 		usages, err = t.store.GetAll(ctx, accountID)
 		if err != nil {
@@ -71,8 +71,10 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 				continue
 			}
 			usedRatio := u.EstimatedUsed() / u.Rule.Total
-		if usedRatio >= t.opts.SafetyRatio {
-				t.opts.OnQuotaExhausted(ctx, accountID, u.Rule)
+			if usedRatio >= t.opts.SafetyRatio {
+				for _, cb := range t.opts.OnQuotaExhausted {
+					cb(ctx, accountID, u.Rule)
+				}
 				return nil // 触发一次即可，由回调方决定如何处理
 			}
 		}
