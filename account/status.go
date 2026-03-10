@@ -1,31 +1,31 @@
 package account
 
-// Status 账号状态枚举
+// Status represents the account status enumeration.
 type Status int
 
 const (
-	// StatusAvailable 可用：账号正常，可参与选号
+	// StatusAvailable means the account is available and can participate in selection.
 	StatusAvailable Status = iota + 1
-	// StatusCoolingDown 冷却中：触发限流，等待冷却结束后自动恢复
+	// StatusCoolingDown means the account is cooling down due to rate limiting, waiting for auto-recovery.
 	StatusCoolingDown
-	// StatusCircuitOpen 熔断开启：连续失败过多，暂时不参与选号
+	// StatusCircuitOpen means the circuit breaker is open due to too many consecutive failures, temporarily excluded from selection.
 	StatusCircuitOpen
-	// StatusExpired 凭证过期：Token 已过期，需刷新后恢复
+	// StatusExpired means the credential has expired and needs to be refreshed.
 	StatusExpired
-	// StatusInvalidated 永久失效：凭证无法恢复（如 refresh token 无效）
+	// StatusInvalidated means the credential is permanently invalid (e.g., refresh token is invalid).
 	StatusInvalidated
-	// StatusBanned 被封禁：被平台封禁，需人工介入
+	// StatusBanned means the account is banned by the platform and requires manual intervention.
 	StatusBanned
-	// StatusDisabled 手动禁用：管理员手动禁用
+	// StatusDisabled means the account is manually disabled by an administrator.
 	StatusDisabled
 )
 
-// IsSelectable 判断账号是否可参与选号
+// IsSelectable returns whether the account can participate in selection.
 func (s Status) IsSelectable() bool {
 	return s == StatusAvailable
 }
 
-// IsRecoverable 判断账号是否有可能自动恢复
+// IsRecoverable returns whether the account can potentially auto-recover.
 func (s Status) IsRecoverable() bool {
 	switch s {
 	case StatusCoolingDown, StatusCircuitOpen, StatusExpired:
@@ -35,7 +35,7 @@ func (s Status) IsRecoverable() bool {
 	}
 }
 
-// String 返回状态的可读字符串表示
+// String returns a human-readable string representation of the status.
 func (s Status) String() string {
 	switch s {
 	case StatusAvailable:

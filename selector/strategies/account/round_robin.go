@@ -7,23 +7,23 @@ import (
 	"github.com/nomand-zc/lumin-acpool/selector"
 )
 
-// RoundRobin 轮询选择策略
-// 按顺序依次选择候选账号，保证各账号被均匀使用
+// RoundRobin is the round-robin selection strategy.
+// Selects candidate accounts in order, ensuring even usage across accounts.
 type RoundRobin struct {
 	counter uint64
 }
 
-// NewRoundRobin 创建轮询策略实例
+// NewRoundRobin creates a round-robin strategy instance.
 func NewRoundRobin() *RoundRobin {
 	return &RoundRobin{}
 }
 
-// Name 返回策略名称
+// Name returns the strategy name.
 func (r *RoundRobin) Name() string {
 	return "round_robin"
 }
 
-// Select 轮询选择一个账号
+// Select round-robin selects an account.
 func (r *RoundRobin) Select(candidates []*account.Account, _ *selector.SelectRequest) (*account.Account, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates

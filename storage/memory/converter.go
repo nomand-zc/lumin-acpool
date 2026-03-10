@@ -19,21 +19,21 @@ const (
 	valueTypeTime   = "time"
 )
 
-// AccountFilterFunc Account 的内存过滤函数类型
+// AccountFilterFunc is the in-memory filter function type for Account.
 type AccountFilterFunc = func(*account.Account) bool
 
-// ProviderFilterFunc ProviderInfo 的内存过滤函数类型
+// ProviderFilterFunc is the in-memory filter function type for ProviderInfo.
 type ProviderFilterFunc = func(*provider.ProviderInfo) bool
 
 // ============================================================
-// AccountConverter 将 Filter 转换为 Account 的内存过滤函数
+// AccountConverter converts Filter conditions to in-memory filter functions for Account.
 // ============================================================
 
-// AccountConverter 将 Filter 转换为 Account 的内存过滤函数
-// 实现 filtercond.Converter[AccountFilterFunc]
+// AccountConverter converts Filter conditions to in-memory filter functions for Account.
+// Implements filtercond.Converter[AccountFilterFunc].
 type AccountConverter struct{}
 
-// Convert 将 Filter 条件转换为 Account 的内存过滤函数
+// Convert converts a Filter condition to an in-memory filter function for Account.
 func (c *AccountConverter) Convert(cond *filtercond.Filter) (AccountFilterFunc, error) {
 	if cond == nil {
 		return func(*account.Account) bool { return true }, nil
@@ -41,7 +41,7 @@ func (c *AccountConverter) Convert(cond *filtercond.Filter) (AccountFilterFunc, 
 	return c.convertCondition(cond)
 }
 
-// convertCondition 统一分发入口，根据操作符类型分发到对应的构建方法
+// convertCondition is the unified dispatch entry point that routes to the corresponding builder method based on operator type.
 func (c *AccountConverter) convertCondition(cond *filtercond.Filter) (AccountFilterFunc, error) {
 	if cond == nil {
 		return nil, fmt.Errorf("nil condition")
@@ -65,7 +65,7 @@ func (c *AccountConverter) convertCondition(cond *filtercond.Filter) (AccountFil
 	}
 }
 
-// buildLogicalCondition 构建 AND/OR 逻辑条件
+// buildLogicalCondition builds AND/OR logical conditions.
 func (c *AccountConverter) buildLogicalCondition(cond *filtercond.Filter) (AccountFilterFunc, error) {
 	subs, ok := cond.Value.([]*filtercond.Filter)
 	if !ok {
@@ -90,19 +90,19 @@ func (c *AccountConverter) buildLogicalCondition(cond *filtercond.Filter) (Accou
 	return func(a *account.Account) bool {
 		isAnd := cond.Operator == filtercond.OperatorAnd
 		for _, p := range predicates {
-			result := p(a)
+		result := p(a)
 			if !isAnd && result {
-				return true // OR 短路
+				return true // OR short-circuit
 			}
 			if isAnd && !result {
-				return false // AND 短路
+				return false // AND short-circuit
 			}
 		}
 		return isAnd
 	}, nil
 }
 
-// buildComparisonCondition 构建比较条件（eq, ne, gt, gte, lt, lte）
+// buildComparisonCondition builds comparison conditions (eq, ne, gt, gte, lt, lte).
 func (c *AccountConverter) buildComparisonCondition(cond *filtercond.Filter) (AccountFilterFunc, error) {
 	extractor, err := accountFieldExtractor(cond.Field)
 	if err != nil {
@@ -125,7 +125,7 @@ func (c *AccountConverter) buildComparisonCondition(cond *filtercond.Filter) (Ac
 	}, nil
 }
 
-// buildInCondition 构建 IN/NOT IN 条件
+// buildInCondition builds IN/NOT IN conditions.
 func (c *AccountConverter) buildInCondition(cond *filtercond.Filter) (AccountFilterFunc, error) {
 	extractor, err := accountFieldExtractor(cond.Field)
 	if err != nil {
@@ -154,7 +154,7 @@ func (c *AccountConverter) buildInCondition(cond *filtercond.Filter) (AccountFil
 	}, nil
 }
 
-// buildBetweenCondition 构建 BETWEEN 条件
+// buildBetweenCondition builds BETWEEN conditions.
 func (c *AccountConverter) buildBetweenCondition(cond *filtercond.Filter) (AccountFilterFunc, error) {
 	value := reflect.ValueOf(cond.Value)
 	if value.Kind() != reflect.Slice || value.Len() != 2 {
@@ -190,7 +190,7 @@ func (c *AccountConverter) buildBetweenCondition(cond *filtercond.Filter) (Accou
 	}, nil
 }
 
-// buildLikeCondition 构建 LIKE/NOT LIKE 条件
+// buildLikeCondition builds LIKE/NOT LIKE conditions.
 func (c *AccountConverter) buildLikeCondition(cond *filtercond.Filter) (AccountFilterFunc, error) {
 	extractor, err := accountFieldExtractor(cond.Field)
 	if err != nil {
@@ -216,7 +216,7 @@ func (c *AccountConverter) buildLikeCondition(cond *filtercond.Filter) (AccountF
 	}, nil
 }
 
-// accountFieldExtractor 根据字段名返回 Account 字段值提取函数
+// accountFieldExtractor returns an Account field value extractor function based on field name.
 func accountFieldExtractor(field string) (func(*account.Account) any, error) {
 	switch field {
 	case storage.AccountFieldID:
@@ -277,14 +277,14 @@ func accountFieldExtractor(field string) (func(*account.Account) any, error) {
 }
 
 // ============================================================
-// ProviderConverter 将 Filter 转换为 ProviderInfo 的内存过滤函数
+// ProviderConverter converts Filter conditions to in-memory filter functions for ProviderInfo.
 // ============================================================
 
-// ProviderConverter 将 Filter 转换为 ProviderInfo 的内存过滤函数
-// 实现 filtercond.Converter[ProviderFilterFunc]
+// ProviderConverter converts Filter conditions to in-memory filter functions for ProviderInfo.
+// Implements filtercond.Converter[ProviderFilterFunc].
 type ProviderConverter struct{}
 
-// Convert 将 Filter 条件转换为 ProviderInfo 的内存过滤函数
+// Convert converts a Filter condition to an in-memory filter function for ProviderInfo.
 func (c *ProviderConverter) Convert(cond *filtercond.Filter) (ProviderFilterFunc, error) {
 	if cond == nil {
 		return func(*provider.ProviderInfo) bool { return true }, nil
@@ -292,7 +292,7 @@ func (c *ProviderConverter) Convert(cond *filtercond.Filter) (ProviderFilterFunc
 	return c.convertCondition(cond)
 }
 
-// convertCondition 统一分发入口，根据操作符类型分发到对应的构建方法
+// convertCondition is the unified dispatch entry point that routes to the corresponding builder method based on operator type.
 func (c *ProviderConverter) convertCondition(cond *filtercond.Filter) (ProviderFilterFunc, error) {
 	if cond == nil {
 		return nil, fmt.Errorf("nil condition")
@@ -316,7 +316,7 @@ func (c *ProviderConverter) convertCondition(cond *filtercond.Filter) (ProviderF
 	}
 }
 
-// buildLogicalCondition 构建 AND/OR 逻辑条件
+// buildLogicalCondition builds AND/OR logical conditions.
 func (c *ProviderConverter) buildLogicalCondition(cond *filtercond.Filter) (ProviderFilterFunc, error) {
 	subs, ok := cond.Value.([]*filtercond.Filter)
 	if !ok {
@@ -343,20 +343,20 @@ func (c *ProviderConverter) buildLogicalCondition(cond *filtercond.Filter) (Prov
 		for _, pred := range predicates {
 			result := pred(p)
 			if !isAnd && result {
-				return true // OR 短路
+				return true // OR short-circuit
 			}
 			if isAnd && !result {
-				return false // AND 短路
+				return false // AND short-circuit
 			}
 		}
 		return isAnd
 	}, nil
 }
 
-// buildComparisonCondition 构建比较条件（eq, ne, gt, gte, lt, lte）
-// 对 supported_model 字段使用特殊逻辑
+// buildComparisonCondition builds comparison conditions (eq, ne, gt, gte, lt, lte).
+// Uses special logic for the supported_model field.
 func (c *ProviderConverter) buildComparisonCondition(cond *filtercond.Filter) (ProviderFilterFunc, error) {
-	// supported_model 字段使用特殊的数组包含逻辑
+	// supported_model field uses special array containment logic
 	if cond.Field == storage.ProviderFieldSupportedModel {
 		return c.buildModelFilter(cond)
 	}
@@ -382,9 +382,9 @@ func (c *ProviderConverter) buildComparisonCondition(cond *filtercond.Filter) (P
 	}, nil
 }
 
-// buildInCondition 构建 IN/NOT IN 条件
+// buildInCondition builds IN/NOT IN conditions.
 func (c *ProviderConverter) buildInCondition(cond *filtercond.Filter) (ProviderFilterFunc, error) {
-	// supported_model 字段使用特殊的数组包含逻辑
+	// supported_model field uses special array containment logic
 	if cond.Field == storage.ProviderFieldSupportedModel {
 		return c.buildModelFilter(cond)
 	}
@@ -416,7 +416,7 @@ func (c *ProviderConverter) buildInCondition(cond *filtercond.Filter) (ProviderF
 	}, nil
 }
 
-// buildBetweenCondition 构建 BETWEEN 条件
+// buildBetweenCondition builds BETWEEN conditions.
 func (c *ProviderConverter) buildBetweenCondition(cond *filtercond.Filter) (ProviderFilterFunc, error) {
 	value := reflect.ValueOf(cond.Value)
 	if value.Kind() != reflect.Slice || value.Len() != 2 {
@@ -452,7 +452,7 @@ func (c *ProviderConverter) buildBetweenCondition(cond *filtercond.Filter) (Prov
 	}, nil
 }
 
-// buildLikeCondition 构建 LIKE/NOT LIKE 条件
+// buildLikeCondition builds LIKE/NOT LIKE conditions.
 func (c *ProviderConverter) buildLikeCondition(cond *filtercond.Filter) (ProviderFilterFunc, error) {
 	extractor, err := providerFieldExtractor(cond.Field)
 	if err != nil {
@@ -478,9 +478,9 @@ func (c *ProviderConverter) buildLikeCondition(cond *filtercond.Filter) (Provide
 	}, nil
 }
 
-// buildModelFilter 处理 supported_model 字段的特殊逻辑
-// 对 eq 操作：检查 SupportedModels 是否包含指定模型
-// 对 in 操作：检查 SupportedModels 是否包含列表中的任意一个模型
+// buildModelFilter handles special logic for the supported_model field.
+// For eq operation: checks if SupportedModels contains the specified model.
+// For in operation: checks if SupportedModels contains any model from the list.
 func (c *ProviderConverter) buildModelFilter(cond *filtercond.Filter) (ProviderFilterFunc, error) {
 	switch cond.Operator {
 	case filtercond.OperatorEqual:
@@ -509,7 +509,7 @@ func (c *ProviderConverter) buildModelFilter(cond *filtercond.Filter) (ProviderF
 	}
 }
 
-// providerFieldExtractor 根据字段名返回 ProviderInfo 字段值提取函数
+// providerFieldExtractor returns a ProviderInfo field value extractor function based on field name.
 func providerFieldExtractor(field string) (func(*provider.ProviderInfo) any, error) {
 	switch field {
 	case storage.ProviderFieldType:

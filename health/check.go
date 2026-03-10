@@ -9,19 +9,19 @@ import (
 	"github.com/nomand-zc/lumin-client/credentials"
 )
 
-// CheckSeverity 检查项严重程度
+// CheckSeverity represents the severity level of a check item.
 type CheckSeverity int
 
 const (
-	// SeverityInfo 信息级别，不影响账号状态（如统计更新）
+	// SeverityInfo is the informational level, does not affect account status (e.g., statistics update).
 	SeverityInfo CheckSeverity = iota + 1
-	// SeverityWarning 警告级别，可能需要关注但不立即影响可用性
+	// SeverityWarning is the warning level, may need attention but does not immediately affect availability.
 	SeverityWarning
-	// SeverityCritical 关键级别，直接影响账号是否可用
+	// SeverityCritical is the critical level, directly affects whether the account is available.
 	SeverityCritical
 )
 
-// String 返回严重程度的可读字符串
+// String returns a human-readable string of the severity.
 func (s CheckSeverity) String() string {
 	switch s {
 	case SeverityInfo:
@@ -35,23 +35,23 @@ func (s CheckSeverity) String() string {
 	}
 }
 
-// CheckStatus 单项检查的结果状态
+// CheckStatus represents the result status of a single check.
 type CheckStatus int
 
 const (
-	// CheckPassed 检查通过
+	// CheckPassed means the check passed.
 	CheckPassed CheckStatus = iota + 1
-	// CheckWarning 检查通过但有告警
+	// CheckWarning means the check passed but with warnings.
 	CheckWarning
-	// CheckFailed 检查未通过
+	// CheckFailed means the check did not pass.
 	CheckFailed
-	// CheckSkipped 检查被跳过（如依赖的前置检查失败）
+	// CheckSkipped means the check was skipped (e.g., a prerequisite check failed).
 	CheckSkipped
-	// CheckError 检查过程本身出错（如网络超时）
+	// CheckError means an error occurred during the check itself (e.g., network timeout).
 	CheckError
 )
 
-// String 返回检查状态的可读字符串
+// String returns a human-readable string of the check status.
 func (s CheckStatus) String() string {
 	switch s {
 	case CheckPassed:
@@ -69,43 +69,43 @@ func (s CheckStatus) String() string {
 	}
 }
 
-// CheckResult 单个检查项的执行结果
+// CheckResult holds the execution result of a single check item.
 type CheckResult struct {
-	// CheckName 检查项名称
+	// CheckName is the name of the check item.
 	CheckName string
-	// Status 结果状态
+	// Status is the result status.
 	Status CheckStatus
-	// Severity 严重程度
+	// Severity is the severity level.
 	Severity CheckSeverity
-	// Message 结果描述信息
+	// Message is the result description.
 	Message string
-	// SuggestedStatus 建议将账号切换到的状态（可选）
-	// 为 nil 时表示此检查项不建议变更账号状态
+	// SuggestedStatus is the suggested account status to transition to (optional).
+	// nil means this check does not suggest any status change.
 	SuggestedStatus *account.Status
-	// Data 检查项产出的附加数据
-	// 例如 UsageQuotaCheck 可将最新的 UsageStats 放在这里，供上层回写
+	// Data holds additional data produced by the check item.
+	// For example, UsageQuotaCheck can place the latest UsageStats here for the upper layer to write back.
 	Data any
-	// Duration 此检查项的执行耗时
+	// Duration is the execution time of this check item.
 	Duration time.Duration
-	// Timestamp 检查完成时间
+	// Timestamp is the completion time of the check.
 	Timestamp time.Time
 }
 
-// HealthReport 一次完整健康巡检的汇总报告
+// HealthReport is the summary report of a complete health check.
 type HealthReport struct {
-	// AccountID 被检查的账号 ID
+	// AccountID is the ID of the checked account.
 	AccountID string
-	// ProviderKey 账号所属供应商
+	// ProviderKey is the provider the account belongs to.
 	ProviderKey provider.ProviderKey
-	// Results 各检查项的结果（按执行顺序排列）
+	// Results holds results of each check item (in execution order).
 	Results []*CheckResult
-	// TotalDuration 完整巡检的总耗时
+	// TotalDuration is the total time of the complete health check.
 	TotalDuration time.Duration
-	// Timestamp 巡检完成时间
+	// Timestamp is the completion time of the health check.
 	Timestamp time.Time
 }
 
-// HasCriticalFailure 报告中是否有关键级别的检查失败
+// HasCriticalFailure returns whether the report contains any critical-level check failure.
 func (r *HealthReport) HasCriticalFailure() bool {
 	for _, result := range r.Results {
 		if result.Status == CheckFailed && result.Severity == SeverityCritical {
@@ -115,7 +115,7 @@ func (r *HealthReport) HasCriticalFailure() bool {
 	return false
 }
 
-// FailedChecks 获取所有失败的检查项
+// FailedChecks returns all failed check items.
 func (r *HealthReport) FailedChecks() []*CheckResult {
 	var failed []*CheckResult
 	for _, result := range r.Results {
@@ -126,7 +126,7 @@ func (r *HealthReport) FailedChecks() []*CheckResult {
 	return failed
 }
 
-// WarningChecks 获取所有告警的检查项
+// WarningChecks returns all warning check items.
 func (r *HealthReport) WarningChecks() []*CheckResult {
 	var warnings []*CheckResult
 	for _, result := range r.Results {
@@ -137,7 +137,7 @@ func (r *HealthReport) WarningChecks() []*CheckResult {
 	return warnings
 }
 
-// PassedChecks 获取所有通过的检查项
+// PassedChecks returns all passed check items.
 func (r *HealthReport) PassedChecks() []*CheckResult {
 	var passed []*CheckResult
 	for _, result := range r.Results {
@@ -148,37 +148,37 @@ func (r *HealthReport) PassedChecks() []*CheckResult {
 	return passed
 }
 
-// CheckTarget 检查目标，封装被检查对象的所有信息
-// 使用接口而非具体类型，保持 HealthCheck 接口的独立性
+// CheckTarget wraps the information of the object being checked.
+// Uses an interface instead of a concrete type to maintain independence of the HealthCheck interface.
 type CheckTarget interface {
-	// Credential 账号凭证
+	// Credential returns the account credential.
 	Credential() credentials.Credential
-	// ProviderInstance 获取供应商运行时实例（包含元数据和底层 SDK 实例）
+	// ProviderInstance returns the provider runtime instance (including metadata and underlying SDK instance).
 	ProviderInstance() *provider.ProviderInstance
-	// Account 获取完整的账号对象（供需要访问统计信息等额外字段的检查项使用）
+	// Account returns the full account object (for check items needing access to statistics and other extra fields).
 	Account() *account.Account
 }
 
-// HealthCheck 健康检查项通用接口
-// 这是整个健康检查体系的核心契约。
-// 内置检查项和用户自定义检查项都通过实现此接口来扩展。
+// HealthCheck is the universal interface for health check items.
+// This is the core contract of the entire health check system.
+// Both built-in and user-defined check items extend the system by implementing this interface.
 type HealthCheck interface {
-	// Name 检查项的唯一标识名称
+	// Name returns the unique identifier name of the check item.
 	Name() string
 
-	// Severity 该检查项的严重程度
+	// Severity returns the severity level of this check item.
 	Severity() CheckSeverity
 
-	// Check 执行检查
-	// ctx: 上下文（含超时控制）
-	// target: 被检查的对象，携带账号信息和底层 Provider 实例
+	// Check executes the check.
+	// ctx: context (with timeout control)
+	// target: the object being checked, carrying account info and the underlying Provider instance
 	//
-	// 约定：即使检查过程出错，也应返回 CheckResult（Status=CheckError），而非依赖 error。
-	// 这确保 HealthReport 始终能收集到所有检查项的结果。
+	// Convention: even if the check process errors, a CheckResult (Status=CheckError) should be returned
+	// instead of relying on error. This ensures HealthReport always collects results from all check items.
 	Check(ctx context.Context, target CheckTarget) *CheckResult
 
-	// DependsOn 返回此检查项依赖的前置检查项名称
-	// 如果依赖的检查项 Status 为 Failed，当前检查项将被标记为 Skipped。
-	// 返回 nil 表示无依赖。
+	// DependsOn returns the names of prerequisite check items this check depends on.
+	// If a dependency's Status is Failed, the current check will be marked as Skipped.
+	// Returns nil if there are no dependencies.
 	DependsOn() []string
 }

@@ -10,21 +10,21 @@ import (
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
-// ProviderStore 供应商的内存存储实现
-// 使用读写锁保证并发安全，维护 Type 和 Model 二级索引加速热路径查询
+// ProviderStore is the in-memory storage implementation for providers.
+// Uses a read-write lock for concurrency safety and maintains Type and Model secondary indexes for hot-path query acceleration.
 type ProviderStore struct {
 	mu sync.RWMutex
-	// providers 主存储：ProviderKey -> ProviderInfo
+	// providers is the primary storage: ProviderKey -> ProviderInfo
 	providers map[provider.ProviderKey]*provider.ProviderInfo
-	// typeIndex 类型索引：providerType -> ProviderKey 集合
+	// typeIndex is the type index: providerType -> ProviderKey set
 	typeIndex map[string]map[provider.ProviderKey]struct{}
-	// modelIndex 模型索引：model -> ProviderKey 集合
+	// modelIndex is the model index: model -> ProviderKey set
 	modelIndex map[string]map[provider.ProviderKey]struct{}
-	// converter 条件转换器
+	// converter is the condition converter.
 	converter *ProviderConverter
 }
 
-// NewProviderStore 创建一个新的内存供应商存储实例
+// NewProviderStore creates a new in-memory provider storage instance.
 func NewProviderStore() *ProviderStore {
 	return &ProviderStore{
 		providers:  make(map[provider.ProviderKey]*provider.ProviderInfo),
@@ -94,14 +94,14 @@ func (s *ProviderStore) Update(_ context.Context, info *provider.ProviderInfo) e
 		return storage.ErrNotFound
 	}
 
-	// 先从旧索引中移除
+	// Remove from old indexes first
 	s.removeFromIndex(old)
 
 	stored := info.Clone()
 	stored.UpdatedAt = time.Now()
 
 	s.providers[key] = stored
-	// 添加到新索引
+	// Add to new indexes
 	s.addToIndex(stored)
 	return nil
 }
@@ -120,18 +120,18 @@ func (s *ProviderStore) Remove(_ context.Context, key provider.ProviderKey) erro
 	return nil
 }
 
-// --- 索引维护方法 ---
+// --- Index maintenance methods ---
 
-// addToIndex 将供应商添加到 Type 和 Model 索引
+// addToIndex adds the provider to the Type and Model indexes.
 func (s *ProviderStore) addToIndex(info *provider.ProviderInfo) {
 	key := info.ProviderKey()
-	// 类型索引
+	// Type index
 	if s.typeIndex[info.ProviderType] == nil {
 		s.typeIndex[info.ProviderType] = make(map[provider.ProviderKey]struct{})
 	}
 	s.typeIndex[info.ProviderType][key] = struct{}{}
 
-	// 模型索引
+	// Model index
 	for _, model := range info.SupportedModels {
 		if s.modelIndex[model] == nil {
 			s.modelIndex[model] = make(map[provider.ProviderKey]struct{})
@@ -140,10 +140,10 @@ func (s *ProviderStore) addToIndex(info *provider.ProviderInfo) {
 	}
 }
 
-// removeFromIndex 从 Type 和 Model 索引中移除供应商
+// removeFromIndex removes the provider from the Type and Model indexes.
 func (s *ProviderStore) removeFromIndex(info *provider.ProviderInfo) {
 	key := info.ProviderKey()
-	// 类型索引
+	// Type index
 	if keys, ok := s.typeIndex[info.ProviderType]; ok {
 		delete(keys, key)
 		if len(keys) == 0 {
@@ -151,7 +151,7 @@ func (s *ProviderStore) removeFromIndex(info *provider.ProviderInfo) {
 		}
 	}
 
-	// 模型索引
+	// Model index
 	for _, model := range info.SupportedModels {
 		if keys, ok := s.modelIndex[model]; ok {
 			delete(keys, key)

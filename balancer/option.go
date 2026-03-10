@@ -17,72 +17,72 @@ var defaultOptions = Options{
 	GroupSelector:         groupstrategies.NewGroupPriority(),
 }
 
-// Option 负载均衡器功能选项
+// Option is a functional option for the load balancer.
 type Option func(*Options)
 
-// Options 负载均衡器完整配置
+// Options holds the complete configuration of the load balancer.
 type Options struct {
-	// AccountStorage 账号存储（必选，用于 ReportSuccess/ReportFailure 更新账号状态）
+	// AccountStorage is the account storage (required, used by ReportSuccess/ReportFailure to update account status).
 	AccountStorage storage.AccountStorage
-	// ProviderStorage 供应商存储（当未注入 Resolver 时必选，用于构建默认的 StorageResolver）
+	// ProviderStorage is the provider storage (required when Resolver is not injected, used to build the default StorageResolver).
 	ProviderStorage storage.ProviderStorage
-	// Resolver 解析器（可选，默认使用基于 Storage 的实现）
+	// Resolver is the resolver (optional, defaults to a Storage-based implementation).
 	Resolver resolver.Resolver
-	// Selector 账号级选择策略（默认 RoundRobin）
+	// Selector is the account-level selection strategy (default: RoundRobin).
 	Selector selector.Selector
-	// GroupSelector 供应商级选择策略（默认 Priority）
+	// GroupSelector is the provider-level selection strategy (default: Priority).
 	GroupSelector selector.GroupSelector
-	// CircuitBreaker 熔断器（可选）
+	// CircuitBreaker is the circuit breaker (optional).
 	CircuitBreaker circuitbreaker.CircuitBreaker
-	// CooldownManager 冷却管理器（可选）
+	// CooldownManager is the cooldown manager (optional).
 	CooldownManager cooldown.CooldownManager
-	// DefaultMaxRetries 默认最大重试次数
+	// DefaultMaxRetries is the default maximum retry count.
 	DefaultMaxRetries int
-	// DefaultEnableFailover 默认是否启用故障转移
+	// DefaultEnableFailover indicates whether failover is enabled by default.
 	DefaultEnableFailover bool
 }
 
-// WithAccountStorage 设置账号存储
+// WithAccountStorage sets the account storage.
 func WithAccountStorage(s storage.AccountStorage) Option {
 	return func(o *Options) { o.AccountStorage = s }
 }
 
-// WithProviderStorage 设置供应商存储
+// WithProviderStorage sets the provider storage.
 func WithProviderStorage(s storage.ProviderStorage) Option {
 	return func(o *Options) { o.ProviderStorage = s }
 }
 
-// WithResolver 设置解析器
+// WithResolver sets the resolver.
 func WithResolver(r resolver.Resolver) Option {
 	return func(o *Options) { o.Resolver = r }
 }
 
-// WithSelector 设置账号级选择策略
+// WithSelector sets the account-level selection strategy.
 func WithSelector(s selector.Selector) Option {
 	return func(o *Options) { o.Selector = s }
 }
 
-// WithGroupSelector 设置供应商级选择策略
+// WithGroupSelector sets the provider-level selection strategy.
 func WithGroupSelector(s selector.GroupSelector) Option {
 	return func(o *Options) { o.GroupSelector = s }
 }
 
-// WithCircuitBreaker 设置熔断器
+// WithCircuitBreaker sets the circuit breaker.
 func WithCircuitBreaker(cb circuitbreaker.CircuitBreaker) Option {
 	return func(o *Options) { o.CircuitBreaker = cb }
 }
 
-// WithCooldownManager 设置冷却管理器
+// WithCooldownManager sets the cooldown manager.
 func WithCooldownManager(cm cooldown.CooldownManager) Option {
 	return func(o *Options) { o.CooldownManager = cm }
 }
 
-// WithDefaultMaxRetries 设置默认最大重试次数
+// WithDefaultMaxRetries sets the default maximum retry count.
 func WithDefaultMaxRetries(n int) Option {
 	return func(o *Options) { o.DefaultMaxRetries = n }
 }
 
-// WithDefaultFailover 设置默认是否启用故障转移
+// WithDefaultFailover sets whether failover is enabled by default.
 func WithDefaultFailover(enable bool) Option {
 	return func(o *Options) { o.DefaultEnableFailover = enable }
 }

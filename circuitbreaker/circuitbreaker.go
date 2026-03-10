@@ -6,31 +6,31 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 )
 
-// CircuitBreaker 熔断器接口
-// 根据连续失败次数决定是否触发熔断
+// CircuitBreaker is the circuit breaker interface.
+// It determines whether to trip the circuit based on consecutive failure counts.
 type CircuitBreaker interface {
-	// RecordSuccess 记录一次成功调用，重置连续失败计数
+	// RecordSuccess records a successful call and resets the consecutive failure count.
 	RecordSuccess(acct *account.Account)
 
-	// RecordFailure 记录一次失败调用
-	// 返回是否触发熔断（true 表示需要将账号切换到 CircuitOpen 状态）
+	// RecordFailure records a failed call.
+	// Returns whether the circuit is tripped (true means the account should switch to CircuitOpen status).
 	RecordFailure(acct *account.Account) (tripped bool)
 
-	// ShouldAllow 判断熔断中的账号是否可以尝试半开探测
-	// 即熔断时间窗口是否已过
+	// ShouldAllow checks whether a circuit-broken account can attempt a half-open probe,
+	// i.e., whether the circuit breaker timeout window has elapsed.
 	ShouldAllow(acct *account.Account) bool
 }
 
-// Config 熔断器配置
+// Config holds the circuit breaker configuration.
 type Config struct {
-	// Threshold 触发熔断的连续失败次数阈值（默认 5）
+	// Threshold is the consecutive failure count threshold to trip the circuit (default 5).
 	Threshold int
-	// Timeout 熔断恢复时间窗口（默认 60s）
-	// 熔断触发后，等待 Timeout 后进入半开状态，允许一次探测请求
+	// Timeout is the circuit breaker recovery time window (default 60s).
+	// After tripping, the circuit enters half-open state after Timeout, allowing one probe request.
 	Timeout time.Duration
 }
 
-// DefaultConfig 返回默认的熔断器配置
+// DefaultConfig returns the default circuit breaker configuration.
 func DefaultConfig() Config {
 	return Config{
 		Threshold: 5,

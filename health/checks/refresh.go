@@ -17,13 +17,13 @@ const (
 	CooldownUntilKey = "cooldown_until"
 )
 
-// CredentialRefreshCheck Token 刷新检查
-// 当凭证已过期或剩余有效时间低于 RefreshThreshold 时，尝试调用 Provider.Refresh 刷新凭证
-// 依赖 CredentialValidityCheck：只有凭证过期或即将过期时才需要执行刷新
+// CredentialRefreshCheck performs Token refresh checking.
+// When the credential has expired or remaining validity is below RefreshThreshold, it attempts to call Provider.Refresh.
+// Depends on CredentialValidityCheck: only needs to execute when the credential is expired or about to expire.
 type CredentialRefreshCheck struct {
-	// RefreshThreshold 提前刷新阈值
-	// 当凭证剩余有效时间低于此值时，提前触发刷新
-	// 为 0 时仅在凭证完全过期后才刷新
+	// RefreshThreshold is the threshold for early refresh.
+	// When the remaining credential validity is below this value, refresh is triggered early.
+	// When set to 0, refresh only occurs after the credential has fully expired.
 	RefreshThreshold time.Duration
 }
 
@@ -43,13 +43,13 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 	start := time.Now()
 	cred := target.Credential()
 
-	// 凭证未过期且剩余有效时间大于阈值，无需刷新
+	// Credential is not expired and remaining validity exceeds threshold, no refresh needed
 	if !cred.IsExpired() && start.Before(cred.GetExpiresAt().Add(c.RefreshThreshold)) {
 		return &health.CheckResult{
 			CheckName: CredentialRefreshCheckName,
 			Status:    health.CheckPassed,
 			Severity:  health.SeverityCritical,
-			Message:   "凭证有效期充足，无需刷新",
+			Message:   "credential validity is sufficient, no refresh needed",
 			Duration:  time.Since(start),
 			Timestamp: time.Now(),
 		}
@@ -61,20 +61,20 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 			CheckName:       CredentialRefreshCheckName,
 			Status:          health.CheckPassed,
 			Severity:        health.SeverityCritical,
-			Message:         "凭证刷新成功",
+			Message:         "credential refreshed successfully",
 			SuggestedStatus: utils.ToPtr(account.StatusAvailable),
 			Duration:        time.Since(start),
 			Timestamp:       time.Now(),
 		}
 	}
 
-	// 根据错误类型判断
+	// Determine by error type
 	if errors.Is(err, providers.ErrInvalidGrant) {
 		return &health.CheckResult{
 			CheckName:       CredentialRefreshCheckName,
 			Status:          health.CheckFailed,
 			Severity:        health.SeverityCritical,
-			Message:         "凭证永久失效 (invalid_grant)，无法恢复",
+			Message:         "credential permanently invalidated (invalid_grant), cannot be recovered",
 			SuggestedStatus: utils.ToPtr(account.StatusInvalidated),
 			Duration:        time.Since(start),
 			Timestamp:       time.Now(),
@@ -89,7 +89,7 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 				CheckName:       CredentialRefreshCheckName,
 				Status:          health.CheckFailed,
 				Severity:        health.SeverityCritical,
-				Message:         "账号被封禁: " + httpErr.Message,
+				Message:         "account banned: " + httpErr.Message,
 				SuggestedStatus: utils.ToPtr(account.StatusBanned),
 				Duration:        time.Since(start),
 				Timestamp:       time.Now(),
@@ -99,7 +99,7 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 				CheckName:       CredentialRefreshCheckName,
 				Status:          health.CheckFailed,
 				Severity:        health.SeverityCritical,
-				Message:         "刷新请求触发限流",
+				Message:         "refresh request triggered rate limit",
 				SuggestedStatus: utils.ToPtr(account.StatusCoolingDown),
 				Data: map[string]any{
 					CooldownUntilKey: httpErr.CooldownUntil,
@@ -110,16 +110,16 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 		}
 	}
 
-	// 网络错误等临时故障
+	// Network errors and other temporary failures
 	result := &health.CheckResult{
 		CheckName: CredentialRefreshCheckName,
 		Status:    health.CheckError,
 		Severity:  health.SeverityCritical,
-		Message:   "刷新过程出错: " + err.Error(),
+		Message:   "refresh error: " + err.Error(),
 		Duration:  time.Since(start),
 		Timestamp: time.Now(),
 	}
-	// 如果凭证已经过期且刷新失败，建议将账号标记为凭证过期
+	// If the credential has expired and refresh failed, suggest marking the account as credential expired
 	if cred.IsExpired() {
 		result.SuggestedStatus = utils.ToPtr(account.StatusExpired)
 	}

@@ -5,41 +5,41 @@ import (
 	"time"
 )
 
-// CheckSchedule 检查项的调度配置
-// 不同检查项可以有不同的执行频率
+// CheckSchedule is the scheduling configuration for a check item.
+// Different check items can have different execution frequencies.
 type CheckSchedule struct {
-	// Check 检查项实例
+	// Check is the check item instance.
 	Check HealthCheck
-	// Interval 执行间隔
-	// 例如凭证校验 10s，用量刷新 5m，请求探测 2m
+	// Interval is the execution interval.
+	// For example: credential validation 10s, usage refresh 5m, probe request 2m.
 	Interval time.Duration
-	// Enabled 是否启用
+	// Enabled indicates whether this check is enabled.
 	Enabled bool
 }
 
-// HealthChecker 健康巡检编排器接口
-// 负责管理注册的检查项，按依赖顺序编排执行
+// HealthChecker is the health check orchestrator interface.
+// It manages registered check items and orchestrates their execution in dependency order.
 type HealthChecker interface {
-	// Register 注册检查项及其调度配置
+	// Register registers a check item with its scheduling configuration.
 	Register(schedule CheckSchedule)
 
-	// Unregister 取消注册检查项
+	// Unregister removes a registered check item.
 	Unregister(checkName string)
 
-	// ListChecks 列出当前注册的所有检查项及调度配置
+	// ListChecks lists all currently registered check items and their scheduling configurations.
 	ListChecks() []CheckSchedule
 
-	// RunAll 对指定目标执行所有已注册的检查项
-	// 按 DependsOn 拓扑排序后依次执行，依赖失败的检查项自动 Skipped
+	// RunAll executes all registered check items against the specified target.
+	// Executes in topological order based on DependsOn; checks whose dependencies failed are automatically Skipped.
 	RunAll(ctx context.Context, target CheckTarget) (*HealthReport, error)
 
-	// RunOne 对指定目标执行单个检查项
+	// RunOne executes a single check item against the specified target.
 	RunOne(ctx context.Context, target CheckTarget, checkName string) (*CheckResult, error)
 
-	// Start 启动后台定时巡检任务
-	// 按各检查项的 Interval 独立定时执行
+	// Start launches the background periodic health check task.
+	// Each check item runs independently based on its own Interval.
 	Start(ctx context.Context) error
 
-	// Stop 停止后台巡检
+	// Stop halts the background health check.
 	Stop() error
 }

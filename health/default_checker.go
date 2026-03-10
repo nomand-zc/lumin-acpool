@@ -7,49 +7,50 @@ import (
 	"time"
 )
 
-// TargetProvider 提供待巡检目标的函数类型
-// 后台定时巡检需要通过此函数获取当前需要检查的目标列表
+// TargetProvider is the function type for providing targets to be checked.
+// The background periodic health check needs this function to obtain the current list of targets to check.
 type TargetProvider func(ctx context.Context) []CheckTarget
 
-// ReportCallback 巡检报告回调函数类型
-// 后台巡检完成后调用，上层可用于更新账号状态、持久化报告等
+// ReportCallback is the callback function type for health check reports.
+// Called after a background check completes; the upper layer can use it to update account status, persist reports, etc.
 type ReportCallback func(ctx context.Context, report *HealthReport)
 
-// CheckerOption 配置 defaultHealthChecker 的选项函数
+// CheckerOption is a functional option for configuring defaultHealthChecker.
 type CheckerOption func(*defaultHealthChecker)
 
-// WithTargetProvider 设置目标提供者，后台巡检时通过此函数获取待检查的目标
+// WithTargetProvider sets the target provider for obtaining targets to check during background scanning.
 func WithTargetProvider(tp TargetProvider) CheckerOption {
 	return func(c *defaultHealthChecker) {
 		c.targetProvider = tp
 	}
 }
 
-// WithReportCallback 设置巡检报告回调
-// 每次后台巡检完成一个目标后，会调用此回调传递报告
+// WithReportCallback sets the health check report callback.
+// Called after each background check completes for a target, passing the report.
 func WithReportCallback(fn ReportCallback) CheckerOption {
 	return func(c *defaultHealthChecker) {
 		c.onReport = fn
 	}
 }
 
-// defaultHealthChecker 是 HealthChecker 接口的默认实现
-// 管理已注册的检查项，支持按依赖拓扑排序执行，并提供后台定时巡检能力
+// defaultHealthChecker is the default implementation of the HealthChecker interface.
+// It manages registered check items, supports execution in dependency topological order,
+// and provides background periodic health check capability.
 type defaultHealthChecker struct {
 	mu        sync.RWMutex
 	schedules map[string]CheckSchedule // key: check name
 
-	// targetProvider 后台巡检时用于获取待检查目标列表
+	// targetProvider provides the list of targets to check during background scanning.
 	targetProvider TargetProvider
-	// onReport 巡检报告回调
+	// onReport is the health check report callback.
 	onReport ReportCallback
 
-	// 后台巡检生命周期控制
+	// Background check lifecycle control
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
-// NewHealthChecker 创建一个默认的 HealthChecker 实例
+// NewHealthChecker creates a default HealthChecker instance.
 func NewHealthChecker(opts ...CheckerOption) HealthChecker {
 	c := &defaultHealthChecker{
 		schedules: make(map[string]CheckSchedule),
@@ -60,21 +61,21 @@ func NewHealthChecker(opts ...CheckerOption) HealthChecker {
 	return c
 }
 
-// Register 注册检查项及其调度配置
+// Register registers a check item with its scheduling configuration.
 func (c *defaultHealthChecker) Register(schedule CheckSchedule) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.schedules[schedule.Check.Name()] = schedule
 }
 
-// Unregister 取消注册检查项
+// Unregister removes a registered check item.
 func (c *defaultHealthChecker) Unregister(checkName string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.schedules, checkName)
 }
 
-// ListChecks 列出当前注册的所有检查项及调度配置
+// ListChecks lists all currently registered check items and their scheduling configurations.
 func (c *defaultHealthChecker) ListChecks() []CheckSchedule {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -85,8 +86,8 @@ func (c *defaultHealthChecker) ListChecks() []CheckSchedule {
 	return result
 }
 
-// RunAll 对指定目标执行所有已启用的检查项
-// 按 DependsOn 拓扑排序后依次执行，依赖失败的检查项自动标记为 Skipped
+// RunAll executes all enabled check items against the specified target.
+// Executes in topological order based on DependsOn; checks whose dependencies failed are automatically marked as Skipped.
 func (c *defaultHealthChecker) RunAll(ctx context.Context, target CheckTarget) (*HealthReport, error) {
 	c.mu.RLock()
 	var enabledChecks []HealthCheck
@@ -108,23 +109,23 @@ func (c *defaultHealthChecker) RunAll(ctx context.Context, target CheckTarget) (
 		}, nil
 	}
 
-	// 按依赖关系拓扑排序
+	// Topological sort by dependency relationships
 	sorted, err := topologicalSort(enabledChecks)
 	if err != nil {
-		return nil, fmt.Errorf("health: 拓扑排序失败: %w", err)
+		return nil, fmt.Errorf("health: topological sort failed: %w", err)
 	}
 
 	results := make([]*CheckResult, 0, len(sorted))
-	statusMap := make(map[string]CheckStatus) // 记录已执行检查项的状态
+	statusMap := make(map[string]CheckStatus) // records the status of executed check items
 
 	for _, check := range sorted {
-		// 检查前置依赖是否都通过了
+		// Check if all prerequisites have passed
 		if shouldSkip(check, statusMap) {
 			result := &CheckResult{
 				CheckName: check.Name(),
 				Status:    CheckSkipped,
 				Severity:  check.Severity(),
-				Message:   "前置依赖检查未通过，跳过执行",
+				Message:   "prerequisite dependency check failed, skipping execution",
 				Timestamp: time.Now(),
 			}
 			results = append(results, result)
@@ -132,7 +133,7 @@ func (c *defaultHealthChecker) RunAll(ctx context.Context, target CheckTarget) (
 			continue
 		}
 
-		// 执行检查
+		// Execute the check
 		result := check.Check(ctx, target)
 		results = append(results, result)
 		statusMap[check.Name()] = result.Status
@@ -147,30 +148,30 @@ func (c *defaultHealthChecker) RunAll(ctx context.Context, target CheckTarget) (
 	}, nil
 }
 
-// RunOne 对指定目标执行单个检查项
+// RunOne executes a single check item against the specified target.
 func (c *defaultHealthChecker) RunOne(ctx context.Context, target CheckTarget, checkName string) (*CheckResult, error) {
 	c.mu.RLock()
 	schedule, ok := c.schedules[checkName]
 	c.mu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("health: 检查项 %q 未注册", checkName)
+		return nil, fmt.Errorf("health: check %q is not registered", checkName)
 	}
 
 	return schedule.Check.Check(ctx, target), nil
 }
 
-// Start 启动后台定时巡检任务
-// 按各检查项的 Interval 独立定时执行
+// Start launches the background periodic health check task.
+// Each check item runs independently based on its own Interval.
 func (c *defaultHealthChecker) Start(ctx context.Context) error {
 	if c.targetProvider == nil {
-		return fmt.Errorf("health: 未设置 TargetProvider，无法启动后台巡检")
+		return fmt.Errorf("health: TargetProvider is not set, cannot start background health check")
 	}
 
 	c.mu.Lock()
 	if c.cancel != nil {
 		c.mu.Unlock()
-		return fmt.Errorf("health: 后台巡检已在运行中")
+		return fmt.Errorf("health: background health check is already running")
 	}
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.done = make(chan struct{})
@@ -180,7 +181,7 @@ func (c *defaultHealthChecker) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop 停止后台巡检
+// Stop halts the background health check.
 func (c *defaultHealthChecker) Stop() error {
 	c.mu.Lock()
 	if c.cancel == nil {
@@ -197,12 +198,12 @@ func (c *defaultHealthChecker) Stop() error {
 	return nil
 }
 
-// backgroundLoop 后台巡检主循环
-// 使用最小 Interval 作为 tick 基准，按各检查项各自的 Interval 判断是否需要执行
+// backgroundLoop is the main loop for background health checking.
+// Uses the minimum Interval as the tick base, and checks each item's own Interval to determine if execution is needed.
 func (c *defaultHealthChecker) backgroundLoop(ctx context.Context) {
 	defer close(c.done)
 
-	// 启动时立即执行一轮完整巡检
+	// Execute a full scan immediately on startup
 	c.runFullScan(ctx)
 
 	c.mu.RLock()
@@ -216,7 +217,7 @@ func (c *defaultHealthChecker) backgroundLoop(ctx context.Context) {
 	ticker := time.NewTicker(minInterval)
 	defer ticker.Stop()
 
-	// 记录每个检查项的上次执行时间
+	// Record the last execution time for each check item
 	lastRun := make(map[string]time.Time)
 
 	for {
@@ -229,8 +230,8 @@ func (c *defaultHealthChecker) backgroundLoop(ctx context.Context) {
 	}
 }
 
-// getMinInterval 获取所有已启用检查项中最小的 Interval
-// 调用方需持有读锁
+// getMinInterval returns the minimum Interval among all enabled check items.
+// The caller must hold a read lock.
 func (c *defaultHealthChecker) getMinInterval() time.Duration {
 	var min time.Duration
 	for _, s := range c.schedules {
@@ -243,7 +244,7 @@ func (c *defaultHealthChecker) getMinInterval() time.Duration {
 	return min
 }
 
-// tickRun 每次 tick 时执行到期的检查项
+// tickRun executes due check items on each tick.
 func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastRun map[string]time.Time) {
 	c.mu.RLock()
 	var dueChecks []HealthCheck
@@ -276,7 +277,7 @@ func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastR
 	}
 }
 
-// runFullScan 对所有目标执行一轮完整巡检
+// runFullScan performs a full health check on all targets.
 func (c *defaultHealthChecker) runFullScan(ctx context.Context) {
 	targets := c.targetProvider(ctx)
 	for _, target := range targets {
@@ -292,20 +293,20 @@ func (c *defaultHealthChecker) runFullScan(ctx context.Context) {
 	}
 }
 
-// --- 辅助函数 ---
+// --- Helper functions ---
 
-// topologicalSort 按 DependsOn 关系对检查项进行拓扑排序（Kahn 算法）
-// 确保被依赖的检查项排在前面
+// topologicalSort performs topological sorting on check items based on DependsOn relationships (Kahn's algorithm).
+// Ensures that dependent check items are placed before their dependents.
 func topologicalSort(checks []HealthCheck) ([]HealthCheck, error) {
-	// 构建名称到检查项的映射
+	// Build name-to-check mapping
 	checkMap := make(map[string]HealthCheck, len(checks))
 	for _, check := range checks {
 		checkMap[check.Name()] = check
 	}
 
-	// 构建入度表和邻接表
+	// Build in-degree table and adjacency list
 	inDegree := make(map[string]int, len(checks))
-	dependents := make(map[string][]string) // dep -> 依赖 dep 的检查项列表
+	dependents := make(map[string][]string) // dep -> list of checks that depend on dep
 
 	for _, check := range checks {
 		name := check.Name()
@@ -313,7 +314,7 @@ func topologicalSort(checks []HealthCheck) ([]HealthCheck, error) {
 			inDegree[name] = 0
 		}
 		for _, dep := range check.DependsOn() {
-			// 只统计在当前已注册检查项中存在的依赖
+			// Only count dependencies that exist in the currently registered check items
 			if _, exists := checkMap[dep]; exists {
 				inDegree[name]++
 				dependents[dep] = append(dependents[dep], name)
@@ -321,7 +322,7 @@ func topologicalSort(checks []HealthCheck) ([]HealthCheck, error) {
 		}
 	}
 
-	// Kahn 算法：从入度为 0 的节点开始
+	// Kahn's algorithm: start from nodes with in-degree 0
 	queue := make([]string, 0)
 	for name, degree := range inDegree {
 		if degree == 0 {
@@ -344,14 +345,14 @@ func topologicalSort(checks []HealthCheck) ([]HealthCheck, error) {
 	}
 
 	if len(sorted) != len(checks) {
-		return nil, fmt.Errorf("检查项之间存在循环依赖")
+		return nil, fmt.Errorf("circular dependency detected among check items")
 	}
 
 	return sorted, nil
 }
 
-// shouldSkip 判断当前检查项是否应被跳过
-// 如果任一前置依赖项的状态为 Failed / Error / Skipped，则跳过当前检查项
+// shouldSkip determines whether the current check item should be skipped.
+// If any prerequisite's status is Failed / Error / Skipped, the current check is skipped.
 func shouldSkip(check HealthCheck, statusMap map[string]CheckStatus) bool {
 	for _, dep := range check.DependsOn() {
 		if status, ok := statusMap[dep]; ok {

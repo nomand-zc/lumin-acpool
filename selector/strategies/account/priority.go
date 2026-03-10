@@ -7,21 +7,21 @@ import (
 	"github.com/nomand-zc/lumin-acpool/selector"
 )
 
-// Priority 优先级选择策略
-// 选择优先级最高的候选账号；优先级相同时选第一个
+// Priority is the priority selection strategy.
+// Selects the candidate account with the highest priority; when priorities are equal, selects the first one.
 type Priority struct{}
 
-// NewPriority 创建优先级策略实例
+// NewPriority creates a priority strategy instance.
 func NewPriority() *Priority {
 	return &Priority{}
 }
 
-// Name 返回策略名称
+// Name returns the strategy name.
 func (p *Priority) Name() string {
 	return "priority"
 }
 
-// Select 选择优先级最高的账号
+// Select selects the account with the highest priority.
 func (p *Priority) Select(candidates []*account.Account, _ *selector.SelectRequest) (*account.Account, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
@@ -31,7 +31,7 @@ func (p *Priority) Select(candidates []*account.Account, _ *selector.SelectReque
 		return candidates[0], nil
 	}
 
-	// 按优先级降序排列
+	// Sort by priority descending
 	sorted := make([]*account.Account, len(candidates))
 	copy(sorted, candidates)
 	sort.SliceStable(sorted, func(i, j int) bool {

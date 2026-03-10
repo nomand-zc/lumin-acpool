@@ -6,24 +6,25 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 )
 
-// CooldownManager 冷却管理接口
-// 管理因限流等原因需要冷却的账号
+// CooldownManager is the cooldown management interface.
+// It manages accounts that need to cool down due to rate limiting or other reasons.
 type CooldownManager interface {
-	// StartCooldown 将账号设置为冷却状态
-	// until 为冷却截止时间，nil 时使用默认冷却时长
+	// StartCooldown sets the account to cooling down status.
+	// until is the cooldown expiration time; nil means using the default cooldown duration.
 	StartCooldown(acct *account.Account, until *time.Time)
 
-	// IsCooldownExpired 判断冷却是否已到期
+	// IsCooldownExpired returns whether the cooldown period has expired.
 	IsCooldownExpired(acct *account.Account) bool
 }
 
-// Config 冷却管理器配置
+// Config holds the cooldown manager configuration.
 type Config struct {
-	// DefaultDuration 默认冷却时长，当限流响应未提供冷却截止时间时使用（默认 30s）
+	// DefaultDuration is the default cooldown duration, used when the rate limit response
+	// does not provide a cooldown expiration time (default 30s).
 	DefaultDuration time.Duration
 }
 
-// DefaultConfig 返回默认的冷却管理器配置
+// DefaultConfig returns the default cooldown manager configuration.
 func DefaultConfig() Config {
 	return Config{
 		DefaultDuration: 30 * time.Second,

@@ -9,10 +9,10 @@ import (
 )
 
 // ============================================================
-// 通用类型判断与比较函数
+// Common type checking and comparison functions
 // ============================================================
 
-// valueType 返回值的类型标识
+// valueType returns the type identifier of a value.
 func valueType(value any) string {
 	switch reflect.ValueOf(value).Kind() {
 	case reflect.String:
@@ -31,7 +31,7 @@ func valueType(value any) string {
 	return ""
 }
 
-// compareString 比较两个字符串值
+// compareString compares two string values.
 func compareString(docValue any, condValue any, operator string) bool {
 	docStr, ok1 := docValue.(string)
 	condStr, ok2 := condValue.(string)
@@ -56,7 +56,7 @@ func compareString(docValue any, condValue any, operator string) bool {
 	return false
 }
 
-// compareBool 比较两个布尔值
+// compareBool compares two boolean values.
 func compareBool(docValue any, condValue any, operator string) bool {
 	docBool, ok1 := docValue.(bool)
 	condBool, ok2 := condValue.(bool)
@@ -73,7 +73,7 @@ func compareBool(docValue any, condValue any, operator string) bool {
 	return false
 }
 
-// compareTime 比较两个时间值
+// compareTime compares two time values.
 func compareTime(docValue any, condValue any, operator string) bool {
 	docTime, ok1 := toTime(docValue)
 	condTime, ok2 := toTime(condValue)
@@ -98,7 +98,7 @@ func compareTime(docValue any, condValue any, operator string) bool {
 	return false
 }
 
-// compareNumber 比较两个数值
+// compareNumber compares two numeric values.
 func compareNumber(docValue any, condValue any, operator string) bool {
 	docNum, ok1 := toFloat64(docValue)
 	condNum, ok2 := toFloat64(condValue)
@@ -124,10 +124,10 @@ func compareNumber(docValue any, condValue any, operator string) bool {
 }
 
 // ============================================================
-// 类型转换辅助函数
+// Type conversion helper functions
 // ============================================================
 
-// toFloat64 尝试将 any 转换为 float64
+// toFloat64 attempts to convert any to float64.
 func toFloat64(v any) (float64, bool) {
 	switch n := v.(type) {
 	case int:
@@ -159,7 +159,7 @@ func toFloat64(v any) (float64, bool) {
 	}
 }
 
-// toTime 尝试将 any 转换为 time.Time
+// toTime attempts to convert any to time.Time.
 func toTime(v any) (time.Time, bool) {
 	switch t := v.(type) {
 	case time.Time:
@@ -174,7 +174,7 @@ func toTime(v any) (time.Time, bool) {
 	}
 }
 
-// toStringSlice 尝试将 any 转换为 []string
+// toStringSlice attempts to convert any to []string.
 func toStringSlice(v any) ([]string, error) {
 	switch s := v.(type) {
 	case []string:

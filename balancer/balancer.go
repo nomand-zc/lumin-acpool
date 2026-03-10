@@ -7,82 +7,82 @@ import (
 	"github.com/nomand-zc/lumin-acpool/provider"
 )
 
-// Balancer 负载均衡器接口
-// 编排完整的"筛选供应商 → 选择供应商 → 筛选账号 → 选择账号"流程
-// 并管理调用结果上报（驱动熔断/冷却状态机流转）
+// Balancer is the load balancer interface.
+// It orchestrates the complete "filter providers → select provider → filter accounts → select account" flow
+// and manages call result reporting (driving circuit breaker/cooldown state transitions).
 type Balancer interface {
 
-	// Pick 从候选中选取一个可用账号，返回选中的账号和供应商信息
+	// Pick selects an available account from candidates, returning the selected account and provider info.
 	//
-	// 调度模式（由 PickRequest.ProviderKey 决定）：
-	//   模式 1 - 精确指定供应商 (ProviderKey.Type + Name 都非空)
-	//     → 直接从该供应商下的可用账号中选号
-	//   模式 2 - 按类型筛选 (仅 ProviderKey.Type 非空)
-	//     → 从该类型下所有支持 Model 的活跃供应商中，用 GroupSelector 选供应商，再选号
-	//   模式 3 - 全自动 (ProviderKey 为 nil)
-	//     → 从所有支持 Model 的活跃供应商中，用 GroupSelector 选供应商，再选号
+	// Dispatch modes (determined by PickRequest.ProviderKey):
+	//   Mode 1 - Exact provider (both ProviderKey.Type and Name are non-empty)
+	//     → Directly select from available accounts under the specified provider.
+	//   Mode 2 - Filter by type (only ProviderKey.Type is non-empty)
+	//     → Use GroupSelector to pick a provider from all active providers of that type supporting the Model, then select an account.
+	//   Mode 3 - Fully automatic (ProviderKey is nil)
+	//     → Use GroupSelector to pick a provider from all active providers supporting the Model, then select an account.
 	//
-	// 故障转移：
-	//   当 EnableFailover=true 且当前供应商下无可用账号时，
-	//   自动排除该供应商，从剩余候选中重新选择，直到成功或候选耗尽。
+	// Failover:
+	//   When EnableFailover=true and no available accounts exist under the current provider,
+	//   automatically exclude that provider and re-select from remaining candidates until success or candidates exhausted.
 	//
-	// 重试：
-	//   当 MaxRetries>0 时，选号失败后排除已尝试的账号 ID 重新选号，
-	//   直到成功或重试次数耗尽。
+	// Retry:
+	//   When MaxRetries>0, on selection failure, exclude already-tried account IDs and re-select,
+	//   until success or retries exhausted.
 	Pick(ctx context.Context, req *PickRequest) (*PickResult, error)
 
-	// ReportSuccess 上报调用成功
+	// ReportSuccess reports a successful call.
 	//
-	// 行为：
-	//   1. 更新账号统计：TotalCalls++, SuccessCalls++, ConsecutiveFailures=0
-	//   2. 通知 CircuitBreaker.RecordSuccess（如已配置）
-	//   3. 持久化到 AccountStorage
+	// Behavior:
+	//   1. Update account stats: TotalCalls++, SuccessCalls++, ConsecutiveFailures=0
+	//   2. Notify CircuitBreaker.RecordSuccess (if configured)
+	//   3. Persist to AccountStorage
 	ReportSuccess(ctx context.Context, accountID string) error
 
-	// ReportFailure 上报调用失败
+	// ReportFailure reports a failed call.
 	//
-	// 行为：
-	//   1. 更新账号统计：TotalCalls++, FailedCalls++, ConsecutiveFailures++
-	//   2. 通知 CircuitBreaker.RecordFailure（如已配置）
-	//      - 如果触发熔断 → 状态切换为 CircuitOpen，设置 CircuitOpenUntil
-	//   3. 判断是否为限流错误 → 通知 CooldownManager.StartCooldown（如已配置）
-	//      - 状态切换为 CoolingDown，设置 CooldownUntil
-	//   4. 持久化到 AccountStorage
+	// Behavior:
+	//   1. Update account stats: TotalCalls++, FailedCalls++, ConsecutiveFailures++
+	//   2. Notify CircuitBreaker.RecordFailure (if configured)
+	//      - If circuit trips → status switches to CircuitOpen, CircuitOpenUntil is set
+	//   3. Check if it's a rate limit error → Notify CooldownManager.StartCooldown (if configured)
+	//      - Status switches to CoolingDown, CooldownUntil is set
+	//   4. Persist to AccountStorage
 	//
-	// callErr: 实际调用的错误，用于判断错误类型（如限流 vs 服务端错误）
+	// callErr: the actual call error, used to determine error type (e.g., rate limit vs server error)
 	ReportFailure(ctx context.Context, accountID string, callErr error) error
 }
 
-// PickRequest 选取请求
+// PickRequest represents a selection request.
 type PickRequest struct {
-	// Model 请求的模型名称（必填）
+	// Model is the requested model name (required).
 	Model string
 
-	// ProviderKey 供应商定位（可选，指针类型）
-	//   - nil: 全自动选择
-	//   - 仅填 Type: 限定供应商类型
-	//   - Type + Name 都填: 精确指定供应商
+	// ProviderKey is the provider locator (optional, pointer type).
+	//   - nil: fully automatic selection
+	//   - Type only: restrict to provider type
+	//   - Both Type + Name: exact provider specification
 	ProviderKey *provider.ProviderKey
 
-	// Tags 标签过滤（可选）
+	// Tags is for tag-based filtering (optional).
 	Tags map[string]string
 
-	// MaxRetries 本次请求的最大重试次数（覆盖全局配置，0 = 不重试）
+	// MaxRetries is the maximum retry count for this request (overrides global config, 0 = no retry).
 	MaxRetries int
 
-	// EnableFailover 是否启用故障转移
-	// 当一个供应商下无可用账号时，自动尝试下一个候选供应商
+	// EnableFailover indicates whether to enable failover.
+	// When no available accounts exist under a provider, automatically try the next candidate provider.
 	EnableFailover bool
 }
 
-// PickResult 选取结果
+// PickResult represents the selection result.
 type PickResult struct {
-	// Account 被选中的账号（深拷贝）
+	// Account is the selected account (deep copy).
 	Account *account.Account
 
-	// ProviderKey 被选中的供应商标识
+	// ProviderKey is the identifier of the selected provider.
 	ProviderKey provider.ProviderKey
 
-	// Attempts 总尝试次数（含重试）
+	// Attempts is the total number of attempts (including retries).
 	Attempts int
 }

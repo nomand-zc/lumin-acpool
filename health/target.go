@@ -6,16 +6,16 @@ import (
 	"github.com/nomand-zc/lumin-client/credentials"
 )
 
-// defaultCheckTarget 是 CheckTarget 接口的默认实现
-// 将 Account + ProviderInstance 封装为统一的检查目标
+// defaultCheckTarget is the default implementation of the CheckTarget interface.
+// It wraps Account + ProviderInstance into a unified check target.
 type defaultCheckTarget struct {
 	acct     *account.Account
 	instance *provider.ProviderInstance
 }
 
-// NewCheckTarget 创建一个 CheckTarget 实例
-// acct: 被检查的账号
-// instance: 该账号所属供应商的运行时实例
+// NewCheckTarget creates a CheckTarget instance.
+// acct: the account to be checked.
+// instance: the runtime instance of the provider the account belongs to.
 func NewCheckTarget(acct *account.Account, instance *provider.ProviderInstance) CheckTarget {
 	return &defaultCheckTarget{
 		acct:     acct,

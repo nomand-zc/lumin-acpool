@@ -9,21 +9,21 @@ import (
 	"github.com/nomand-zc/lumin-acpool/selector"
 )
 
-// GroupPriority 供应商级优先级选择策略
-// 选择优先级最高的供应商；优先级相同时选可用账号数最多的
+// GroupPriority is the provider-level priority selection strategy.
+// Selects the provider with the highest priority; when priorities are equal, selects the one with the most available accounts.
 type GroupPriority struct{}
 
-// NewGroupPriority 创建供应商级优先级策略实例
+// NewGroupPriority creates a provider-level priority strategy instance.
 func NewGroupPriority() *GroupPriority {
 	return &GroupPriority{}
 }
 
-// Name 返回策略名称
+// Name returns the strategy name.
 func (g *GroupPriority) Name() string {
 	return "group_priority"
 }
 
-// Select 选择优先级最高的供应商
+// Select selects the provider with the highest priority.
 func (g *GroupPriority) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
@@ -32,32 +32,32 @@ func (g *GroupPriority) Select(candidates []*provider.ProviderInfo, _ *selector.
 	sorted := make([]*provider.ProviderInfo, len(candidates))
 	copy(sorted, candidates)
 	sort.SliceStable(sorted, func(i, j int) bool {
-		// 先按优先级降序
+		// Sort by priority descending first
 		if sorted[i].Priority != sorted[j].Priority {
 			return sorted[i].Priority > sorted[j].Priority
 		}
-		// 优先级相同，按可用账号数降序
+		// When priority is equal, sort by available account count descending
 		return sorted[i].AvailableAccountCount > sorted[j].AvailableAccountCount
 	})
 
 	return sorted[0], nil
 }
 
-// GroupMostAvailable 供应商级最多可用账号选择策略
-// 选择可用账号数最多的供应商，适用于希望负载均衡的场景
+// GroupMostAvailable is the provider-level most-available selection strategy.
+// Selects the provider with the most available accounts, suitable for load balancing scenarios.
 type GroupMostAvailable struct{}
 
-// NewGroupMostAvailable 创建供应商级最多可用账号策略实例
+// NewGroupMostAvailable creates a provider-level most-available strategy instance.
 func NewGroupMostAvailable() *GroupMostAvailable {
 	return &GroupMostAvailable{}
 }
 
-// Name 返回策略名称
+// Name returns the strategy name.
 func (g *GroupMostAvailable) Name() string {
 	return "group_most_available"
 }
 
-// Select 选择可用账号数最多的供应商
+// Select selects the provider with the most available accounts.
 func (g *GroupMostAvailable) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
@@ -75,21 +75,21 @@ func (g *GroupMostAvailable) Select(candidates []*provider.ProviderInfo, _ *sele
 	return best, nil
 }
 
-// GroupWeighted 供应商级加权随机选择策略
-// 按供应商权重随机选择
+// GroupWeighted is the provider-level weighted random selection strategy.
+// Randomly selects by provider weight.
 type GroupWeighted struct{}
 
-// NewGroupWeighted 创建供应商级加权随机策略实例
+// NewGroupWeighted creates a provider-level weighted random strategy instance.
 func NewGroupWeighted() *GroupWeighted {
 	return &GroupWeighted{}
 }
 
-// Name 返回策略名称
+// Name returns the strategy name.
 func (g *GroupWeighted) Name() string {
 	return "group_weighted"
 }
 
-// Select 按权重随机选择一个供应商
+// Select randomly selects a provider by weight.
 func (g *GroupWeighted) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
@@ -124,22 +124,22 @@ func (g *GroupWeighted) Select(candidates []*provider.ProviderInfo, _ *selector.
 	return candidates[len(candidates)-1], nil
 }
 
-// GroupRoundRobin 供应商级轮询选择策略
+// GroupRoundRobin is the provider-level round-robin selection strategy.
 type GroupRoundRobin struct {
 	counter uint64
 }
 
-// NewGroupRoundRobin 创建供应商级轮询策略实例
+// NewGroupRoundRobin creates a provider-level round-robin strategy instance.
 func NewGroupRoundRobin() *GroupRoundRobin {
 	return &GroupRoundRobin{}
 }
 
-// Name 返回策略名称
+// Name returns the strategy name.
 func (g *GroupRoundRobin) Name() string {
 	return "group_round_robin"
 }
 
-// Select 轮询选择一个供应商
+// Select round-robin selects a provider.
 func (g *GroupRoundRobin) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates

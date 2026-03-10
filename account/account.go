@@ -8,64 +8,64 @@ import (
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
-// Account 账号聚合根，代表一个被管理的 AI 平台账号
+// Account is the aggregate root representing a managed AI platform account.
 type Account struct {
-	// ID 账号唯一标识
+	// ID is the unique identifier of the account.
 	ID string
-	// ProviderType 供应商类型，对应 lumin-client 的 Provider.Type()，如 "kiro"
+	// ProviderType is the provider type, corresponding to lumin-client's Provider.Type(), e.g., "kiro".
 	ProviderType string
-	// ProviderName 供应商实例名称，对应 lumin-client 的 Provider.Name()，如 "kiro-team-a"
+	// ProviderName is the provider instance name, corresponding to lumin-client's Provider.Name(), e.g., "kiro-team-a".
 	ProviderName string
-	// Credential 底层凭证，对应 lumin-client 的 credentials.Credential
+	// Credential is the underlying credential, corresponding to lumin-client's credentials.Credential.
 	Credential credentials.Credential
-	// Status 当前状态
+	// Status is the current account status.
 	Status Status
-	// Priority 优先级，数值越大优先级越高（默认 0）
+	// Priority is the priority level; higher values indicate higher priority (default 0).
 	Priority int
-	// Tags 标签集合，用于灵活分类和筛选
+	// Tags is a set of tags for flexible categorization and filtering.
 	Tags map[string]string
-	// Metadata 扩展元数据，存放自定义业务字段
+	// Metadata holds extended metadata for custom business fields.
 	Metadata map[string]any
 
-	// --- 用量信息 ---
+	// --- Usage Information ---
 
-	// UsageStats 当前凭证的用量统计快照
-	// 由健康巡检定期从 lumin-client 刷新
+	// UsageStats is the current credential usage statistics snapshot,
+	// periodically refreshed from lumin-client by the health checker.
 	UsageStats []*usagerule.UsageStats
 
-	// --- 运行时统计 ---
+	// --- Runtime Statistics ---
 
-	// TotalCalls 总调用次数
+	// TotalCalls is the total number of calls.
 	TotalCalls int64
-	// SuccessCalls 成功调用次数
+	// SuccessCalls is the number of successful calls.
 	SuccessCalls int64
-	// FailedCalls 失败调用次数
+	// FailedCalls is the number of failed calls.
 	FailedCalls int64
-	// ConsecutiveFailures 当前连续失败次数（成功后重置为 0）
+	// ConsecutiveFailures is the current consecutive failure count (reset to 0 on success).
 	ConsecutiveFailures int
-	// LastUsedAt 上次被选中使用的时间
+	// LastUsedAt is the last time the account was selected for use.
 	LastUsedAt *time.Time
-	// LastErrorAt 上次调用失败的时间
+	// LastErrorAt is the last time a call failed.
 	LastErrorAt *time.Time
-	// LastErrorMsg 上次调用失败的错误信息
+	// LastErrorMsg is the error message of the last failed call.
 	LastErrorMsg string
 
-	// --- 冷却/熔断 ---
+	// --- Cooldown / Circuit Breaker ---
 
-	// CooldownUntil 冷却截止时间，仅 StatusCoolingDown 时有效
+	// CooldownUntil is the cooldown expiration time, effective only when status is StatusCoolingDown.
 	CooldownUntil *time.Time
-	// CircuitOpenUntil 熔断截止时间，仅 StatusCircuitOpen 时有效
+	// CircuitOpenUntil is the circuit breaker expiration time, effective only when status is StatusCircuitOpen.
 	CircuitOpenUntil *time.Time
 
-	// --- 时间戳 ---
+	// --- Timestamps ---
 
-	// CreatedAt 创建时间
+	// CreatedAt is the creation time.
 	CreatedAt time.Time
-	// UpdatedAt 最后更新时间
+	// UpdatedAt is the last update time.
 	UpdatedAt time.Time
 }
 
-// SuccessRate 计算成功率，无调用时返回 1.0
+// SuccessRate calculates the success rate; returns 1.0 when there are no calls.
 func (a *Account) SuccessRate() float64 {
 	if a.TotalCalls == 0 {
 		return 1.0
@@ -73,7 +73,7 @@ func (a *Account) SuccessRate() float64 {
 	return float64(a.SuccessCalls) / float64(a.TotalCalls)
 }
 
-// IsUsageLimited 判断是否有任何用量规则已触发限制
+// IsUsageLimited returns whether any usage rule has been triggered.
 func (a *Account) IsUsageLimited() bool {
 	for _, s := range a.UsageStats {
 		if s != nil && s.IsTriggered() {
@@ -83,8 +83,8 @@ func (a *Account) IsUsageLimited() bool {
 	return false
 }
 
-// UsageRemainRatio 返回最小剩余用量比例（0.0 ~ 1.0）
-// 用于选号策略中评估账号的"宽裕程度"
+// UsageRemainRatio returns the minimum remaining usage ratio (0.0 ~ 1.0),
+// used in selection strategies to evaluate the account's remaining capacity.
 func (a *Account) UsageRemainRatio() float64 {
 	minRatio := 1.0
 	for _, s := range a.UsageStats {
@@ -99,7 +99,7 @@ func (a *Account) UsageRemainRatio() float64 {
 	return minRatio
 }
 
-// IsCooldownExpired 判断冷却是否已到期
+// IsCooldownExpired returns whether the cooldown period has expired.
 func (a *Account) IsCooldownExpired() bool {
 	if a.CooldownUntil == nil {
 		return true
@@ -107,7 +107,7 @@ func (a *Account) IsCooldownExpired() bool {
 	return time.Now().After(*a.CooldownUntil)
 }
 
-// IsCircuitOpenExpired 判断熔断是否已到期（可进入半开状态）
+// IsCircuitOpenExpired returns whether the circuit breaker timeout has expired (can enter half-open state).
 func (a *Account) IsCircuitOpenExpired() bool {
 	if a.CircuitOpenUntil == nil {
 		return true
@@ -115,7 +115,7 @@ func (a *Account) IsCircuitOpenExpired() bool {
 	return time.Now().After(*a.CircuitOpenUntil)
 }
 
-// ProviderKey 返回由 ProviderType + ProviderName 组成的供应商复合键
+// ProviderKey returns the composite key composed of ProviderType and ProviderName.
 func (a *Account) ProviderKey() provider.ProviderKey {
 	return provider.BuildProviderKey(a.ProviderType, a.ProviderName)
 }

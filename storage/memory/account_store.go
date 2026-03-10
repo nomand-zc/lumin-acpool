@@ -12,19 +12,19 @@ import (
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
-// AccountStore 账号的内存存储实现
-// 使用读写锁保证并发安全，维护 ProviderKey 二级索引加速热路径查询
+// AccountStore is the in-memory storage implementation for accounts.
+// Uses a read-write lock for concurrency safety and maintains a ProviderKey secondary index for hot-path query acceleration.
 type AccountStore struct {
 	mu sync.RWMutex
-	// accounts 主存储：id -> Account
+	// accounts is the primary storage: id -> Account
 	accounts map[string]*account.Account
-	// providerIndex 二级索引：ProviderKey -> id 集合
+	// providerIndex is the secondary index: ProviderKey -> id set
 	providerIndex map[provider.ProviderKey]map[string]struct{}
-	// converter 条件转换器
+	// converter is the condition converter.
 	converter *AccountConverter
 }
 
-// NewAccountStore 创建一个新的内存账号存储实例
+// NewAccountStore creates a new in-memory account storage instance.
 func NewAccountStore() *AccountStore {
 	return &AccountStore{
 		accounts:      make(map[string]*account.Account),
@@ -91,14 +91,14 @@ func (s *AccountStore) Update(_ context.Context, acct *account.Account) error {
 		return storage.ErrNotFound
 	}
 
-	// 先从旧的索引中移除
+	// Remove from old index first
 	s.removeFromIndex(old)
 
 	stored := s.copyAccount(acct)
 	stored.UpdatedAt = time.Now()
 
 	s.accounts[acct.ID] = stored
-	// 添加到新的索引
+	// Add to new index
 	s.addToIndex(stored)
 	return nil
 }
@@ -180,14 +180,14 @@ func (s *AccountStore) CountByProvider(_ context.Context, key provider.ProviderK
 	return count, nil
 }
 
-// --- 内部辅助方法 ---
+// --- Internal helper methods ---
 
-// providerKeyOf 获取 Account 对应的 ProviderKey
+// providerKeyOf returns the ProviderKey for the given Account.
 func providerKeyOf(acct *account.Account) provider.ProviderKey {
 	return acct.ProviderKey()
 }
 
-// addToIndex 将账号添加到 ProviderKey 二级索引
+// addToIndex adds the account to the ProviderKey secondary index.
 func (s *AccountStore) addToIndex(acct *account.Account) {
 	key := providerKeyOf(acct)
 	if s.providerIndex[key] == nil {
@@ -196,7 +196,7 @@ func (s *AccountStore) addToIndex(acct *account.Account) {
 	s.providerIndex[key][acct.ID] = struct{}{}
 }
 
-// removeFromIndex 将账号从 ProviderKey 二级索引中移除
+// removeFromIndex removes the account from the ProviderKey secondary index.
 func (s *AccountStore) removeFromIndex(acct *account.Account) {
 	key := providerKeyOf(acct)
 	if ids, ok := s.providerIndex[key]; ok {
@@ -207,11 +207,11 @@ func (s *AccountStore) removeFromIndex(acct *account.Account) {
 	}
 }
 
-// copyAccount 深拷贝 Account，防止外部修改内部存储数据
+// copyAccount creates a deep copy of an Account to prevent external modification of internal stored data.
 func (s *AccountStore) copyAccount(src *account.Account) *account.Account {
 	dst := *src
 
-	// 深拷贝 Tags
+	// Deep copy Tags
 	if src.Tags != nil {
 		dst.Tags = make(map[string]string, len(src.Tags))
 		for k, v := range src.Tags {
@@ -219,7 +219,7 @@ func (s *AccountStore) copyAccount(src *account.Account) *account.Account {
 		}
 	}
 
-	// 深拷贝 Metadata
+	// Deep copy Metadata
 	if src.Metadata != nil {
 		dst.Metadata = make(map[string]any, len(src.Metadata))
 		for k, v := range src.Metadata {
@@ -227,13 +227,13 @@ func (s *AccountStore) copyAccount(src *account.Account) *account.Account {
 		}
 	}
 
-	// 深拷贝 UsageStats
+	// Deep copy UsageStats
 	if src.UsageStats != nil {
 		dst.UsageStats = make([]*usagerule.UsageStats, len(src.UsageStats))
 		copy(dst.UsageStats, src.UsageStats)
 	}
 
-	// 深拷贝时间指针
+	// Deep copy time pointers
 	if src.LastUsedAt != nil {
 		t := *src.LastUsedAt
 		dst.LastUsedAt = &t

@@ -3,8 +3,8 @@ package storage
 import "errors"
 
 var (
-	// ErrNotFound 资源不存在
+	// ErrNotFound indicates that the resource does not exist.
 	ErrNotFound = errors.New("storage: not found")
-	// ErrAlreadyExists 资源已存在（主键冲突）
+	// ErrAlreadyExists indicates that the resource already exists (primary key conflict).
 	ErrAlreadyExists = errors.New("storage: already exists")
 )

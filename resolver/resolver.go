@@ -7,38 +7,38 @@ import (
 	"github.com/nomand-zc/lumin-acpool/provider"
 )
 
-// Resolver 解析器接口
-// 负责从存储中解析出可用的供应商和账号列表
-// 对标微服务架构中的 Service Discovery / Resolver 层
+// Resolver is the resolver interface.
+// Responsible for resolving available providers and accounts from storage.
+// Analogous to the Service Discovery / Resolver layer in microservice architectures.
 type Resolver interface {
-	// ResolveProvider 精确解析指定供应商
+	// ResolveProvider resolves a specific provider exactly.
 	//
-	// 参数:
-	//   key   - 供应商标识（Type + Name）
-	//   model - 请求的模型名称，用于校验供应商是否支持该模型
+	// Parameters:
+	//   key   - provider identifier (Type + Name)
+	//   model - the requested model name, used to verify provider support for the model
 	//
-	// 返回:
-	//   匹配的供应商信息；供应商不存在、不活跃或不支持该模型时返回对应错误
+	// Returns:
+	//   matching provider info; returns corresponding error if provider doesn't exist, is inactive, or doesn't support the model
 	ResolveProvider(ctx context.Context, key provider.ProviderKey, model string) (*provider.ProviderInfo, error)
 
-	// ResolveProviders 解析出支持指定模型的活跃供应商
+	// ResolveProviders resolves active providers that support the specified model.
 	//
-	// 参数:
-	//   model        - 请求的模型名称
-	//   providerType - 供应商类型过滤（空字符串表示不限制）
+	// Parameters:
+	//   model        - the requested model name
+	//   providerType - provider type filter (empty string means no restriction)
 	//
-	// 返回:
-	//   匹配条件的供应商列表；无匹配时返回空切片
+	// Returns:
+	//   list of matching providers; returns empty slice when no matches
 	ResolveProviders(ctx context.Context, model string, providerType string) ([]*provider.ProviderInfo, error)
 
-	// ResolveAccounts 解析出指定供应商下的可用账号
+	// ResolveAccounts resolves available accounts under the specified provider.
 	//
-	// 参数:
-	//   key  - 供应商标识
-	//   tags - 标签过滤条件（nil 表示不限制）
-	//   excludeIDs - 需要排除的账号 ID 列表
+	// Parameters:
+	//   key        - provider identifier
+	//   tags       - tag filter conditions (nil means no restriction)
+	//   excludeIDs - list of account IDs to exclude
 	//
-	// 返回:
-	//   匹配条件的账号列表；无匹配时返回空切片
+	// Returns:
+	//   list of matching accounts; returns empty slice when no matches
 	ResolveAccounts(ctx context.Context, key provider.ProviderKey, tags map[string]string, excludeIDs []string) ([]*account.Account, error)
 }

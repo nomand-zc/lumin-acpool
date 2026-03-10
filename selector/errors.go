@@ -3,10 +3,10 @@ package selector
 import "errors"
 
 var (
-	// ErrNoAvailableAccount 没有可用的候选账号
+	// ErrNoAvailableAccount indicates that no available candidate account was found.
 	ErrNoAvailableAccount = errors.New("selector: no available account")
-	// ErrNoAvailableProvider 没有可用的候选供应商
+	// ErrNoAvailableProvider indicates that no available candidate provider was found.
 	ErrNoAvailableProvider = errors.New("selector: no available provider")
-	// ErrEmptyCandidates 候选列表为空
+	// ErrEmptyCandidates indicates that the candidate list is empty.
 	ErrEmptyCandidates = errors.New("selector: empty candidates")
 )

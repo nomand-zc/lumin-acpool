@@ -18,12 +18,12 @@ const (
 	UsageStatKey = "usage_stats"
 )
 
-// UsageQuotaCheck 剩余额度检查
-// 调用 lumin-client 的 GetUsageStats 获取最新用量数据
-// 依赖凭证有效性检查（凭证无效时无法查用量）
+// UsageQuotaCheck performs remaining quota checking.
+// Calls lumin-client's GetUsageStats to obtain the latest usage data.
+// Depends on credential validity check (cannot query usage with invalid credentials).
 type UsageQuotaCheck struct {
-	// WarningThreshold 告警阈值（0.0~1.0），当剩余比例低于此值时返回 Warning
-	// 默认 0.1（剩余 10% 时告警）
+	// WarningThreshold is the warning threshold (0.0~1.0); returns Warning when remaining ratio is below this value.
+	// Default: 0.1 (warn when 10% remaining).
 	WarningThreshold float64
 }
 
@@ -42,28 +42,28 @@ func (c *UsageQuotaCheck) DependsOn() []string {
 func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) *health.CheckResult {
 	start := time.Now()
 
-	// 调用 lumin-client 获取最新用量
+	// Call lumin-client to get the latest usage
 	stats, err := target.ProviderInstance().Client.GetUsageStats(ctx, target.Credential())
 	if err != nil {
 		return &health.CheckResult{
 			CheckName: UsageQuotaCheckName,
 			Status:    health.CheckError,
 			Severity:  health.SeverityCritical,
-			Message:   "获取用量信息失败: " + err.Error(),
+			Message:   "failed to get usage info: " + err.Error(),
 			Duration:  time.Since(start),
 			Timestamp: time.Now(),
 		}
 	}
 
-	// 将最新 UsageStats 放入 Data，供上层回写到 Account
+	// Place the latest UsageStats in Data for the upper layer to write back to Account
 	data := map[string]any{UsageStatKey: stats}
 	minRatio := 1.0
 
-	// 检查是否有用量规则触发了限制
+	// Check if any usage rule has been triggered
 	for _, s := range stats {
 		if s != nil && s.IsTriggered() {
 			status := account.StatusCoolingDown
-			// 尝试获取下一个窗口的开始时间作为冷却截止时间
+			// Try to get the start time of the next window as cooldown expiration
 			if s.EndTime != nil {
 				data[CooldownUntilKey] = s.EndTime
 			}
@@ -71,7 +71,7 @@ func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) 
 				CheckName:       UsageQuotaCheckName,
 				Status:          health.CheckFailed,
 				Severity:        health.SeverityCritical,
-				Message:         fmt.Sprintf("用量已耗尽 (已用: %.2f, 剩余: %.2f)", s.Used, s.Remain),
+				Message:         fmt.Sprintf("usage exhausted (used: %.2f, remaining: %.2f)", s.Used, s.Remain),
 				SuggestedStatus: &status,
 				Data:            data,
 				Duration:        time.Since(start),
@@ -79,7 +79,7 @@ func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) 
 			}
 		}
 
-		// 计算最小剩余比例
+		// Calculate minimum remaining ratio
 		if s != nil && s.Rule != nil && s.Rule.Total > 0 {
 			ratio := s.Remain / s.Rule.Total
 			if ratio < minRatio {
@@ -88,14 +88,14 @@ func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) 
 		}
 	}
 
-	// 检查是否接近耗尽
+	// Check if nearing exhaustion
 	threshold := utils.If(c.WarningThreshold <= 0, defaultWarningThreshold, c.WarningThreshold)
 	if minRatio < threshold {
 		return &health.CheckResult{
 			CheckName: UsageQuotaCheckName,
 			Status:    health.CheckWarning,
 			Severity:  health.SeverityCritical,
-			Message:   fmt.Sprintf("用量即将耗尽 (剩余 %.1f%%)", minRatio*100),
+			Message:   fmt.Sprintf("usage is about to be exhausted (%.1f%% remaining)", minRatio*100),
 			Data:      data,
 			Duration:  time.Since(start),
 			Timestamp: time.Now(),
@@ -106,7 +106,7 @@ func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) 
 		CheckName: UsageQuotaCheckName,
 		Status:    health.CheckPassed,
 		Severity:  health.SeverityCritical,
-		Message:   fmt.Sprintf("用量充足 (剩余 %.1f%%)", minRatio*100),
+		Message:   fmt.Sprintf("usage is sufficient (%.1f%% remaining)", minRatio*100),
 		Data:      data,
 		Duration:  time.Since(start),
 		Timestamp: time.Now(),

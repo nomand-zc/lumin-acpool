@@ -12,13 +12,13 @@ import (
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
-// storageResolver 基于 Storage 的 Resolver 默认实现
+// storageResolver is the default implementation of Resolver based on Storage.
 type storageResolver struct {
 	providerStorage storage.ProviderStorage
 	accountStorage  storage.AccountStorage
 }
 
-// NewStorageResolver 创建基于 Storage 的解析器实例
+// NewStorageResolver creates a Storage-based resolver instance.
 func NewStorageResolver(providerStorage storage.ProviderStorage, accountStorage storage.AccountStorage) Resolver {
 	return &storageResolver{
 		providerStorage: providerStorage,
@@ -26,7 +26,7 @@ func NewStorageResolver(providerStorage storage.ProviderStorage, accountStorage 
 	}
 }
 
-// ResolveProvider 精确解析指定供应商
+// ResolveProvider resolves the specified provider exactly.
 func (r *storageResolver) ResolveProvider(ctx context.Context, key provider.ProviderKey, model string) (*provider.ProviderInfo, error) {
 	provInfo, err := r.providerStorage.Get(ctx, key)
 	if err != nil {
@@ -36,12 +36,12 @@ func (r *storageResolver) ResolveProvider(ctx context.Context, key provider.Prov
 		return nil, fmt.Errorf("resolver: get provider: %w", err)
 	}
 
-	// 校验供应商是否活跃
+	// Verify if the provider is active
 	if !provInfo.IsActive() {
 		return nil, ErrProviderInactive
 	}
 
-	// 校验供应商是否支持该模型
+	// Verify if the provider supports the model
 	if !provInfo.SupportsModel(model) {
 		return nil, ErrModelNotSupported
 	}
@@ -49,21 +49,21 @@ func (r *storageResolver) ResolveProvider(ctx context.Context, key provider.Prov
 	return provInfo, nil
 }
 
-// ResolveProviders 从存储中解析出支持指定模型的活跃供应商
+// ResolveProviders resolves active providers that support the specified model from storage.
 func (r *storageResolver) ResolveProviders(ctx context.Context, model string, providerType string) ([]*provider.ProviderInfo, error) {
-	// 活跃状态过滤
+	// Active status filter
 	statusFilter := filtercond.In(storage.ProviderFieldStatus, int(provider.ProviderStatusActive), int(provider.ProviderStatusDegraded))
 
 	var filter *filtercond.Filter
 	if providerType != "" {
-		// 按类型 + 活跃状态 + 支持指定模型
+		// Filter by type + active status + supports specified model
 		filter = filtercond.And(
 			filtercond.Equal(storage.ProviderFieldType, providerType),
 			statusFilter,
 			filtercond.Equal(storage.ProviderFieldSupportedModel, model),
 		)
 	} else {
-		// 全自动，按模型 + 活跃状态
+		// Fully automatic, by model + active status
 		filter = filtercond.And(
 			filtercond.Equal(storage.ProviderFieldSupportedModel, model),
 			statusFilter,
@@ -77,9 +77,9 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 	return candidates, nil
 }
 
-// ResolveAccounts 从存储中解析出指定供应商下的可用账号
+// ResolveAccounts resolves available accounts under the specified provider from storage.
 func (r *storageResolver) ResolveAccounts(ctx context.Context, key provider.ProviderKey, tags map[string]string, excludeIDs []string) ([]*account.Account, error) {
-	// 只查指定供应商下可用状态的账号
+	// Only query available accounts under the specified provider
 	filter := filtercond.And(
 		filtercond.Equal(storage.AccountFieldProviderType, key.Type),
 		filtercond.Equal(storage.AccountFieldProviderName, key.Name),
@@ -91,12 +91,12 @@ func (r *storageResolver) ResolveAccounts(ctx context.Context, key provider.Prov
 		return nil, fmt.Errorf("resolver: search accounts: %w", err)
 	}
 
-	// 过滤掉排除的账号 ID
+	// Filter out excluded account IDs
 	if len(excludeIDs) > 0 {
 		accounts = filterExcluded(accounts, excludeIDs)
 	}
 
-	// 按标签过滤
+	// Filter by tags
 	if len(tags) > 0 {
 		accounts = filterByTags(accounts, tags)
 	}
@@ -104,7 +104,7 @@ func (r *storageResolver) ResolveAccounts(ctx context.Context, key provider.Prov
 	return accounts, nil
 }
 
-// filterExcluded 过滤掉指定 ID 的账号
+// filterExcluded filters out accounts with specified IDs.
 func filterExcluded(accounts []*account.Account, excludeIDs []string) []*account.Account {
 	var result []*account.Account
 	for _, acct := range accounts {
@@ -115,7 +115,7 @@ func filterExcluded(accounts []*account.Account, excludeIDs []string) []*account
 	return result
 }
 
-// filterByTags 按标签过滤账号（必须包含所有指定的标签键值对）
+// filterByTags filters accounts by tags (must contain all specified tag key-value pairs).
 func filterByTags(accounts []*account.Account, tags map[string]string) []*account.Account {
 	var result []*account.Account
 	for _, acct := range accounts {
@@ -126,7 +126,7 @@ func filterByTags(accounts []*account.Account, tags map[string]string) []*accoun
 	return result
 }
 
-// matchTags 判断 accountTags 是否包含所有 requiredTags
+// matchTags checks if accountTags contains all requiredTags.
 func matchTags(accountTags, requiredTags map[string]string) bool {
 	if len(requiredTags) == 0 {
 		return true

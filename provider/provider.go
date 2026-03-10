@@ -9,21 +9,21 @@ import (
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
-// ProviderKey 供应商两级标识，Type + Name 唯一确定一个供应商分组
+// ProviderKey is the two-level identifier for a provider; Type + Name uniquely identifies a provider group.
 type ProviderKey struct {
-	// Type 供应商类型，对应 lumin-client 的 Provider.Type()，如 "kiro"
+	// Type is the provider type, corresponding to lumin-client's Provider.Type(), e.g., "kiro".
 	Type string
-	// Name 供应商实例名称，对应 lumin-client 的 Provider.Name()，如 "kiro-team-a"
+	// Name is the provider instance name, corresponding to lumin-client's Provider.Name(), e.g., "kiro-team-a".
 	Name string
 }
 
-// String 返回 "type/name" 格式的字符串表示
+// String returns a "type/name" formatted string representation.
 func (pk ProviderKey) String() string {
 	return pk.Type + "/" + pk.Name
 }
 
-// BuildProviderKey 创建一个 ProviderKey 实例
-// 统一构建入口，避免外部直接使用字面量构造
+// BuildProviderKey creates a ProviderKey instance.
+// Provides a unified construction entry point to avoid direct literal construction externally.
 func BuildProviderKey(providerType, providerName string) ProviderKey {
 	return ProviderKey{
 		Type: providerType,
@@ -31,74 +31,74 @@ func BuildProviderKey(providerType, providerName string) ProviderKey {
 	}
 }
 
-// ProviderStatus 供应商状态
+// ProviderStatus represents the provider status.
 type ProviderStatus int
 
 const (
-	// ProviderStatusActive 正常启用
+	// ProviderStatusActive means the provider is active and enabled.
 	ProviderStatusActive ProviderStatus = 1
-	// ProviderStatusDisabled 手动禁用
+	// ProviderStatusDisabled means the provider is manually disabled.
 	ProviderStatusDisabled ProviderStatus = 2
-	// ProviderStatusDegraded 降级（部分模型不可用或用量紧张）
+	// ProviderStatusDegraded means the provider is degraded (some models unavailable or usage tight).
 	ProviderStatusDegraded ProviderStatus = 3
 )
 
-// ProviderInfo 供应商元数据，描述一个 Provider 实例的静态信息和运行时状态
+// ProviderInfo holds provider metadata, describing the static info and runtime status of a Provider instance.
 type ProviderInfo struct {
-	// ProviderType 供应商类型，对应 lumin-client 的 Provider.Type()，如 "kiro"
+	// ProviderType is the provider type, corresponding to lumin-client's Provider.Type(), e.g., "kiro".
 	ProviderType string
-	// ProviderName 供应商实例名称，对应 lumin-client 的 Provider.Name()，如 "kiro-team-a"
+	// ProviderName is the provider instance name, corresponding to lumin-client's Provider.Name(), e.g., "kiro-team-a".
 	ProviderName string
-	// Status 当前状态
+	// Status is the current status.
 	Status ProviderStatus
-	// Priority 优先级，数值越大优先级越高（默认 0）
+	// Priority is the priority level; higher values indicate higher priority (default 0).
 	Priority int
-	// Weight 权重，用于加权选择（默认 1）
+	// Weight is used for weighted selection (default 1).
 	Weight int
-	// Tags 标签集合，用于分类筛选
+	// Tags is a set of tags for categorization and filtering.
 	Tags map[string]string
-	// SupportedModels 该供应商支持的模型列表
+	// SupportedModels is the list of models supported by this provider.
 	SupportedModels []string
-	// UsageRules 该供应商关联的用量规则（从 lumin-client 获取后存储）
+	// UsageRules are the usage rules associated with this provider (obtained from lumin-client and stored).
 	UsageRules []*usagerule.UsageRule
-	// Metadata 扩展元数据
+	// Metadata holds extended metadata.
 	Metadata map[string]any
 
-	// --- 运行时统计 ---
+	// --- Runtime Statistics ---
 
-	// AccountCount 该分组下的账号总数
+	// AccountCount is the total number of accounts in this group.
 	AccountCount int
-	// AvailableAccountCount 可用账号数量
+	// AvailableAccountCount is the number of available accounts.
 	AvailableAccountCount int
 
-	// --- 时间戳 ---
+	// --- Timestamps ---
 
-	// CreatedAt 创建时间
+	// CreatedAt is the creation time.
 	CreatedAt time.Time
-	// UpdatedAt 最后更新时间
+	// UpdatedAt is the last update time.
 	UpdatedAt time.Time
 }
 
-// ProviderKey 返回由 ProviderType + ProviderName 组成的复合键
+// ProviderKey returns the composite key composed of ProviderType and ProviderName.
 func (p *ProviderInfo) ProviderKey() ProviderKey {
 	return BuildProviderKey(p.ProviderType, p.ProviderName)
 }
 
-// SupportsModel 判断该供应商是否支持指定模型
+// SupportsModel returns whether this provider supports the specified model.
 func (p *ProviderInfo) SupportsModel(model string) bool {
 	return slices.Contains(p.SupportedModels, model)
 }
 
-// IsActive 判断供应商是否处于活跃状态
+// IsActive returns whether the provider is in an active state.
 func (p *ProviderInfo) IsActive() bool {
 	return p.Status == ProviderStatusActive || p.Status == ProviderStatusDegraded
 }
 
-// Clone 深拷贝 ProviderInfo，防止外部修改内部存储数据
+// Clone creates a deep copy of ProviderInfo to prevent external modification of internal stored data.
 func (p *ProviderInfo) Clone() *ProviderInfo {
 	dst := *p
 
-	// 深拷贝 Tags
+	// Deep copy Tags
 	if p.Tags != nil {
 		dst.Tags = make(map[string]string, len(p.Tags))
 		for k, v := range p.Tags {
@@ -106,19 +106,19 @@ func (p *ProviderInfo) Clone() *ProviderInfo {
 		}
 	}
 
-	// 深拷贝 SupportedModels
+	// Deep copy SupportedModels
 	if p.SupportedModels != nil {
 		dst.SupportedModels = make([]string, len(p.SupportedModels))
 		copy(dst.SupportedModels, p.SupportedModels)
 	}
 
-	// 深拷贝 UsageRules
+	// Deep copy UsageRules
 	if p.UsageRules != nil {
 		dst.UsageRules = make([]*usagerule.UsageRule, len(p.UsageRules))
 		copy(dst.UsageRules, p.UsageRules)
 	}
 
-	// 深拷贝 Metadata
+	// Deep copy Metadata
 	if p.Metadata != nil {
 		dst.Metadata = make(map[string]any, len(p.Metadata))
 		maps.Copy(dst.Metadata, p.Metadata)
@@ -127,11 +127,11 @@ func (p *ProviderInfo) Clone() *ProviderInfo {
 	return &dst
 }
 
-// ProviderInstance 供应商运行时实例
-// 将元数据（ProviderInfo）和底层 SDK 实例（providers.Provider）绑定在一起
+// ProviderInstance is a provider runtime instance.
+// It binds the metadata (ProviderInfo) with the underlying SDK instance (providers.Provider).
 type ProviderInstance struct {
-	// Info 供应商元数据
+	// Info holds the provider metadata.
 	Info *ProviderInfo
-	// Client 底层 lumin-client 的 Provider 实例，用于实际的 API 调用
+	// Client is the underlying lumin-client Provider instance, used for actual API calls.
 	Client providers.Provider
 }

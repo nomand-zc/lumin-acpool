@@ -1,61 +1,61 @@
 package storage
 
-// Account 可过滤字段常量
+// Account filterable field constants.
 const (
-	// AccountFieldID 账号 ID
+	// AccountFieldID is the account ID.
 	AccountFieldID = "id"
-	// AccountFieldProviderType 供应商类型
+	// AccountFieldProviderType is the provider type.
 	AccountFieldProviderType = "provider_type"
-	// AccountFieldProviderName 供应商实例名称
+	// AccountFieldProviderName is the provider instance name.
 	AccountFieldProviderName = "provider_name"
-	// AccountFieldStatus 账号状态
+	// AccountFieldStatus is the account status.
 	AccountFieldStatus = "status"
-	// AccountFieldPriority 优先级
+	// AccountFieldPriority is the priority.
 	AccountFieldPriority = "priority"
-	// AccountFieldTotalCalls 总调用次数
+	// AccountFieldTotalCalls is the total call count.
 	AccountFieldTotalCalls = "total_calls"
-	// AccountFieldSuccessCalls 成功调用次数
+	// AccountFieldSuccessCalls is the successful call count.
 	AccountFieldSuccessCalls = "success_calls"
-	// AccountFieldFailedCalls 失败调用次数
+	// AccountFieldFailedCalls is the failed call count.
 	AccountFieldFailedCalls = "failed_calls"
-	// AccountFieldConsecutiveFailures 连续失败次数
+	// AccountFieldConsecutiveFailures is the consecutive failure count.
 	AccountFieldConsecutiveFailures = "consecutive_failures"
-	// AccountFieldLastUsedAt 上次使用时间
+	// AccountFieldLastUsedAt is the last used time.
 	AccountFieldLastUsedAt = "last_used_at"
-	// AccountFieldLastErrorAt 上次调用失败时间
+	// AccountFieldLastErrorAt is the last call failure time.
 	AccountFieldLastErrorAt = "last_error_at"
-	// AccountFieldLastErrorMsg 上次调用失败错误信息
+	// AccountFieldLastErrorMsg is the last call failure error message.
 	AccountFieldLastErrorMsg = "last_error_msg"
-	// AccountFieldCooldownUntil 冷却截止时间
+	// AccountFieldCooldownUntil is the cooldown expiration time.
 	AccountFieldCooldownUntil = "cooldown_until"
-	// AccountFieldCircuitOpenUntil 熔断截止时间
+	// AccountFieldCircuitOpenUntil is the circuit breaker expiration time.
 	AccountFieldCircuitOpenUntil = "circuit_open_until"
-	// AccountFieldCreatedAt 创建时间
+	// AccountFieldCreatedAt is the creation time.
 	AccountFieldCreatedAt = "created_at"
-	// AccountFieldUpdatedAt 最后更新时间
+	// AccountFieldUpdatedAt is the last update time.
 	AccountFieldUpdatedAt = "updated_at"
 )
 
-// ProviderInfo 可过滤字段常量
+// ProviderInfo filterable field constants.
 const (
-	// ProviderFieldType 供应商类型
+	// ProviderFieldType is the provider type.
 	ProviderFieldType = "provider_type"
-	// ProviderFieldName 供应商实例名称
+	// ProviderFieldName is the provider instance name.
 	ProviderFieldName = "provider_name"
-	// ProviderFieldStatus 供应商状态
+	// ProviderFieldStatus is the provider status.
 	ProviderFieldStatus = "provider_status"
-	// ProviderFieldPriority 优先级
+	// ProviderFieldPriority is the priority.
 	ProviderFieldPriority = "priority"
-	// ProviderFieldWeight 权重
+	// ProviderFieldWeight is the weight.
 	ProviderFieldWeight = "weight"
-	// ProviderFieldSupportedModel 支持的模型
+	// ProviderFieldSupportedModel is the supported model.
 	ProviderFieldSupportedModel = "supported_model"
-	// ProviderFieldAccountCount 账号总数
+	// ProviderFieldAccountCount is the total account count.
 	ProviderFieldAccountCount = "account_count"
-	// ProviderFieldAvailableAccountCount 可用账号数
+	// ProviderFieldAvailableAccountCount is the available account count.
 	ProviderFieldAvailableAccountCount = "available_account_count"
-	// ProviderFieldCreatedAt 创建时间
+	// ProviderFieldCreatedAt is the creation time.
 	ProviderFieldCreatedAt = "created_at"
-	// ProviderFieldUpdatedAt 最后更新时间
+	// ProviderFieldUpdatedAt is the last update time.
 	ProviderFieldUpdatedAt = "updated_at"
 )

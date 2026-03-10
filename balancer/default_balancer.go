@@ -14,24 +14,24 @@ import (
 	"github.com/nomand-zc/lumin-acpool/storage"
 )
 
-// defaultBalancer Balancer 接口的默认实现
+// defaultBalancer is the default implementation of the Balancer interface.
 type defaultBalancer struct {
 	opts Options
 }
 
-// New 创建负载均衡器实例
+// New creates a load balancer instance.
 func New(opts ...Option) (Balancer, error) {
 	o := defaultOptions
 	for _, opt := range opts {
 		opt(&o)
 	}
 
-	// 校验必填依赖：AccountStorage 始终需要（用于 ReportSuccess/ReportFailure）
+	// Validate required dependencies: AccountStorage is always needed (for ReportSuccess/ReportFailure)
 	if o.AccountStorage == nil {
 		return nil, fmt.Errorf("balancer: AccountStorage is required")
 	}
 
-	// 如果未设置 Resolver，使用基于 Storage 的默认实现（需要 ProviderStorage）
+	// If Resolver is not set, use the default Storage-based implementation (requires ProviderStorage)
 	if o.Resolver == nil {
 		if o.ProviderStorage == nil {
 			return nil, fmt.Errorf("balancer: either Resolver or ProviderStorage is required")
@@ -42,20 +42,20 @@ func New(opts ...Option) (Balancer, error) {
 	return &defaultBalancer{opts: o}, nil
 }
 
-// Pick 执行一次选取
+// Pick performs a single selection.
 func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResult, error) {
 	if req.Model == "" {
 		return nil, ErrModelRequired
 	}
 
-	// 构建 SelectRequest（后续传递给 Selector/GroupSelector）
+	// Build SelectRequest (to be passed to Selector/GroupSelector)
 	selReq := &selector.SelectRequest{
 		Model:       req.Model,
 		ProviderKey: req.ProviderKey,
 		Tags:        req.Tags,
 	}
 
-	// 确定最大重试次数
+	// Determine the maximum retry count
 	maxRetries := req.MaxRetries
 	if maxRetries <= 0 {
 		maxRetries = b.opts.DefaultMaxRetries
@@ -63,7 +63,7 @@ func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResu
 
 	enableFailover := req.EnableFailover || b.opts.DefaultEnableFailover
 
-	// 根据 ProviderKey 的三态决定调度模式
+	// Determine dispatch mode based on the three states of ProviderKey
 	switch {
 	case selReq.IsExactProvider():
 		return b.pickExact(ctx, selReq, maxRetries)
@@ -72,9 +72,9 @@ func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResu
 	}
 }
 
-// pickExact 模式 1: 精确指定供应商
+// pickExact handles Mode 1: exact provider specification.
 func (b *defaultBalancer) pickExact(ctx context.Context, selReq *selector.SelectRequest, maxRetries int) (*PickResult, error) {
-	// 通过 Resolver 解析供应商（统一校验存在性、活跃状态、模型支持）
+	// Resolve provider via Resolver (unified validation of existence, active status, and model support)
 	provInfo, err := b.opts.Resolver.ResolveProvider(ctx, *selReq.ProviderKey, selReq.Model)
 	if err != nil {
 		switch {
@@ -89,13 +89,13 @@ func (b *defaultBalancer) pickExact(ctx context.Context, selReq *selector.Select
 		}
 	}
 
-	// 从该供应商下选号（带重试）
+	// Select an account from this provider (with retry)
 	return b.selectAccountFromProvider(ctx, provInfo, selReq, maxRetries)
 }
 
-// pickAuto 模式 2/3: 按类型或全自动选择
+// pickAuto handles Mode 2/3: selection by type or fully automatic.
 func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectRequest, maxRetries int, enableFailover bool) (*PickResult, error) {
-	// 通过 Resolver 解析候选供应商列表
+	// Resolve candidate provider list via Resolver
 	providerType := ""
 	if selReq.IsProviderTypeOnly() {
 		providerType = selReq.ProviderKey.Type
@@ -109,32 +109,32 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 		return nil, ErrModelNotSupported
 	}
 
-	// 排除已尝试的供应商（故障转移场景）
+	// Exclude already-tried providers (failover scenario)
 	var excludeProviderKeys []provider.ProviderKey
 
 	for {
-		// 过滤掉已排除的供应商
+		// Filter out excluded providers
 		filtered := filterProviders(candidates, excludeProviderKeys)
 		if len(filtered) == 0 {
 			return nil, ErrNoAvailableProvider
 		}
 
-		// 使用 GroupSelector 选供应商
+		// Use GroupSelector to select a provider
 		chosen, err := b.opts.GroupSelector.Select(filtered, selReq)
 		if err != nil {
 			return nil, fmt.Errorf("balancer: group select: %w", err)
 		}
 
-		// 从该供应商下选号
+		// Select an account from this provider
 		result, err := b.selectAccountFromProvider(ctx, chosen, selReq, maxRetries)
 		if err == nil {
 			return result, nil
 		}
 
-		// 如果选号失败且启用了故障转移，排除该供应商后重试
+		// If selection failed and failover is enabled, exclude this provider and retry
 		if enableFailover && (errors.Is(err, ErrNoAvailableAccount) || errors.Is(err, ErrMaxRetriesExceeded)) {
 			excludeProviderKeys = append(excludeProviderKeys, chosen.ProviderKey())
-			// 重置 ExcludeAccountIDs（换供应商后不需要排除之前供应商的账号）
+			// Reset ExcludeAccountIDs (no need to exclude accounts from previous provider after switching)
 			selReq.ExcludeAccountIDs = nil
 			continue
 		}
@@ -143,30 +143,30 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 	}
 }
 
-// selectAccountFromProvider 从指定供应商下选号（带重试）
+// selectAccountFromProvider selects an account from the specified provider (with retry).
 func (b *defaultBalancer) selectAccountFromProvider(
 	ctx context.Context,
 	provInfo *provider.ProviderInfo,
 	selReq *selector.SelectRequest,
 	maxRetries int,
 ) (*PickResult, error) {
-	// 保存原始的 ExcludeAccountIDs
+	// Save the original ExcludeAccountIDs
 	originalExclude := selReq.ExcludeAccountIDs
 
 	for i := 0; i <= maxRetries; i++ {
-		// 通过 Resolver 解析该供应商下可用的账号
+		// Resolve available accounts under this provider via Resolver
 		accounts, err := b.opts.Resolver.ResolveAccounts(ctx, provInfo.ProviderKey(), selReq.Tags, selReq.ExcludeAccountIDs)
 		if err != nil {
 			return nil, fmt.Errorf("balancer: resolve accounts: %w", err)
 		}
 
 		if len(accounts) == 0 {
-			// 恢复原始排除列表
+			// Restore the original exclude list
 			selReq.ExcludeAccountIDs = originalExclude
 			return nil, ErrNoAvailableAccount
 		}
 
-		// 使用 Selector 选账号
+		// Use Selector to select an account
 		chosen, err := b.opts.Selector.Select(accounts, selReq)
 		if err != nil {
 			if errors.Is(err, selector.ErrEmptyCandidates) || errors.Is(err, selector.ErrNoAvailableAccount) {
@@ -176,7 +176,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 			return nil, fmt.Errorf("balancer: select account: %w", err)
 		}
 
-		// 更新 LastUsedAt
+		// Update LastUsedAt
 		now := time.Now()
 		chosen.LastUsedAt = &now
 		chosen.UpdatedAt = now
@@ -184,7 +184,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 			return nil, fmt.Errorf("balancer: update last used: %w", err)
 		}
 
-		// 恢复排除列表
+		// Restore the exclude list
 		selReq.ExcludeAccountIDs = originalExclude
 
 		return &PickResult{
@@ -197,7 +197,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 	return nil, nil
 }
 
-// ReportSuccess 上报调用成功
+// ReportSuccess reports a successful call.
 func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) error {
 	acct, err := b.opts.AccountStorage.Get(ctx, accountID)
 	if err != nil {
@@ -207,19 +207,19 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 		return fmt.Errorf("balancer: get account: %w", err)
 	}
 
-	// 更新统计
+	// Update statistics
 	acct.TotalCalls++
 	acct.SuccessCalls++
 	acct.ConsecutiveFailures = 0
 	now := time.Now()
 	acct.UpdatedAt = now
 
-	// 通知熔断器
+	// Notify circuit breaker
 	if b.opts.CircuitBreaker != nil {
 		b.opts.CircuitBreaker.RecordSuccess(acct)
 	}
 
-	// 持久化
+	// Persist
 	if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
 		return fmt.Errorf("balancer: update account: %w", err)
 	}
@@ -227,7 +227,7 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 	return nil
 }
 
-// ReportFailure 上报调用失败
+// ReportFailure reports a failed call.
 func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, callErr error) error {
 	acct, err := b.opts.AccountStorage.Get(ctx, accountID)
 	if err != nil {
@@ -237,7 +237,7 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		return fmt.Errorf("balancer: get account: %w", err)
 	}
 
-	// 更新统计
+	// Update statistics
 	acct.TotalCalls++
 	acct.FailedCalls++
 	acct.ConsecutiveFailures++
@@ -248,20 +248,20 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		acct.LastErrorMsg = callErr.Error()
 	}
 
-	// 判断是否为限流错误，优先处理冷却
+	// Check if it's a rate limit error, prioritize cooldown handling
 	if isRateLimitError(callErr) && b.opts.CooldownManager != nil {
 		retryAfter := extractRetryAfter(callErr)
 		b.opts.CooldownManager.StartCooldown(acct, retryAfter)
 		acct.Status = account.StatusCoolingDown
 	} else if b.opts.CircuitBreaker != nil {
-		// 通知熔断器
+		// Notify circuit breaker
 		tripped := b.opts.CircuitBreaker.RecordFailure(acct)
 		if tripped {
 			acct.Status = account.StatusCircuitOpen
 		}
 	}
 
-	// 持久化
+	// Persist
 	if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
 		return fmt.Errorf("balancer: update account: %w", err)
 	}
@@ -269,9 +269,9 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 	return nil
 }
 
-// --- 辅助函数 ---
+// --- Helper functions ---
 
-// filterProviders 过滤掉已排除的供应商
+// filterProviders filters out excluded providers.
 func filterProviders(candidates []*provider.ProviderInfo, excludeKeys []provider.ProviderKey) []*provider.ProviderInfo {
 	if len(excludeKeys) == 0 {
 		return candidates
@@ -292,7 +292,7 @@ func filterProviders(candidates []*provider.ProviderInfo, excludeKeys []provider
 	return result
 }
 
-// deepCopyAccount 深拷贝账号对象
+// deepCopyAccount creates a deep copy of an account object.
 func deepCopyAccount(src *account.Account) *account.Account {
 	if src == nil {
 		return nil
@@ -300,7 +300,7 @@ func deepCopyAccount(src *account.Account) *account.Account {
 
 	dst := *src
 
-	// 拷贝 Tags
+	// Copy Tags
 	if src.Tags != nil {
 		dst.Tags = make(map[string]string, len(src.Tags))
 		for k, v := range src.Tags {
@@ -308,7 +308,7 @@ func deepCopyAccount(src *account.Account) *account.Account {
 		}
 	}
 
-	// 拷贝 Metadata
+	// Copy Metadata
 	if src.Metadata != nil {
 		dst.Metadata = make(map[string]any, len(src.Metadata))
 		for k, v := range src.Metadata {
@@ -316,7 +316,7 @@ func deepCopyAccount(src *account.Account) *account.Account {
 		}
 	}
 
-	// 拷贝时间指针
+	// Copy time pointers
 	if src.LastUsedAt != nil {
 		t := *src.LastUsedAt
 		dst.LastUsedAt = &t
@@ -337,36 +337,36 @@ func deepCopyAccount(src *account.Account) *account.Account {
 	return &dst
 }
 
-// rateLimitError 限流错误接口
-// 实现此接口的错误类型会被 balancer 识别为限流错误
+// rateLimitError is the rate limit error interface.
+// Error types implementing this interface will be recognized as rate limit errors by the balancer.
 type rateLimitError interface {
 	IsRateLimit() bool
 }
 
-// httpStatusError HTTP 状态码错误接口
-// 用于从 HTTP 错误中提取状态码判断是否为限流（429）
+// httpStatusError is the HTTP status code error interface.
+// Used to extract status codes from HTTP errors to determine rate limiting (429).
 type httpStatusError interface {
 	StatusCode() int
 }
 
-// retryAfterError 携带重试时间的错误接口
+// retryAfterError is the error interface carrying retry-after time.
 type retryAfterError interface {
 	RetryAfter() *time.Time
 }
 
-// isRateLimitError 判断是否为限流错误
+// isRateLimitError checks whether the error is a rate limit error.
 func isRateLimitError(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	// 优先检查 rateLimitError 接口
+	// Check rateLimitError interface first
 	var rle rateLimitError
 	if errors.As(err, &rle) {
 		return rle.IsRateLimit()
 	}
 
-	// 其次检查 HTTP 状态码 429
+	// Then check for HTTP status code 429
 	var hse httpStatusError
 	if errors.As(err, &hse) {
 		return hse.StatusCode() == http.StatusTooManyRequests
@@ -375,7 +375,7 @@ func isRateLimitError(err error) bool {
 	return false
 }
 
-// extractRetryAfter 从错误中提取重试时间
+// extractRetryAfter extracts the retry-after time from the error.
 func extractRetryAfter(err error) *time.Time {
 	if err == nil {
 		return nil
