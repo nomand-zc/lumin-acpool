@@ -40,6 +40,10 @@ type defaultHealthChecker struct {
 	mu        sync.RWMutex
 	schedules map[string]CheckSchedule // key: check name
 
+	// 缓存的拓扑排序结果，在 Register/Unregister 时预计算
+	sortedChecks []HealthCheck // 已排序的启用检查项
+	sortErr      error         // 拓扑排序错误（如循环依赖）
+
 	// targetProvider provides the list of targets to check during background scanning.
 	targetProvider TargetProvider
 	// onReport is the health check report callback.
@@ -66,6 +70,7 @@ func (c *defaultHealthChecker) Register(schedule CheckSchedule) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.schedules[schedule.Check.Name()] = schedule
+	c.rebuildSortedChecksLocked()
 }
 
 // Unregister removes a registered check item.
@@ -73,6 +78,7 @@ func (c *defaultHealthChecker) Unregister(checkName string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.schedules, checkName)
+	c.rebuildSortedChecksLocked()
 }
 
 // ListChecks lists all currently registered check items and their scheduling configurations.
@@ -90,29 +96,23 @@ func (c *defaultHealthChecker) ListChecks() []CheckSchedule {
 // Executes in topological order based on DependsOn; checks whose dependencies failed are automatically marked as Skipped.
 func (c *defaultHealthChecker) RunAll(ctx context.Context, target CheckTarget) (*HealthReport, error) {
 	c.mu.RLock()
-	var enabledChecks []HealthCheck
-	for _, s := range c.schedules {
-		if s.Enabled {
-			enabledChecks = append(enabledChecks, s.Check)
-		}
-	}
+	sorted := c.sortedChecks
+	sortErr := c.sortErr
 	c.mu.RUnlock()
 
 	start := time.Now()
 
-	if len(enabledChecks) == 0 {
+	if sortErr != nil {
+		return nil, fmt.Errorf("health: topological sort failed: %w", sortErr)
+	}
+
+	if len(sorted) == 0 {
 		return &HealthReport{
 			AccountID:     target.Account().ID,
 			ProviderKey:   target.Account().ProviderKey(),
 			TotalDuration: 0,
 			Timestamp:     time.Now(),
 		}, nil
-	}
-
-	// Topological sort by dependency relationships
-	sorted, err := topologicalSort(enabledChecks)
-	if err != nil {
-		return nil, fmt.Errorf("health: topological sort failed: %w", err)
 	}
 
 	results := make([]*CheckResult, 0, len(sorted))
@@ -291,6 +291,25 @@ func (c *defaultHealthChecker) runFullScan(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// rebuildSortedChecksLocked 重新计算启用检查项的拓扑排序并缓存结果。
+// 调用方必须持有写锁。
+func (c *defaultHealthChecker) rebuildSortedChecksLocked() {
+	var enabledChecks []HealthCheck
+	for _, s := range c.schedules {
+		if s.Enabled {
+			enabledChecks = append(enabledChecks, s.Check)
+		}
+	}
+	if len(enabledChecks) == 0 {
+		c.sortedChecks = nil
+		c.sortErr = nil
+		return
+	}
+	sorted, err := topologicalSort(enabledChecks)
+	c.sortedChecks = sorted
+	c.sortErr = err
 }
 
 // --- Helper functions ---
