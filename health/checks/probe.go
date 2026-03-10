@@ -41,7 +41,7 @@ func (c *ProbeCheck) Check(ctx context.Context, target health.CheckTarget) *heal
 	start := time.Now()
 
 	req := c.buildProbeRequest()
-	_, err := target.ProviderInstance().Client.GenerateContent(ctx, target.Credential(), req)
+	_, err := target.Client().GenerateContent(ctx, target.Credential(), req)
 	if err == nil {
 		return &health.CheckResult{
 			CheckName: ProbeCheckName,

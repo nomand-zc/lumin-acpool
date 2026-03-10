@@ -18,12 +18,18 @@ const (
 	ReportDataKeyUsageStats = "usage_stats"
 	// ReportDataKeyCooldownUntil 冷却到期时间的 Key，对应 *time.Time。
 	ReportDataKeyCooldownUntil = "cooldown_until"
+	// ReportDataKeySupportedModels 支持的模型列表的 Key，对应 []string。
+	ReportDataKeySupportedModels = "supported_models"
+	// ReportDataKeyUsageRules 用量规则的 Key，对应 []*usagerule.UsageRule。
+	ReportDataKeyUsageRules = "usage_rules"
 )
 
 // ReportHandlerDeps 是构建默认 ReportCallback 所需的依赖。
 type ReportHandlerDeps struct {
 	// AccountStorage 账号存储（必选，用于获取和更新账号）。
 	AccountStorage storage.AccountStorage
+	// ProviderStorage Provider 存储（可选，用于更新 SupportedModels）。
+	ProviderStorage storage.ProviderStorage
 	// UsageTracker 用量追踪器（可选，用于校准用量数据）。
 	UsageTracker usagetracker.UsageTracker
 	// CooldownManager 冷却管理器（可选，用于触发冷却）。
@@ -59,7 +65,17 @@ func NewDefaultReportCallback(deps ReportHandlerDeps) ReportCallback {
 				needUpdate = handleUsageStats(ctx, deps.UsageTracker, report.AccountID, result) || needUpdate
 			}
 
-			// 2. 处理 SuggestedStatus 状态变更
+			// 2. 处理 SupportedModels 动态发现
+			if deps.ProviderStorage != nil && result.Data != nil {
+				handleSupportedModels(ctx, deps.ProviderStorage, report.ProviderKey, result)
+			}
+
+			// 3. 处理 UsageRules 动态刷新
+			if result.Data != nil {
+				needUpdate = handleUsageRulesRefresh(ctx, deps, acct, result) || needUpdate
+			}
+
+			// 4. 处理 SuggestedStatus 状态变更
 			if result.SuggestedStatus != nil {
 				needUpdate = handleSuggestedStatus(ctx, deps, acct, result) || needUpdate
 			}
@@ -148,5 +164,61 @@ func handleCooldown(ctx context.Context, deps ReportHandlerDeps, acct *account.A
 	}
 
 	acct.Status = account.StatusCoolingDown
+	return true
+}
+
+// handleSupportedModels 处理模型发现检查结果，更新 ProviderInfo.SupportedModels。
+func handleSupportedModels(ctx context.Context, providerStorage storage.ProviderStorage, providerKey account.ProviderKey, result *CheckResult) {
+	dataMap, ok := result.Data.(map[string]any)
+	if !ok {
+		return
+	}
+
+	modelsRaw, ok := dataMap[ReportDataKeySupportedModels]
+	if !ok {
+		return
+	}
+
+	models, ok := modelsRaw.([]string)
+	if !ok || len(models) == 0 {
+		return
+	}
+
+	// 获取当前 ProviderInfo 并更新 SupportedModels
+	provInfo, err := providerStorage.Get(ctx, providerKey)
+	if err != nil {
+		return
+	}
+
+	provInfo.SupportedModels = models
+	provInfo.UpdatedAt = time.Now()
+	_ = providerStorage.Update(ctx, provInfo)
+}
+
+// handleUsageRulesRefresh 处理用量规则刷新检查结果，更新 Account.UsageRules 并重新初始化 UsageTracker。
+func handleUsageRulesRefresh(ctx context.Context, deps ReportHandlerDeps, acct *account.Account, result *CheckResult) bool {
+	dataMap, ok := result.Data.(map[string]any)
+	if !ok {
+		return false
+	}
+
+	rulesRaw, ok := dataMap[ReportDataKeyUsageRules]
+	if !ok {
+		return false
+	}
+
+	rules, ok := rulesRaw.([]*usagerule.UsageRule)
+	if !ok || len(rules) == 0 {
+		return false
+	}
+
+	// 更新 Account.UsageRules
+	acct.UsageRules = rules
+
+	// 重新初始化 UsageTracker 规则
+	if deps.UsageTracker != nil {
+		_ = deps.UsageTracker.InitRules(ctx, acct.ID, rules)
+	}
+
 	return true
 }

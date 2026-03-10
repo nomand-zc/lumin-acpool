@@ -123,6 +123,13 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 	var excludeProviderKeys []account.ProviderKey
 
 	for {
+		// 检查 context 是否已取消，避免 failover 循环长时间阻塞
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		// Filter out excluded providers
 		filtered := filterProviders(candidates, excludeProviderKeys)
 		if len(filtered) == 0 {

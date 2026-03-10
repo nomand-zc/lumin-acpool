@@ -15,6 +15,10 @@ const (
 
 	defaultWarningThreshold = 0.01
 
+	// UsageStatKey 是用量统计数据在 CheckResult.Data 中的标准 Key。
+	// 注意：此值必须与 health.ReportDataKeyUsageStats 保持一致。
+	// 之所以在此处单独定义而非引用 health 包，是为了避免 checks → health 的循环依赖
+	// （当前依赖方向：health → checks）。
 	UsageStatKey = "usage_stats"
 )
 
@@ -43,7 +47,7 @@ func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) 
 	start := time.Now()
 
 	// Call lumin-client to get the latest usage
-	stats, err := target.ProviderInstance().Client.GetUsageStats(ctx, target.Credential())
+	stats, err := target.Client().GetUsageStats(ctx, target.Credential())
 	if err != nil {
 		return &health.CheckResult{
 			CheckName: UsageQuotaCheckName,

@@ -14,6 +14,10 @@ import (
 const (
 	CredentialRefreshCheckName = "credential_refresh"
 
+	// CooldownUntilKey 是冷却到期时间在 CheckResult.Data 中的标准 Key。
+	// 注意：此值必须与 health.ReportDataKeyCooldownUntil 保持一致。
+	// 之所以在此处单独定义而非引用 health 包，是为了避免 checks → health 的循环依赖
+	// （当前依赖方向：health → checks）。
 	CooldownUntilKey = "cooldown_until"
 )
 
@@ -55,7 +59,7 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 		}
 	}
 
-	err := target.ProviderInstance().Client.Refresh(ctx, cred)
+	err := target.Client().Refresh(ctx, cred)
 	if err == nil {
 		return &health.CheckResult{
 			CheckName:       CredentialRefreshCheckName,

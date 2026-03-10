@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/nomand-zc/lumin-acpool/account"
+	"github.com/nomand-zc/lumin-client/providers"
 )
 
 // Balancer is the load balancer interface.
@@ -88,6 +89,11 @@ type PickResult struct {
 
 	// ProviderKey is the identifier of the selected provider.
 	ProviderKey account.ProviderKey
+
+	// Client 是选中 Provider 的底层 SDK Client 实例（可选）。
+	// 当通过 Pool Facade 调用 Pick 时会自动填充，直接使用 Balancer 时为 nil。
+	// 调用方可用此 Client 直接发起 API 调用。
+	Client providers.Provider
 
 	// Attempts is the total number of attempts (including retries).
 	Attempts int

@@ -6,6 +6,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-client/credentials"
+	"github.com/nomand-zc/lumin-client/providers"
 )
 
 // CheckSeverity represents the severity level of a check item.
@@ -96,7 +97,7 @@ type HealthReport struct {
 	// AccountID is the ID of the checked account.
 	AccountID string
 	// ProviderKey is the provider the account belongs to.
-ProviderKey account.ProviderKey
+	ProviderKey account.ProviderKey
 	// Results holds results of each check item (in execution order).
 	Results []*CheckResult
 	// TotalDuration is the total time of the complete health check.
@@ -153,8 +154,8 @@ func (r *HealthReport) PassedChecks() []*CheckResult {
 type CheckTarget interface {
 	// Credential returns the account credential.
 	Credential() credentials.Credential
-	// ProviderInstance returns the provider runtime instance (including metadata and underlying SDK instance).
-ProviderInstance() *account.ProviderInstance
+	// Client returns the provider SDK client instance for making API calls.
+	Client() providers.Provider
 	// Account returns the full account object (for check items needing access to statistics and other extra fields).
 	Account() *account.Account
 }

@@ -10,17 +10,7 @@ import (
 )
 
 // ProviderKey is the two-level identifier for a provider; Type + Name uniquely identifies a provider group.
-type ProviderKey struct {
-	// Type is the provider type, corresponding to lumin-client's Provider.Type(), e.g., "kiro".
-	Type string
-	// Name is the provider instance name, corresponding to lumin-client's Provider.Name(), e.g., "kiro-team-a".
-	Name string
-}
-
-// String returns a "type/name" formatted string representation.
-func (pk ProviderKey) String() string {
-	return pk.Type + "/" + pk.Name
-}
+type ProviderKey = providers.ProviderKey
 
 // BuildProviderKey creates a ProviderKey instance.
 // Provides a unified construction entry point to avoid direct literal construction externally.
@@ -125,13 +115,4 @@ func (p *ProviderInfo) Clone() *ProviderInfo {
 	}
 
 	return &dst
-}
-
-// ProviderInstance is a provider runtime instance.
-// It binds the metadata (ProviderInfo) with the underlying SDK instance (providers.Provider).
-type ProviderInstance struct {
-	// Info holds the provider metadata.
-	Info *ProviderInfo
-	// Client is the underlying lumin-client Provider instance, used for actual API calls.
-	Client providers.Provider
 }
