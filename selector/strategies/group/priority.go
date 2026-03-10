@@ -3,7 +3,7 @@ package group
 import (
 	"sort"
 
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
 )
 
@@ -22,12 +22,12 @@ func (g *GroupPriority) Name() string {
 }
 
 // Select selects the provider with the highest priority.
-func (g *GroupPriority) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
+func (g *GroupPriority) Select(candidates []*account.ProviderInfo, _ *selector.SelectRequest) (*account.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
 	}
 
-	sorted := make([]*provider.ProviderInfo, len(candidates))
+	sorted := make([]*account.ProviderInfo, len(candidates))
 	copy(sorted, candidates)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		// Sort by priority descending first

@@ -9,7 +9,6 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/cooldown"
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/resolver"
 	"github.com/nomand-zc/lumin-acpool/selector"
 	"github.com/nomand-zc/lumin-acpool/storage"
@@ -121,7 +120,7 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 	}
 
 	// Exclude already-tried providers (failover scenario)
-	var excludeProviderKeys []provider.ProviderKey
+	var excludeProviderKeys []account.ProviderKey
 
 	for {
 		// Filter out excluded providers
@@ -157,7 +156,7 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 // selectAccountFromProvider selects an account from the specified provider (with retry).
 func (b *defaultBalancer) selectAccountFromProvider(
 	ctx context.Context,
-	provInfo *provider.ProviderInfo,
+	provInfo *account.ProviderInfo,
 	selReq *selector.SelectRequest,
 	maxRetries int,
 ) (*PickResult, error) {
@@ -325,11 +324,11 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 // --- Helper functions ---
 
 // filterProviders filters out excluded providers.
-func filterProviders(candidates []*provider.ProviderInfo, excludeKeys []provider.ProviderKey) []*provider.ProviderInfo {
+func filterProviders(candidates []*account.ProviderInfo, excludeKeys []account.ProviderKey) []*account.ProviderInfo {
 	if len(excludeKeys) == 0 {
 		return candidates
 	}
-	var result []*provider.ProviderInfo
+	var result []*account.ProviderInfo
 	for _, p := range candidates {
 		excluded := false
 		for _, ek := range excludeKeys {

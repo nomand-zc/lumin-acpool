@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
@@ -27,7 +26,7 @@ func NewStorageResolver(providerStorage storage.ProviderStorage, accountStorage 
 }
 
 // ResolveProvider resolves the specified provider exactly.
-func (r *storageResolver) ResolveProvider(ctx context.Context, key provider.ProviderKey, model string) (*provider.ProviderInfo, error) {
+func (r *storageResolver) ResolveProvider(ctx context.Context, key account.ProviderKey, model string) (*account.ProviderInfo, error) {
 	provInfo, err := r.providerStorage.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
@@ -50,9 +49,9 @@ func (r *storageResolver) ResolveProvider(ctx context.Context, key provider.Prov
 }
 
 // ResolveProviders resolves active providers that support the specified model from storage.
-func (r *storageResolver) ResolveProviders(ctx context.Context, model string, providerType string) ([]*provider.ProviderInfo, error) {
+func (r *storageResolver) ResolveProviders(ctx context.Context, model string, providerType string) ([]*account.ProviderInfo, error) {
 	// Active status filter
-	statusFilter := filtercond.In(storage.ProviderFieldStatus, int(provider.ProviderStatusActive), int(provider.ProviderStatusDegraded))
+statusFilter := filtercond.In(storage.ProviderFieldStatus, int(account.ProviderStatusActive), int(account.ProviderStatusDegraded))
 
 	var filter *filtercond.Filter
 	if providerType != "" {
@@ -78,7 +77,7 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 }
 
 // ResolveAccounts resolves available accounts under the specified provider from storage.
-func (r *storageResolver) ResolveAccounts(ctx context.Context, key provider.ProviderKey, tags map[string]string, excludeIDs []string) ([]*account.Account, error) {
+func (r *storageResolver) ResolveAccounts(ctx context.Context, key account.ProviderKey, tags map[string]string, excludeIDs []string) ([]*account.Account, error) {
 	// Only query available accounts under the specified provider
 	filter := filtercond.And(
 		filtercond.Equal(storage.AccountFieldProviderType, key.Type),

@@ -4,7 +4,6 @@ import (
 	"maps"
 	"time"
 
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-client/credentials"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
@@ -63,8 +62,8 @@ func (a *Account) IsCircuitOpenExpired() bool {
 }
 
 // ProviderKey returns the composite key composed of ProviderType and ProviderName.
-func (a *Account) ProviderKey() provider.ProviderKey {
-	return provider.BuildProviderKey(a.ProviderType, a.ProviderName)
+func (a *Account) ProviderKey() ProviderKey {
+	return BuildProviderKey(a.ProviderType, a.ProviderName)
 }
 
 // Clone 创建 Account 的深拷贝。

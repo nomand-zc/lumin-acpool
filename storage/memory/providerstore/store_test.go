@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
-func newTestProviderInfo(pType, pName string, status provider.ProviderStatus, priority, weight int, models []string) *provider.ProviderInfo {
-	return &provider.ProviderInfo{
+func newTestProviderInfo(pType, pName string, status account.ProviderStatus, priority, weight int, models []string) *account.ProviderInfo {
+	return &account.ProviderInfo{
 		ProviderType:    pType,
 		ProviderName:    pName,
 		Status:          status,
@@ -26,7 +26,7 @@ func TestStore_AddAndGet(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514", "gpt-4"})
+	info := newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514", "gpt-4"})
 
 	// 正常添加
 	if err := store.Add(ctx, info); err != nil {
@@ -39,7 +39,7 @@ func TestStore_AddAndGet(t *testing.T) {
 	}
 
 	// 获取
-	key := provider.BuildProviderKey("kiro", "team-a")
+	key := account.BuildProviderKey("kiro", "team-a")
 	got, err := store.Get(ctx, key)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
@@ -59,7 +59,7 @@ func TestStore_AddAndGet(t *testing.T) {
 	}
 
 	// 获取不存在的
-	_, err = store.Get(ctx, provider.BuildProviderKey("none", "none"))
+	_, err = store.Get(ctx, account.BuildProviderKey("none", "none"))
 	if err != storage.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got: %v", err)
 	}
@@ -69,16 +69,16 @@ func TestStore_Update(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"})
+	info := newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"})
 	_ = store.Add(ctx, info)
 
 	// 更新：修改模型列表和权重
-	updated := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 20, []string{"claude-sonnet-4-20250514", "gpt-4"})
+	updated := newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 20, []string{"claude-sonnet-4-20250514", "gpt-4"})
 	if err := store.Update(ctx, updated); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	got, _ := store.Get(ctx, provider.BuildProviderKey("kiro", "team-a"))
+	got, _ := store.Get(ctx, account.BuildProviderKey("kiro", "team-a"))
 	if got.Weight != 20 {
 		t.Fatalf("expected weight 20, got %d", got.Weight)
 	}
@@ -93,7 +93,7 @@ func TestStore_Update(t *testing.T) {
 	}
 
 	// 更新不存在的
-	notExist := newTestProviderInfo("none", "none", provider.ProviderStatusActive, 0, 0, nil)
+	notExist := newTestProviderInfo("none", "none", account.ProviderStatusActive, 0, 0, nil)
 	if err := store.Update(ctx, notExist); err != storage.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got: %v", err)
 	}
@@ -104,11 +104,11 @@ func TestStore_UpdateModelIndex(t *testing.T) {
 	store := NewStore()
 
 	// 初始支持 model-a
-	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"model-a"})
+	info := newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"model-a"})
 	_ = store.Add(ctx, info)
 
 	// 更新为支持 model-b（不再支持 model-a）
-	updated := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"model-b"})
+	updated := newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"model-b"})
 	_ = store.Update(ctx, updated)
 
 	// model-a 应该查不到了
@@ -128,10 +128,10 @@ func TestStore_Remove(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"})
+	info := newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"})
 	_ = store.Add(ctx, info)
 
-	key := provider.BuildProviderKey("kiro", "team-a")
+	key := account.BuildProviderKey("kiro", "team-a")
 	if err := store.Remove(ctx, key); err != nil {
 		t.Fatalf("Remove failed: %v", err)
 	}
@@ -162,9 +162,9 @@ func TestStore_List(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"}))
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusDisabled, 3, 5, []string{"claude-sonnet-4-20250514", "gpt-4"}))
-	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, []string{"gpt-4"}))
+	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"claude-sonnet-4-20250514"}))
+	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", account.ProviderStatusDisabled, 3, 5, []string{"claude-sonnet-4-20250514", "gpt-4"}))
+	_ = store.Add(ctx, newTestProviderInfo("openai", "default", account.ProviderStatusActive, 8, 20, []string{"gpt-4"}))
 
 	// 全量
 	all, err := store.Search(ctx, nil)
@@ -176,7 +176,7 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 按状态过滤
-	active, err := store.Search(ctx, filtercond.Equal("provider_status", int(provider.ProviderStatusActive)))
+	active, err := store.Search(ctx, filtercond.Equal("provider_status", int(account.ProviderStatusActive)))
 	if err != nil {
 		t.Fatalf("List(status=active) failed: %v", err)
 	}
@@ -199,11 +199,11 @@ func TestStore_TimeAutoSet(t *testing.T) {
 	store := NewStore()
 
 	before := time.Now()
-	info := newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, nil)
+	info := newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, nil)
 	_ = store.Add(ctx, info)
 	after := time.Now()
 
-	got, _ := store.Get(ctx, provider.BuildProviderKey("kiro", "team-a"))
+	got, _ := store.Get(ctx, account.BuildProviderKey("kiro", "team-a"))
 	if got.CreatedAt.Before(before) || got.CreatedAt.After(after) {
 		t.Fatalf("CreatedAt not auto-set properly: %v", got.CreatedAt)
 	}
@@ -216,9 +216,9 @@ func TestStore_FilterBySupportedModel(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"model-a", "model-b"}))
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusActive, 3, 5, []string{"model-b", "model-c"}))
-	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, []string{"model-c"}))
+	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"model-a", "model-b"}))
+	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", account.ProviderStatusActive, 3, 5, []string{"model-b", "model-c"}))
+	_ = store.Add(ctx, newTestProviderInfo("openai", "default", account.ProviderStatusActive, 8, 20, []string{"model-c"}))
 
 	// 通过 filtercond 查 supported_model = "model-a"
 	result, err := store.Search(ctx, filtercond.Equal("supported_model", "model-a"))
@@ -243,13 +243,13 @@ func TestStore_CombinedFilter(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", provider.ProviderStatusActive, 5, 10, []string{"model-a"}))
-	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", provider.ProviderStatusDisabled, 3, 5, []string{"model-a"}))
-	_ = store.Add(ctx, newTestProviderInfo("openai", "default", provider.ProviderStatusActive, 8, 20, []string{"model-b"}))
+	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-a", account.ProviderStatusActive, 5, 10, []string{"model-a"}))
+	_ = store.Add(ctx, newTestProviderInfo("kiro", "team-b", account.ProviderStatusDisabled, 3, 5, []string{"model-a"}))
+	_ = store.Add(ctx, newTestProviderInfo("openai", "default", account.ProviderStatusActive, 8, 20, []string{"model-b"}))
 
 	// And: active + 支持 model-a
 	result, err := store.Search(ctx, filtercond.And(
-		filtercond.Equal("provider_status", int(provider.ProviderStatusActive)),
+		filtercond.Equal("provider_status", int(account.ProviderStatusActive)),
 		filtercond.Equal("supported_model", "model-a"),
 	))
 	if err != nil {

@@ -3,7 +3,7 @@ package group
 import (
 	"sync/atomic"
 
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
 )
 
@@ -23,7 +23,7 @@ func (g *GroupRoundRobin) Name() string {
 }
 
 // Select round-robin selects a provider.
-func (g *GroupRoundRobin) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
+func (g *GroupRoundRobin) Select(candidates []*account.ProviderInfo, _ *selector.SelectRequest) (*account.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
 	}

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
@@ -239,7 +238,7 @@ func TestStore_Count(t *testing.T) {
 	}
 
 	// 按 ProviderKey 计数
-	keyCount, err := store.CountByProvider(ctx, provider.BuildProviderKey("kiro", "team-a"), nil)
+	keyCount, err := store.CountByProvider(ctx, account.BuildProviderKey("kiro", "team-a"), nil)
 	if err != nil {
 		t.Fatalf("CountByProvider failed: %v", err)
 	}
@@ -249,7 +248,7 @@ func TestStore_Count(t *testing.T) {
 
 	// 按 ProviderKey + 状态计数
 	keyAvail, err := store.CountByProvider(ctx,
-		provider.BuildProviderKey("kiro", "team-a"),
+		account.BuildProviderKey("kiro", "team-a"),
 		filtercond.Equal("status", int(account.StatusAvailable)),
 	)
 	if err != nil {

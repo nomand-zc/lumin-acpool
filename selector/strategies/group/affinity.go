@@ -1,7 +1,7 @@
 package group
 
 import (
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/memory/affinitystore"
@@ -87,7 +87,7 @@ func (a *GroupAffinity) Name() string {
 // 如果 UserID 非空，先查找映射：
 //   - 命中且供应商在候选列表中 → 返回该供应商（亲和命中）
 //   - 未命中或供应商不在候选列表中 → 使用 fallback 策略选择，并更新映射
-func (a *GroupAffinity) Select(candidates []*provider.ProviderInfo, req *selector.SelectRequest) (*provider.ProviderInfo, error) {
+func (a *GroupAffinity) Select(candidates []*account.ProviderInfo, req *selector.SelectRequest) (*account.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
 	}

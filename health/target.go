@@ -2,7 +2,6 @@ package health
 
 import (
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-client/credentials"
 )
 
@@ -10,13 +9,13 @@ import (
 // It wraps Account + ProviderInstance into a unified check target.
 type defaultCheckTarget struct {
 	acct     *account.Account
-	instance *provider.ProviderInstance
+instance *account.ProviderInstance
 }
 
 // NewCheckTarget creates a CheckTarget instance.
 // acct: the account to be checked.
 // instance: the runtime instance of the provider the account belongs to.
-func NewCheckTarget(acct *account.Account, instance *provider.ProviderInstance) CheckTarget {
+func NewCheckTarget(acct *account.Account, instance *account.ProviderInstance) CheckTarget {
 	return &defaultCheckTarget{
 		acct:     acct,
 		instance: instance,
@@ -27,7 +26,7 @@ func (t *defaultCheckTarget) Credential() credentials.Credential {
 	return t.acct.Credential
 }
 
-func (t *defaultCheckTarget) ProviderInstance() *provider.ProviderInstance {
+func (t *defaultCheckTarget) ProviderInstance() *account.ProviderInstance {
 	return t.instance
 }
 

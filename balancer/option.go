@@ -7,7 +7,6 @@ import (
 	"github.com/nomand-zc/lumin-acpool/selector"
 	accountstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies/account"
 	groupstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies/group"
-	"github.com/nomand-zc/lumin-acpool/stats"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/usagetracker"
 )
@@ -39,7 +38,7 @@ type Options struct {
 	// CooldownManager is the cooldown manager (optional).
 	CooldownManager cooldown.CooldownManager
 	// StatsStore is the runtime statistics store (optional, used for recording call statistics).
-	StatsStore stats.StatsStore
+	StatsStore storage.StatsStore
 	// UsageTracker is the usage tracker (optional, used for quota pre-filtering and usage recording).
 	UsageTracker usagetracker.UsageTracker
 	// DefaultMaxRetries is the default maximum retry count.
@@ -84,7 +83,7 @@ func WithCooldownManager(cm cooldown.CooldownManager) Option {
 }
 
 // WithStatsStore sets the runtime statistics store.
-func WithStatsStore(ss stats.StatsStore) Option {
+func WithStatsStore(ss storage.StatsStore) Option {
 	return func(o *Options) { o.StatsStore = ss }
 }
 

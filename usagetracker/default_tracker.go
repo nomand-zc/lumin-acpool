@@ -4,6 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/nomand-zc/lumin-acpool/account"
+	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-acpool/storage/memory/usagestore"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
@@ -11,10 +14,10 @@ import (
 var _ UsageTracker = (*defaultUsageTracker)(nil)
 
 // defaultUsageTracker 是 UsageTracker 接口的默认实现。
-// 通过 UsageStore 接口管理追踪数据，支持内存和 Redis 等多种后端。
+// 通过 storage.UsageStore 接口管理追踪数据，支持内存和 Redis 等多种后端。
 type defaultUsageTracker struct {
 	opts  options
-	store UsageStore
+	store storage.UsageStore
 }
 
 // NewUsageTracker 创建一个 UsageTracker 实例。
@@ -26,7 +29,7 @@ func NewUsageTracker(opts ...Option) UsageTracker {
 	}
 	store := o.store
 	if store == nil {
-		store = NewMemoryUsageStore()
+		store = usagestore.NewMemoryUsageStore()
 	}
 	return &defaultUsageTracker{
 		opts:  o,
@@ -112,12 +115,12 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 
 	if len(usages) == 0 {
 		// 根据远端 stats 初始化
-		newUsages := make([]*TrackedUsage, 0, len(stats))
+		newUsages := make([]*account.TrackedUsage, 0, len(stats))
 		for _, s := range stats {
 			if s == nil {
 				continue
 			}
-			newUsages = append(newUsages, &TrackedUsage{
+			newUsages = append(newUsages, &account.TrackedUsage{
 				Rule:         s.Rule,
 				LocalUsed:    0,
 				RemoteUsed:   s.Used,
@@ -153,7 +156,7 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 		}
 		if !matched {
 			// 新增规则
-			usages = append(usages, &TrackedUsage{
+			usages = append(usages, &account.TrackedUsage{
 				Rule:         s.Rule,
 				LocalUsed:    0,
 				RemoteUsed:   s.Used,
@@ -185,7 +188,7 @@ func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, account
 	return t.store.Save(ctx, accountID, usages)
 }
 
-func (t *defaultUsageTracker) GetTrackedUsages(ctx context.Context, accountID string) ([]*TrackedUsage, error) {
+func (t *defaultUsageTracker) GetTrackedUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	return t.store.GetAll(ctx, accountID)
 }
 
@@ -209,13 +212,13 @@ func (t *defaultUsageTracker) MinRemainRatio(ctx context.Context, accountID stri
 }
 
 func (t *defaultUsageTracker) InitRules(ctx context.Context, accountID string, rules []*usagerule.UsageRule) error {
-	usages := make([]*TrackedUsage, 0, len(rules))
+	usages := make([]*account.TrackedUsage, 0, len(rules))
 	for _, rule := range rules {
 		if rule == nil || !rule.IsValid() {
 			continue
 		}
 		start, end := rule.CalculateWindowTime()
-		usages = append(usages, &TrackedUsage{
+		usages = append(usages, &account.TrackedUsage{
 			Rule:         rule,
 			LocalUsed:    0,
 			RemoteUsed:   0,

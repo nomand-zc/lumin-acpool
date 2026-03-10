@@ -2,7 +2,6 @@ package selector
 
 import (
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 )
 
 // GroupSelector is the provider-level selection strategy interface.
@@ -19,7 +18,7 @@ type GroupSelector interface {
 	//
 	// Returns:
 	//   the selected provider; returns ErrNoAvailableProvider if none available
-	Select(candidates []*provider.ProviderInfo, req *SelectRequest) (*provider.ProviderInfo, error)
+	Select(candidates []*account.ProviderInfo, req *SelectRequest) (*account.ProviderInfo, error)
 }
 
 // Selector is the account-level selection strategy interface.
@@ -55,7 +54,7 @@ type SelectRequest struct {
 	//   - nil: no restriction, auto-select from all active providers supporting the Model
 	//   - Type only: restrict to provider type range (Name is empty)
 	//   - Both Type + Name: exact provider specification
-	ProviderKey *provider.ProviderKey
+	ProviderKey *account.ProviderKey
 
 	// Tags is for tag-based filtering (optional).
 	// Only selects accounts/providers containing these tags.

@@ -1,29 +1,32 @@
-package usagetracker
+package usagestore
 
 import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/nomand-zc/lumin-acpool/account"
+	"github.com/nomand-zc/lumin-acpool/storage"
 )
 
 // Compile-time interface compliance check.
-var _ UsageStore = (*MemoryUsageStore)(nil)
+var _ storage.UsageStore = (*MemoryUsageStore)(nil)
 
 // MemoryUsageStore 是 UsageStore 的内存实现。
 // 使用互斥锁保证并发安全，适用于单机部署场景。
 type MemoryUsageStore struct {
 	mu    sync.Mutex
-	store map[string][]*TrackedUsage
+	store map[string][]*account.TrackedUsage
 }
 
 // NewMemoryUsageStore 创建一个内存用量存储实例。
 func NewMemoryUsageStore() *MemoryUsageStore {
 	return &MemoryUsageStore{
-		store: make(map[string][]*TrackedUsage),
+		store: make(map[string][]*account.TrackedUsage),
 	}
 }
 
-func (s *MemoryUsageStore) GetAll(_ context.Context, accountID string) ([]*TrackedUsage, error) {
+func (s *MemoryUsageStore) GetAll(_ context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -33,7 +36,7 @@ func (s *MemoryUsageStore) GetAll(_ context.Context, accountID string) ([]*Track
 	}
 
 	// 返回副本，避免外部修改内部状态
-	result := make([]*TrackedUsage, len(usages))
+	result := make([]*account.TrackedUsage, len(usages))
 	for i, u := range usages {
 		cp := *u
 		result[i] = &cp
@@ -41,12 +44,12 @@ func (s *MemoryUsageStore) GetAll(_ context.Context, accountID string) ([]*Track
 	return result, nil
 }
 
-func (s *MemoryUsageStore) Save(_ context.Context, accountID string, usages []*TrackedUsage) error {
+func (s *MemoryUsageStore) Save(_ context.Context, accountID string, usages []*account.TrackedUsage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// 存储副本，避免外部后续修改影响内部状态
-	stored := make([]*TrackedUsage, len(usages))
+	stored := make([]*account.TrackedUsage, len(usages))
 	for i, u := range usages {
 		cp := *u
 		stored[i] = &cp
@@ -65,7 +68,7 @@ func (s *MemoryUsageStore) IncrLocalUsed(_ context.Context, accountID string, ru
 	}
 
 	if ruleIndex < 0 || ruleIndex >= len(usages) {
-		return fmt.Errorf("usagetracker: rule index %d out of range [0, %d)", ruleIndex, len(usages))
+		return fmt.Errorf("usagestore: rule index %d out of range [0, %d)", ruleIndex, len(usages))
 	}
 
 	usages[ruleIndex].LocalUsed += amount

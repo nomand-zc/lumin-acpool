@@ -3,7 +3,7 @@ package group
 import (
 	rand "math/rand/v2"
 
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
 )
 
@@ -22,7 +22,7 @@ func (g *GroupWeighted) Name() string {
 }
 
 // Select randomly selects a provider by weight.
-func (g *GroupWeighted) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
+func (g *GroupWeighted) Select(candidates []*account.ProviderInfo, _ *selector.SelectRequest) (*account.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 )
 
 // Resolver is the resolver interface.
@@ -19,7 +18,7 @@ type Resolver interface {
 	//
 	// Returns:
 	//   matching provider info; returns corresponding error if provider doesn't exist, is inactive, or doesn't support the model
-	ResolveProvider(ctx context.Context, key provider.ProviderKey, model string) (*provider.ProviderInfo, error)
+	ResolveProvider(ctx context.Context, key account.ProviderKey, model string) (*account.ProviderInfo, error)
 
 	// ResolveProviders resolves active providers that support the specified model.
 	//
@@ -29,7 +28,7 @@ type Resolver interface {
 	//
 	// Returns:
 	//   list of matching providers; returns empty slice when no matches
-	ResolveProviders(ctx context.Context, model string, providerType string) ([]*provider.ProviderInfo, error)
+	ResolveProviders(ctx context.Context, model string, providerType string) ([]*account.ProviderInfo, error)
 
 	// ResolveAccounts resolves available accounts under the specified provider.
 	//
@@ -40,5 +39,5 @@ type Resolver interface {
 	//
 	// Returns:
 	//   list of matching accounts; returns empty slice when no matches
-	ResolveAccounts(ctx context.Context, key provider.ProviderKey, tags map[string]string, excludeIDs []string) ([]*account.Account, error)
+	ResolveAccounts(ctx context.Context, key account.ProviderKey, tags map[string]string, excludeIDs []string) ([]*account.Account, error)
 }

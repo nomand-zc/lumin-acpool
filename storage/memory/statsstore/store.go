@@ -1,39 +1,42 @@
-package stats
+package statsstore
 
 import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/nomand-zc/lumin-acpool/account"
+	"github.com/nomand-zc/lumin-acpool/storage"
 )
 
 // Compile-time interface compliance check.
-var _ StatsStore = (*MemoryStatsStore)(nil)
+var _ storage.StatsStore = (*MemoryStatsStore)(nil)
 
 // MemoryStatsStore 是 StatsStore 的内存实现。
 // 使用互斥锁保证并发安全，适用于单机部署场景。
 type MemoryStatsStore struct {
 	mu    sync.Mutex
-	store map[string]*AccountStats
+	store map[string]*account.AccountStats
 }
 
 // NewMemoryStatsStore 创建一个内存统计存储实例。
 func NewMemoryStatsStore() *MemoryStatsStore {
 	return &MemoryStatsStore{
-		store: make(map[string]*AccountStats),
+		store: make(map[string]*account.AccountStats),
 	}
 }
 
 // getOrCreate 获取或创建统计记录（调用方必须持有锁）。
-func (s *MemoryStatsStore) getOrCreate(accountID string) *AccountStats {
+func (s *MemoryStatsStore) getOrCreate(accountID string) *account.AccountStats {
 	st, ok := s.store[accountID]
 	if !ok {
-		st = &AccountStats{AccountID: accountID}
+		st = &account.AccountStats{AccountID: accountID}
 		s.store[accountID] = st
 	}
 	return st
 }
 
-func (s *MemoryStatsStore) Get(_ context.Context, accountID string) (*AccountStats, error) {
+func (s *MemoryStatsStore) Get(_ context.Context, accountID string) (*account.AccountStats, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

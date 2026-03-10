@@ -2,34 +2,51 @@ package storage
 
 import (
 	"context"
+	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
+
+// UsageStore 用量追踪数据存储接口。
+// 支持内存（单机）和 Redis（集群）两种后端。
+type UsageStore interface {
+	// GetAll 获取指定账号所有规则的追踪数据。
+	GetAll(ctx context.Context, accountID string) ([]*account.TrackedUsage, error)
+
+	// Save 保存指定账号所有规则的追踪数据。
+	Save(ctx context.Context, accountID string, usages []*account.TrackedUsage) error
+
+	// IncrLocalUsed 原子递增指定规则的本地已用量。
+	// ruleIndex: 规则索引，amount: 增量。
+	IncrLocalUsed(ctx context.Context, accountID string, ruleIndex int, amount float64) error
+
+	// Remove 删除指定账号的追踪数据。
+	Remove(ctx context.Context, accountID string) error
+}
 
 // ProviderStorage is the provider storage interface.
 // Responsible for CRUD operations on ProviderInfo metadata.
 type ProviderStorage interface {
 	// Get retrieves provider info by ProviderKey.
 	// Returns ErrNotFound if not found.
-	Get(ctx context.Context, key provider.ProviderKey) (*provider.ProviderInfo, error)
+	Get(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error)
 
 	// Search queries provider list.
 	// Returns all providers when filter is nil.
-	Search(ctx context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error)
+	Search(ctx context.Context, filter *filtercond.Filter) ([]*account.ProviderInfo, error)
 
 	// Add adds a provider.
 	// Returns ErrAlreadyExists if the ProviderKey already exists.
-	Add(ctx context.Context, info *provider.ProviderInfo) error
+	Add(ctx context.Context, info *account.ProviderInfo) error
 
 	// Update updates provider info (full replacement).
 	// Returns ErrNotFound if the ProviderKey does not exist.
-	Update(ctx context.Context, info *provider.ProviderInfo) error
+	Update(ctx context.Context, info *account.ProviderInfo) error
 
 	// Remove deletes a provider.
 	// Returns ErrNotFound if the ProviderKey does not exist.
-	Remove(ctx context.Context, key provider.ProviderKey) error
+	Remove(ctx context.Context, key account.ProviderKey) error
 }
 
 // AccountStorage is the account storage interface.
@@ -65,7 +82,7 @@ type AccountStorage interface {
 
 	// CountByProvider returns the account count under the specified provider.
 	// Returns the total count under that provider when filter is nil.
-	CountByProvider(ctx context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error)
+	CountByProvider(ctx context.Context, key account.ProviderKey, filter *filtercond.Filter) (int, error)
 }
 
 // AffinityStore 是亲和绑定关系的存储接口。
@@ -81,4 +98,30 @@ type AffinityStore interface {
 
 	// Set 设置亲和键到目标 ID 的绑定关系。
 	Set(affinityKey string, targetID string)
+}
+
+// StatsStore 运行时统计存储接口。
+// 支持高频原子更新，避免与 AccountStorage 的全量覆盖竞争。
+type StatsStore interface {
+	// Get 获取指定账号的运行统计。
+	// 如果账号不存在统计记录，返回零值的 AccountStats（不返回错误）。
+	Get(ctx context.Context, accountID string) (*account.AccountStats, error)
+
+	// IncrSuccess 原子递增成功计数，重置连续失败计数，更新 LastUsedAt。
+	IncrSuccess(ctx context.Context, accountID string) error
+
+	// IncrFailure 原子递增失败计数和连续失败计数，更新错误信息。
+	IncrFailure(ctx context.Context, accountID string, errMsg string) error
+
+	// UpdateLastUsed 更新最后使用时间。
+	UpdateLastUsed(ctx context.Context, accountID string, t time.Time) error
+
+	// GetConsecutiveFailures 获取连续失败次数（供 CircuitBreaker 使用）。
+	GetConsecutiveFailures(ctx context.Context, accountID string) (int, error)
+
+	// ResetConsecutiveFailures 重置连续失败次数（成功时调用）。
+	ResetConsecutiveFailures(ctx context.Context, accountID string) error
+
+	// Remove 删除统计数据（账号注销时调用）。
+	Remove(ctx context.Context, accountID string) error
 }

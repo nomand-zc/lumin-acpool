@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
@@ -21,7 +20,7 @@ type Store struct {
 	// accounts is the primary storage: id -> Account
 	accounts map[string]*account.Account
 	// providerIndex is the secondary index: ProviderKey -> id set
-	providerIndex map[provider.ProviderKey]map[string]struct{}
+	providerIndex map[account.ProviderKey]map[string]struct{}
 	// converter is the condition converter.
 	converter *Converter
 }
@@ -30,7 +29,7 @@ type Store struct {
 func NewStore() *Store {
 	return &Store{
 		accounts:      make(map[string]*account.Account),
-		providerIndex: make(map[provider.ProviderKey]map[string]struct{}),
+		providerIndex: make(map[account.ProviderKey]map[string]struct{}),
 		converter:     &Converter{},
 	}
 }
@@ -155,7 +154,7 @@ func (s *Store) Count(_ context.Context, filter *filtercond.Filter) (int, error)
 	return count, nil
 }
 
-func (s *Store) CountByProvider(_ context.Context, key provider.ProviderKey, filter *filtercond.Filter) (int, error) {
+func (s *Store) CountByProvider(_ context.Context, key account.ProviderKey, filter *filtercond.Filter) (int, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return 0, err
@@ -185,7 +184,7 @@ func (s *Store) CountByProvider(_ context.Context, key provider.ProviderKey, fil
 // --- Internal helper methods ---
 
 // providerKeyOf returns the ProviderKey for the given Account.
-func providerKeyOf(acct *account.Account) provider.ProviderKey {
+func providerKeyOf(acct *account.Account) account.ProviderKey {
 	return acct.ProviderKey()
 }
 

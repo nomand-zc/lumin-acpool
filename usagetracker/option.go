@@ -1,6 +1,17 @@
 package usagetracker
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+
+	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-client/usagerule"
+)
+
+// QuotaExhaustedCallback 配额耗尽时的回调函数。
+// 当 RecordUsage 检测到某条规则的用量达到安全阈值时触发。
+// 可通过 WithCallback 选项注入，上层可在此回调中触发冷却，将账号标记为 CoolingDown。
+type QuotaExhaustedCallback = func(ctx context.Context, accountID string, rule *usagerule.UsageRule)
 
 // Option 配置选项。
 type Option func(*options)
@@ -10,7 +21,7 @@ type options struct {
 	// 当已用量占比超过该阈值时，IsQuotaAvailable 返回 false。
 	safetyRatio float64
 	// store 用量追踪数据存储后端。
-	store UsageStore
+	store storage.UsageStore
 	// onQuotaExhausted 配额耗尽时的回调函数。
 	// 当 RecordUsage 检测到某条规则的用量达到安全阈值时触发。
 	onQuotaExhausted QuotaExhaustedCallback
@@ -27,7 +38,7 @@ func WithSafetyRatio(ratio float64) Option {
 }
 
 // WithUsageStore 设置用量追踪数据存储后端。
-func WithUsageStore(store UsageStore) Option {
+func WithUsageStore(store storage.UsageStore) Option {
 	return func(o *options) { o.store = store }
 }
 

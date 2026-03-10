@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-client/credentials"
 )
 
@@ -97,7 +96,7 @@ type HealthReport struct {
 	// AccountID is the ID of the checked account.
 	AccountID string
 	// ProviderKey is the provider the account belongs to.
-	ProviderKey provider.ProviderKey
+ProviderKey account.ProviderKey
 	// Results holds results of each check item (in execution order).
 	Results []*CheckResult
 	// TotalDuration is the total time of the complete health check.
@@ -155,7 +154,7 @@ type CheckTarget interface {
 	// Credential returns the account credential.
 	Credential() credentials.Credential
 	// ProviderInstance returns the provider runtime instance (including metadata and underlying SDK instance).
-	ProviderInstance() *provider.ProviderInstance
+ProviderInstance() *account.ProviderInstance
 	// Account returns the full account object (for check items needing access to statistics and other extra fields).
 	Account() *account.Account
 }

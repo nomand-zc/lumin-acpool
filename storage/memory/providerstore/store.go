@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
@@ -18,11 +18,11 @@ var _ storage.ProviderStorage = (*Store)(nil)
 type Store struct {
 	mu sync.RWMutex
 	// providers is the primary storage: ProviderKey -> ProviderInfo
-	providers map[provider.ProviderKey]*provider.ProviderInfo
+	providers map[account.ProviderKey]*account.ProviderInfo
 	// typeIndex is the type index: providerType -> ProviderKey set
-	typeIndex map[string]map[provider.ProviderKey]struct{}
+	typeIndex map[string]map[account.ProviderKey]struct{}
 	// modelIndex is the model index: model -> ProviderKey set
-	modelIndex map[string]map[provider.ProviderKey]struct{}
+	modelIndex map[string]map[account.ProviderKey]struct{}
 	// converter is the condition converter.
 	converter *Converter
 }
@@ -30,14 +30,14 @@ type Store struct {
 // NewStore creates a new in-memory provider storage instance.
 func NewStore() *Store {
 	return &Store{
-		providers:  make(map[provider.ProviderKey]*provider.ProviderInfo),
-		typeIndex:  make(map[string]map[provider.ProviderKey]struct{}),
-		modelIndex: make(map[string]map[provider.ProviderKey]struct{}),
+		providers:  make(map[account.ProviderKey]*account.ProviderInfo),
+		typeIndex:  make(map[string]map[account.ProviderKey]struct{}),
+		modelIndex: make(map[string]map[account.ProviderKey]struct{}),
 		converter:  &Converter{},
 	}
 }
 
-func (s *Store) Get(_ context.Context, key provider.ProviderKey) (*provider.ProviderInfo, error) {
+func (s *Store) Get(_ context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -48,7 +48,7 @@ func (s *Store) Get(_ context.Context, key provider.ProviderKey) (*provider.Prov
 	return info.Clone(), nil
 }
 
-func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*provider.ProviderInfo, error) {
+func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account.ProviderInfo, error) {
 	filterFn, err := s.converter.Convert(filter)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*provide
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := make([]*provider.ProviderInfo, 0)
+	result := make([]*account.ProviderInfo, 0)
 	for _, info := range s.providers {
 		if filterFn(info) {
 			result = append(result, info.Clone())
@@ -66,7 +66,7 @@ func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*provide
 	return result, nil
 }
 
-func (s *Store) Add(_ context.Context, info *provider.ProviderInfo) error {
+func (s *Store) Add(_ context.Context, info *account.ProviderInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -87,7 +87,7 @@ func (s *Store) Add(_ context.Context, info *provider.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Update(_ context.Context, info *provider.ProviderInfo) error {
+func (s *Store) Update(_ context.Context, info *account.ProviderInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -109,7 +109,7 @@ func (s *Store) Update(_ context.Context, info *provider.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Remove(_ context.Context, key provider.ProviderKey) error {
+func (s *Store) Remove(_ context.Context, key account.ProviderKey) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -126,25 +126,25 @@ func (s *Store) Remove(_ context.Context, key provider.ProviderKey) error {
 // --- Index maintenance methods ---
 
 // addToIndex adds the provider to the Type and Model indexes.
-func (s *Store) addToIndex(info *provider.ProviderInfo) {
+func (s *Store) addToIndex(info *account.ProviderInfo) {
 	key := info.ProviderKey()
 	// Type index
 	if s.typeIndex[info.ProviderType] == nil {
-		s.typeIndex[info.ProviderType] = make(map[provider.ProviderKey]struct{})
+		s.typeIndex[info.ProviderType] = make(map[account.ProviderKey]struct{})
 	}
 	s.typeIndex[info.ProviderType][key] = struct{}{}
 
 	// Model index
 	for _, model := range info.SupportedModels {
 		if s.modelIndex[model] == nil {
-			s.modelIndex[model] = make(map[provider.ProviderKey]struct{})
+			s.modelIndex[model] = make(map[account.ProviderKey]struct{})
 		}
 		s.modelIndex[model][key] = struct{}{}
 	}
 }
 
 // removeFromIndex removes the provider from the Type and Model indexes.
-func (s *Store) removeFromIndex(info *provider.ProviderInfo) {
+func (s *Store) removeFromIndex(info *account.ProviderInfo) {
 	key := info.ProviderKey()
 	// Type index
 	if keys, ok := s.typeIndex[info.ProviderType]; ok {

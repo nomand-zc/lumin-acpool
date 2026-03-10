@@ -1,7 +1,7 @@
 package group
 
 import (
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
 )
 
@@ -20,7 +20,7 @@ func (g *GroupMostAvailable) Name() string {
 }
 
 // Select selects the provider with the most available accounts.
-func (g *GroupMostAvailable) Select(candidates []*provider.ProviderInfo, _ *selector.SelectRequest) (*provider.ProviderInfo, error) {
+func (g *GroupMostAvailable) Select(candidates []*account.ProviderInfo, _ *selector.SelectRequest) (*account.ProviderInfo, error) {
 	if len(candidates) == 0 {
 		return nil, selector.ErrEmptyCandidates
 	}

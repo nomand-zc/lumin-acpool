@@ -5,14 +5,14 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/nomand-zc/lumin-acpool/provider"
+	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 	"github.com/nomand-zc/lumin-acpool/storage/memory/internal/utils"
 )
 
 // FilterFunc is the in-memory filter function type for ProviderInfo.
-type FilterFunc = func(*provider.ProviderInfo) bool
+type FilterFunc = func(*account.ProviderInfo) bool
 
 // Converter converts Filter conditions to in-memory filter functions for ProviderInfo.
 type Converter struct{}
@@ -20,7 +20,7 @@ type Converter struct{}
 // Convert converts a Filter condition to an in-memory filter function for ProviderInfo.
 func (c *Converter) Convert(cond *filtercond.Filter) (FilterFunc, error) {
 	if cond == nil {
-		return func(*provider.ProviderInfo) bool { return true }, nil
+		return func(*account.ProviderInfo) bool { return true }, nil
 	}
 	return c.convertCondition(cond)
 }
@@ -71,7 +71,7 @@ func (c *Converter) buildLogicalCondition(cond *filtercond.Filter) (FilterFunc, 
 		return nil, fmt.Errorf("no valid sub-conditions in logical condition")
 	}
 
-	return func(p *provider.ProviderInfo) bool {
+	return func(p *account.ProviderInfo) bool {
 		isAnd := cond.Operator == filtercond.OperatorAnd
 		for _, pred := range predicates {
 			result := pred(p)
@@ -99,7 +99,7 @@ func (c *Converter) buildComparisonCondition(cond *filtercond.Filter) (FilterFun
 		return nil, err
 	}
 
-	return func(p *provider.ProviderInfo) bool {
+	return func(p *account.ProviderInfo) bool {
 		docValue := extractor(p)
 		switch utils.ValueType(cond.Value) {
 		case utils.ValueTypeString:
@@ -133,7 +133,7 @@ func (c *Converter) buildInCondition(cond *filtercond.Filter) (FilterFunc, error
 	}
 
 	itemNum := s.Len()
-	return func(p *provider.ProviderInfo) bool {
+	return func(p *account.ProviderInfo) bool {
 		docValue := extractor(p)
 		var found bool
 		for i := 0; i < itemNum; i++ {
@@ -175,7 +175,7 @@ func (c *Converter) buildBetweenCondition(cond *filtercond.Filter) (FilterFunc, 
 		}
 	}
 
-	return func(p *provider.ProviderInfo) bool {
+	return func(p *account.ProviderInfo) bool {
 		for _, fn := range condFuncs {
 			if !fn(p) {
 				return false
@@ -197,7 +197,7 @@ func (c *Converter) buildLikeCondition(cond *filtercond.Filter) (FilterFunc, err
 		return nil, fmt.Errorf("like operator requires a string pattern")
 	}
 
-	return func(p *provider.ProviderInfo) bool {
+	return func(p *account.ProviderInfo) bool {
 		docValue := extractor(p)
 		docStr, ok := docValue.(string)
 		if !ok {
@@ -221,7 +221,7 @@ func (c *Converter) buildModelFilter(cond *filtercond.Filter) (FilterFunc, error
 		if !ok {
 			return nil, fmt.Errorf("memory: supported_model eq value must be string")
 		}
-		return func(p *provider.ProviderInfo) bool {
+		return func(p *account.ProviderInfo) bool {
 			return p.SupportsModel(model)
 		}, nil
 	case filtercond.OperatorIn:
@@ -229,7 +229,7 @@ func (c *Converter) buildModelFilter(cond *filtercond.Filter) (FilterFunc, error
 		if err != nil {
 			return nil, fmt.Errorf("memory: supported_model in value must be string slice: %w", err)
 		}
-		return func(p *provider.ProviderInfo) bool {
+		return func(p *account.ProviderInfo) bool {
 			for _, m := range models {
 				if p.SupportsModel(m) {
 					return true
@@ -243,26 +243,26 @@ func (c *Converter) buildModelFilter(cond *filtercond.Filter) (FilterFunc, error
 }
 
 // fieldExtractor returns a ProviderInfo field value extractor function based on field name.
-func fieldExtractor(field string) (func(*provider.ProviderInfo) any, error) {
+func fieldExtractor(field string) (func(*account.ProviderInfo) any, error) {
 	switch field {
 	case storage.ProviderFieldType:
-		return func(p *provider.ProviderInfo) any { return p.ProviderType }, nil
+		return func(p *account.ProviderInfo) any { return p.ProviderType }, nil
 	case storage.ProviderFieldName:
-		return func(p *provider.ProviderInfo) any { return p.ProviderName }, nil
+		return func(p *account.ProviderInfo) any { return p.ProviderName }, nil
 	case storage.ProviderFieldStatus:
-		return func(p *provider.ProviderInfo) any { return int(p.Status) }, nil
+		return func(p *account.ProviderInfo) any { return int(p.Status) }, nil
 	case storage.ProviderFieldPriority:
-		return func(p *provider.ProviderInfo) any { return p.Priority }, nil
+		return func(p *account.ProviderInfo) any { return p.Priority }, nil
 	case storage.ProviderFieldWeight:
-		return func(p *provider.ProviderInfo) any { return p.Weight }, nil
+		return func(p *account.ProviderInfo) any { return p.Weight }, nil
 	case storage.ProviderFieldAccountCount:
-		return func(p *provider.ProviderInfo) any { return p.AccountCount }, nil
+		return func(p *account.ProviderInfo) any { return p.AccountCount }, nil
 	case storage.ProviderFieldAvailableAccountCount:
-		return func(p *provider.ProviderInfo) any { return p.AvailableAccountCount }, nil
+		return func(p *account.ProviderInfo) any { return p.AvailableAccountCount }, nil
 	case storage.ProviderFieldCreatedAt:
-		return func(p *provider.ProviderInfo) any { return p.CreatedAt }, nil
+		return func(p *account.ProviderInfo) any { return p.CreatedAt }, nil
 	case storage.ProviderFieldUpdatedAt:
-		return func(p *provider.ProviderInfo) any { return p.UpdatedAt }, nil
+		return func(p *account.ProviderInfo) any { return p.UpdatedAt }, nil
 	default:
 		return nil, fmt.Errorf("memory: unsupported provider field: %s", field)
 	}

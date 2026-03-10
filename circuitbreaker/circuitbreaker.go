@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/stats"
+	"github.com/nomand-zc/lumin-acpool/storage"
 )
 
 // CircuitBreaker is the circuit breaker interface.
@@ -38,7 +38,7 @@ type options struct {
 	// minThreshold 最小阈值（动态计算后不低于此值，默认 3）。
 	minThreshold int
 	// statsStore 运行时统计存储，用于读写 ConsecutiveFailures。
-	statsStore stats.StatsStore
+	statsStore storage.StatsStore
 }
 
 var defaultOptions = options{
@@ -69,6 +69,6 @@ func WithMinThreshold(n int) Option {
 }
 
 // WithStatsStore sets the runtime statistics store for reading/writing ConsecutiveFailures.
-func WithStatsStore(store stats.StatsStore) Option {
+func WithStatsStore(store storage.StatsStore) Option {
 	return func(o *options) { o.statsStore = store }
 }
