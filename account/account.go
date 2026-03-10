@@ -1,6 +1,7 @@
 package account
 
 import (
+	"maps"
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/provider"
@@ -27,28 +28,8 @@ type Account struct {
 	// Metadata holds extended metadata for custom business fields.
 	Metadata map[string]any
 
-	// --- Usage Information ---
-
-	// UsageStats is the current credential usage statistics snapshot,
-	// periodically refreshed from lumin-client by the health checker.
-	UsageStats []*usagerule.UsageStats
-
-	// --- Runtime Statistics ---
-
-	// TotalCalls is the total number of calls.
-	TotalCalls int64
-	// SuccessCalls is the number of successful calls.
-	SuccessCalls int64
-	// FailedCalls is the number of failed calls.
-	FailedCalls int64
-	// ConsecutiveFailures is the current consecutive failure count (reset to 0 on success).
-	ConsecutiveFailures int
-	// LastUsedAt is the last time the account was selected for use.
-	LastUsedAt *time.Time
-	// LastErrorAt is the last time a call failed.
-	LastErrorAt *time.Time
-	// LastErrorMsg is the error message of the last failed call.
-	LastErrorMsg string
+	// --- Usage Rules ---
+	UsageRules []*usagerule.UsageRule
 
 	// --- Cooldown / Circuit Breaker ---
 
@@ -63,40 +44,6 @@ type Account struct {
 	CreatedAt time.Time
 	// UpdatedAt is the last update time.
 	UpdatedAt time.Time
-}
-
-// SuccessRate calculates the success rate; returns 1.0 when there are no calls.
-func (a *Account) SuccessRate() float64 {
-	if a.TotalCalls == 0 {
-		return 1.0
-	}
-	return float64(a.SuccessCalls) / float64(a.TotalCalls)
-}
-
-// IsUsageLimited returns whether any usage rule has been triggered.
-func (a *Account) IsUsageLimited() bool {
-	for _, s := range a.UsageStats {
-		if s != nil && s.IsTriggered() {
-			return true
-		}
-	}
-	return false
-}
-
-// UsageRemainRatio returns the minimum remaining usage ratio (0.0 ~ 1.0),
-// used in selection strategies to evaluate the account's remaining capacity.
-func (a *Account) UsageRemainRatio() float64 {
-	minRatio := 1.0
-	for _, s := range a.UsageStats {
-		if s == nil || s.Rule == nil || s.Rule.Total <= 0 {
-			continue
-		}
-		ratio := s.Remain / s.Rule.Total
-		if ratio < minRatio {
-			minRatio = ratio
-		}
-	}
-	return minRatio
 }
 
 // IsCooldownExpired returns whether the cooldown period has expired.
@@ -118,4 +65,48 @@ func (a *Account) IsCircuitOpenExpired() bool {
 // ProviderKey returns the composite key composed of ProviderType and ProviderName.
 func (a *Account) ProviderKey() provider.ProviderKey {
 	return provider.BuildProviderKey(a.ProviderType, a.ProviderName)
+}
+
+// Clone 创建 Account 的深拷贝。
+func (a *Account) Clone() *Account {
+	if a == nil {
+		return nil
+	}
+
+	dst := *a
+
+	// 拷贝 Tags
+	if a.Tags != nil {
+		dst.Tags = make(map[string]string, len(a.Tags))
+		maps.Copy(dst.Tags, a.Tags)
+	}
+
+	// 拷贝 Metadata
+	if a.Metadata != nil {
+		dst.Metadata = make(map[string]any, len(a.Metadata))
+		maps.Copy(dst.Metadata, a.Metadata)
+	}
+
+	// 拷贝 UsageRules
+	if a.UsageRules != nil {
+		dst.UsageRules = make([]*usagerule.UsageRule, len(a.UsageRules))
+		for i, rule := range a.UsageRules {
+			if rule != nil {
+				r := *rule
+				dst.UsageRules[i] = &r
+			}
+		}
+	}
+
+	// 拷贝时间指针
+	if a.CooldownUntil != nil {
+		t := *a.CooldownUntil
+		dst.CooldownUntil = &t
+	}
+	if a.CircuitOpenUntil != nil {
+		t := *a.CircuitOpenUntil
+		dst.CircuitOpenUntil = &t
+	}
+
+	return &dst
 }

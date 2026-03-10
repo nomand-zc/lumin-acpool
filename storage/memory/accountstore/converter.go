@@ -214,30 +214,6 @@ func fieldExtractor(field string) (func(*account.Account) any, error) {
 		return func(a *account.Account) any { return int(a.Status) }, nil
 	case storage.AccountFieldPriority:
 		return func(a *account.Account) any { return a.Priority }, nil
-	case storage.AccountFieldTotalCalls:
-		return func(a *account.Account) any { return a.TotalCalls }, nil
-	case storage.AccountFieldSuccessCalls:
-		return func(a *account.Account) any { return a.SuccessCalls }, nil
-	case storage.AccountFieldFailedCalls:
-		return func(a *account.Account) any { return a.FailedCalls }, nil
-	case storage.AccountFieldConsecutiveFailures:
-		return func(a *account.Account) any { return a.ConsecutiveFailures }, nil
-	case storage.AccountFieldLastUsedAt:
-		return func(a *account.Account) any {
-			if a.LastUsedAt == nil {
-				return time.Time{}
-			}
-			return *a.LastUsedAt
-		}, nil
-	case storage.AccountFieldLastErrorAt:
-		return func(a *account.Account) any {
-			if a.LastErrorAt == nil {
-				return time.Time{}
-			}
-			return *a.LastErrorAt
-		}, nil
-	case storage.AccountFieldLastErrorMsg:
-		return func(a *account.Account) any { return a.LastErrorMsg }, nil
 	case storage.AccountFieldCooldownUntil:
 		return func(a *account.Account) any {
 			if a.CooldownUntil == nil {

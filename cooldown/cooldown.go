@@ -17,16 +17,21 @@ type CooldownManager interface {
 	IsCooldownExpired(acct *account.Account) bool
 }
 
-// Config holds the cooldown manager configuration.
-type Config struct {
-	// DefaultDuration is the default cooldown duration, used when the rate limit response
+// Option is a functional option for configuring the default CooldownManager.
+type Option func(*options)
+
+// options holds the cooldown manager configuration.
+type options struct {
+	// defaultDuration is the default cooldown duration, used when the rate limit response
 	// does not provide a cooldown expiration time (default 30s).
-	DefaultDuration time.Duration
+	defaultDuration time.Duration
 }
 
-// DefaultConfig returns the default cooldown manager configuration.
-func DefaultConfig() Config {
-	return Config{
-		DefaultDuration: 30 * time.Second,
-	}
+var defaultOptions = options{
+	defaultDuration: 30 * time.Second,
+}
+
+// WithDefaultDuration sets the default cooldown duration.
+func WithDefaultDuration(d time.Duration) Option {
+	return func(o *options) { o.defaultDuration = d }
 }

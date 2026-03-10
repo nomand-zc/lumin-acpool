@@ -9,7 +9,6 @@ import (
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
-	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
 // Compile-time interface compliance check.
@@ -44,7 +43,7 @@ func (s *Store) Get(_ context.Context, id string) (*account.Account, error) {
 	if !ok {
 		return nil, storage.ErrNotFound
 	}
-	return s.copyAccount(acct), nil
+	return acct.Clone(), nil
 }
 
 func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
@@ -59,7 +58,7 @@ func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account
 	result := make([]*account.Account, 0)
 	for _, acct := range s.accounts {
 		if filterFn(acct) {
-			result = append(result, s.copyAccount(acct))
+			result = append(result, acct.Clone())
 		}
 	}
 	return result, nil
@@ -74,7 +73,7 @@ func (s *Store) Add(_ context.Context, acct *account.Account) error {
 	}
 
 	now := time.Now()
-	stored := s.copyAccount(acct)
+	stored := acct.Clone()
 	if stored.CreatedAt.IsZero() {
 		stored.CreatedAt = now
 	}
@@ -97,7 +96,7 @@ func (s *Store) Update(_ context.Context, acct *account.Account) error {
 	// Remove from old index first
 	s.removeFromIndex(old)
 
-	stored := s.copyAccount(acct)
+	stored := acct.Clone()
 	stored.UpdatedAt = time.Now()
 
 	s.accounts[acct.ID] = stored
@@ -208,51 +207,4 @@ func (s *Store) removeFromIndex(acct *account.Account) {
 			delete(s.providerIndex, key)
 		}
 	}
-}
-
-// copyAccount creates a deep copy of an Account to prevent external modification of internal stored data.
-func (s *Store) copyAccount(src *account.Account) *account.Account {
-	dst := *src
-
-	// Deep copy Tags
-	if src.Tags != nil {
-		dst.Tags = make(map[string]string, len(src.Tags))
-		for k, v := range src.Tags {
-			dst.Tags[k] = v
-		}
-	}
-
-	// Deep copy Metadata
-	if src.Metadata != nil {
-		dst.Metadata = make(map[string]any, len(src.Metadata))
-		for k, v := range src.Metadata {
-			dst.Metadata[k] = v
-		}
-	}
-
-	// Deep copy UsageStats
-	if src.UsageStats != nil {
-		dst.UsageStats = make([]*usagerule.UsageStats, len(src.UsageStats))
-		copy(dst.UsageStats, src.UsageStats)
-	}
-
-	// Deep copy time pointers
-	if src.LastUsedAt != nil {
-		t := *src.LastUsedAt
-		dst.LastUsedAt = &t
-	}
-	if src.LastErrorAt != nil {
-		t := *src.LastErrorAt
-		dst.LastErrorAt = &t
-	}
-	if src.CooldownUntil != nil {
-		t := *src.CooldownUntil
-		dst.CooldownUntil = &t
-	}
-	if src.CircuitOpenUntil != nil {
-		t := *src.CircuitOpenUntil
-		dst.CircuitOpenUntil = &t
-	}
-
-	return &dst
 }

@@ -7,7 +7,9 @@ import (
 	"github.com/nomand-zc/lumin-acpool/selector"
 	accountstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies/account"
 	groupstrategies "github.com/nomand-zc/lumin-acpool/selector/strategies/group"
+	"github.com/nomand-zc/lumin-acpool/stats"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-acpool/usagetracker"
 )
 
 var defaultOptions = Options{
@@ -36,6 +38,10 @@ type Options struct {
 	CircuitBreaker circuitbreaker.CircuitBreaker
 	// CooldownManager is the cooldown manager (optional).
 	CooldownManager cooldown.CooldownManager
+	// StatsStore is the runtime statistics store (optional, used for recording call statistics).
+	StatsStore stats.StatsStore
+	// UsageTracker is the usage tracker (optional, used for quota pre-filtering and usage recording).
+	UsageTracker usagetracker.UsageTracker
 	// DefaultMaxRetries is the default maximum retry count.
 	DefaultMaxRetries int
 	// DefaultEnableFailover indicates whether failover is enabled by default.
@@ -75,6 +81,16 @@ func WithCircuitBreaker(cb circuitbreaker.CircuitBreaker) Option {
 // WithCooldownManager sets the cooldown manager.
 func WithCooldownManager(cm cooldown.CooldownManager) Option {
 	return func(o *Options) { o.CooldownManager = cm }
+}
+
+// WithStatsStore sets the runtime statistics store.
+func WithStatsStore(ss stats.StatsStore) Option {
+	return func(o *Options) { o.StatsStore = ss }
+}
+
+// WithUsageTracker sets the usage tracker.
+func WithUsageTracker(ut usagetracker.UsageTracker) Option {
+	return func(o *Options) { o.UsageTracker = ut }
 }
 
 // WithDefaultMaxRetries sets the default maximum retry count.

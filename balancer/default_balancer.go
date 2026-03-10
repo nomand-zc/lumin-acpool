@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/nomand-zc/lumin-acpool/resolver"
 	"github.com/nomand-zc/lumin-acpool/selector"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
 // defaultBalancer is the default implementation of the Balancer interface.
@@ -180,14 +180,13 @@ func (b *defaultBalancer) selectAccountFromProvider(
 			return nil, fmt.Errorf("balancer: select account: %w", err)
 		}
 
-		// Update LastUsedAt
+		// Update LastUsedAt via StatsStore
 		now := time.Now()
-		chosen.LastUsedAt = &now
-		chosen.UpdatedAt = now
-		if err := b.opts.AccountStorage.Update(ctx, chosen); err != nil {
-			// 更新失败，将该账号加入排除列表后重试
-			selReq.ExcludeAccountIDs = append(selReq.ExcludeAccountIDs, chosen.ID)
-			continue
+		if b.opts.StatsStore != nil {
+			if err := b.opts.StatsStore.UpdateLastUsed(ctx, chosen.ID, now); err != nil {
+				selReq.ExcludeAccountIDs = append(selReq.ExcludeAccountIDs, chosen.ID)
+				continue
+			}
 		}
 
 		// Restore the exclude list
@@ -207,29 +206,36 @@ func (b *defaultBalancer) selectAccountFromProvider(
 
 // ReportSuccess reports a successful call.
 func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) error {
-	acct, err := b.opts.AccountStorage.Get(ctx, accountID)
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			return ErrAccountNotFound
+	// 1. 更新运行时统计（通过 StatsStore 原子操作）
+	if b.opts.StatsStore != nil {
+		if err := b.opts.StatsStore.IncrSuccess(ctx, accountID); err != nil {
+			return fmt.Errorf("balancer: incr success stats: %w", err)
 		}
-		return fmt.Errorf("balancer: get account: %w", err)
 	}
 
-	// Update statistics
-	acct.TotalCalls++
-	acct.SuccessCalls++
-	acct.ConsecutiveFailures = 0
-	now := time.Now()
-	acct.UpdatedAt = now
-
-	// Notify circuit breaker
+	// 2. 通知熔断器
 	if b.opts.CircuitBreaker != nil {
-		b.opts.CircuitBreaker.RecordSuccess(acct)
-	}
+		acct, err := b.opts.AccountStorage.Get(ctx, accountID)
+		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				return ErrAccountNotFound
+			}
+			return fmt.Errorf("balancer: get account: %w", err)
+		}
 
-	// Persist
-	if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
-		return fmt.Errorf("balancer: update account: %w", err)
+		if err := b.opts.CircuitBreaker.RecordSuccess(ctx, acct); err != nil {
+			return fmt.Errorf("balancer: circuit breaker record success: %w", err)
+		}
+
+		// 仅当状态需要变更时才持久化 Account
+		if acct.Status == account.StatusCircuitOpen {
+			acct.Status = account.StatusAvailable
+			acct.CircuitOpenUntil = nil
+			acct.UpdatedAt = time.Now()
+			if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
+				return fmt.Errorf("balancer: update account: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -237,6 +243,20 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 
 // ReportFailure reports a failed call.
 func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, callErr error) error {
+	// 1. 更新运行时统计（通过 StatsStore 原子操作）
+	errMsg := ""
+	if callErr != nil {
+		errMsg = callErr.Error()
+	}
+	if b.opts.StatsStore != nil {
+		if err := b.opts.StatsStore.IncrFailure(ctx, accountID, errMsg); err != nil {
+			return fmt.Errorf("balancer: incr failure stats: %w", err)
+		}
+	}
+
+	// 2. 判断是否需要变更 Account 状态
+	needUpdate := false
+
 	acct, err := b.opts.AccountStorage.Get(ctx, accountID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
@@ -245,33 +265,37 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		return fmt.Errorf("balancer: get account: %w", err)
 	}
 
-	// Update statistics
-	acct.TotalCalls++
-	acct.FailedCalls++
-	acct.ConsecutiveFailures++
-	now := time.Now()
-	acct.LastErrorAt = &now
-	acct.UpdatedAt = now
-	if callErr != nil {
-		acct.LastErrorMsg = callErr.Error()
-	}
+	// 3. 检查是否是限流错误，优先冷却处理
+	if isRateLimitError(callErr) {
+		// Double check: 通过 UsageTracker 标记对应规则已耗尽
+		if b.opts.UsageTracker != nil {
+			_ = b.opts.UsageTracker.CalibrateFromResponse(ctx, accountID, usagerule.SourceTypeRequest)
+		}
 
-	// Check if it's a rate limit error, prioritize cooldown handling
-	if isRateLimitError(callErr) && b.opts.CooldownManager != nil {
-		retryAfter := extractRetryAfter(callErr)
-		b.opts.CooldownManager.StartCooldown(acct, retryAfter)
-		acct.Status = account.StatusCoolingDown
+		if b.opts.CooldownManager != nil {
+			retryAfter := extractRetryAfter(callErr)
+			b.opts.CooldownManager.StartCooldown(acct, retryAfter)
+			acct.Status = account.StatusCoolingDown
+			needUpdate = true
+		}
 	} else if b.opts.CircuitBreaker != nil {
-		// Notify circuit breaker
-		tripped := b.opts.CircuitBreaker.RecordFailure(acct)
+		// 非限流错误，通知熔断器
+		tripped, cbErr := b.opts.CircuitBreaker.RecordFailure(ctx, acct)
+		if cbErr != nil {
+			return fmt.Errorf("balancer: circuit breaker record failure: %w", cbErr)
+		}
 		if tripped {
 			acct.Status = account.StatusCircuitOpen
+			needUpdate = true
 		}
 	}
 
-	// Persist
-	if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
-		return fmt.Errorf("balancer: update account: %w", err)
+	// 4. 仅当状态变更时才持久化
+	if needUpdate {
+		acct.UpdatedAt = time.Now()
+		if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
+			return fmt.Errorf("balancer: update account: %w", err)
+		}
 	}
 
 	return nil
@@ -302,43 +326,7 @@ func filterProviders(candidates []*provider.ProviderInfo, excludeKeys []provider
 
 // deepCopyAccount creates a deep copy of an account object.
 func deepCopyAccount(src *account.Account) *account.Account {
-	if src == nil {
-		return nil
-	}
-
-	dst := *src
-
-	// Copy Tags
-	if src.Tags != nil {
-		dst.Tags = make(map[string]string, len(src.Tags))
-		maps.Copy(dst.Tags, src.Tags)
-	}
-
-	// Copy Metadata
-	if src.Metadata != nil {
-		dst.Metadata = make(map[string]any, len(src.Metadata))
-		maps.Copy(dst.Metadata, src.Metadata)
-	}
-
-	// Copy time pointers
-	if src.LastUsedAt != nil {
-		t := *src.LastUsedAt
-		dst.LastUsedAt = &t
-	}
-	if src.LastErrorAt != nil {
-		t := *src.LastErrorAt
-		dst.LastErrorAt = &t
-	}
-	if src.CooldownUntil != nil {
-		t := *src.CooldownUntil
-		dst.CooldownUntil = &t
-	}
-	if src.CircuitOpenUntil != nil {
-		t := *src.CircuitOpenUntil
-		dst.CircuitOpenUntil = &t
-	}
-
-	return &dst
+	return src.Clone()
 }
 
 // rateLimitError is the rate limit error interface.

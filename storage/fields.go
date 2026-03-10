@@ -12,20 +12,6 @@ const (
 	AccountFieldStatus = "status"
 	// AccountFieldPriority is the priority.
 	AccountFieldPriority = "priority"
-	// AccountFieldTotalCalls is the total call count.
-	AccountFieldTotalCalls = "total_calls"
-	// AccountFieldSuccessCalls is the successful call count.
-	AccountFieldSuccessCalls = "success_calls"
-	// AccountFieldFailedCalls is the failed call count.
-	AccountFieldFailedCalls = "failed_calls"
-	// AccountFieldConsecutiveFailures is the consecutive failure count.
-	AccountFieldConsecutiveFailures = "consecutive_failures"
-	// AccountFieldLastUsedAt is the last used time.
-	AccountFieldLastUsedAt = "last_used_at"
-	// AccountFieldLastErrorAt is the last call failure time.
-	AccountFieldLastErrorAt = "last_error_at"
-	// AccountFieldLastErrorMsg is the last call failure error message.
-	AccountFieldLastErrorMsg = "last_error_msg"
 	// AccountFieldCooldownUntil is the cooldown expiration time.
 	AccountFieldCooldownUntil = "cooldown_until"
 	// AccountFieldCircuitOpenUntil is the circuit breaker expiration time.
