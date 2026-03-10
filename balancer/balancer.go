@@ -68,7 +68,7 @@ type PickRequest struct {
 	//   - nil: fully automatic selection
 	//   - Type only: restrict to provider type
 	//   - Both Type + Name: exact provider specification
-ProviderKey *account.ProviderKey
+	ProviderKey *account.ProviderKey
 
 	// Tags is for tag-based filtering (optional).
 	Tags map[string]string
@@ -87,7 +87,7 @@ type PickResult struct {
 	Account *account.Account
 
 	// ProviderKey is the identifier of the selected provider.
-ProviderKey account.ProviderKey
+	ProviderKey account.ProviderKey
 
 	// Attempts is the total number of attempts (including retries).
 	Attempts int

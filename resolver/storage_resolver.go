@@ -77,11 +77,11 @@ statusFilter := filtercond.In(storage.ProviderFieldStatus, int(account.ProviderS
 }
 
 // ResolveAccounts resolves available accounts under the specified provider from storage.
-func (r *storageResolver) ResolveAccounts(ctx context.Context, key account.ProviderKey, tags map[string]string, excludeIDs []string) ([]*account.Account, error) {
+func (r *storageResolver) ResolveAccounts(ctx context.Context, req ResolveAccountsRequest) ([]*account.Account, error) {
 	// Only query available accounts under the specified provider
 	filter := filtercond.And(
-		filtercond.Equal(storage.AccountFieldProviderType, key.Type),
-		filtercond.Equal(storage.AccountFieldProviderName, key.Name),
+		filtercond.Equal(storage.AccountFieldProviderType, req.Key.Type),
+		filtercond.Equal(storage.AccountFieldProviderName, req.Key.Name),
 		filtercond.Equal(storage.AccountFieldStatus, int(account.StatusAvailable)),
 	)
 
@@ -91,13 +91,13 @@ func (r *storageResolver) ResolveAccounts(ctx context.Context, key account.Provi
 	}
 
 	// Filter out excluded account IDs
-	if len(excludeIDs) > 0 {
-		accounts = filterExcluded(accounts, excludeIDs)
+	if len(req.ExcludeIDs) > 0 {
+		accounts = filterExcluded(accounts, req.ExcludeIDs)
 	}
 
 	// Filter by tags
-	if len(tags) > 0 {
-		accounts = filterByTags(accounts, tags)
+	if len(req.Tags) > 0 {
+		accounts = filterByTags(accounts, req.Tags)
 	}
 
 	return accounts, nil
