@@ -10,7 +10,7 @@ import (
 // defaultCooldownManager 是 CooldownManager 接口的默认实现。
 // 支持基于账号 UsageRules 动态计算冷却时长。
 type defaultCooldownManager struct {
-	opts options
+	opts Options
 }
 
 // NewCooldownManager 创建一个 CooldownManager 实例。
@@ -40,7 +40,7 @@ func (cm *defaultCooldownManager) StartCooldown(acct *account.Account, until *ti
 	}
 
 	// fallback 到默认值
-	t := time.Now().Add(cm.opts.defaultDuration)
+	t := time.Now().Add(cm.opts.DefaultDuration)
 	acct.CooldownUntil = &t
 }
 

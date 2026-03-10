@@ -14,32 +14,33 @@ import (
 type QuotaExhaustedCallback = func(ctx context.Context, accountID string, rule *usagerule.UsageRule)
 
 // Option 配置选项。
-type Option func(*options)
+type Option func(*Options)
 
-type options struct {
-	// safetyRatio 安全阈值比例，默认 0.95。
+// Options 配置选项结构体。
+type Options struct {
+	// SafetyRatio 安全阈值比例，默认 0.95。
 	// 当已用量占比超过该阈值时，IsQuotaAvailable 返回 false。
-	safetyRatio float64
-	// store 用量追踪数据存储后端。
-	store storage.UsageStore
-	// onQuotaExhausted 配额耗尽时的回调函数。
+	SafetyRatio float64
+	// Store 用量追踪数据存储后端。
+	Store storage.UsageStore
+	// OnQuotaExhausted 配额耗尽时的回调函数。
 	// 当 RecordUsage 检测到某条规则的用量达到安全阈值时触发。
-	onQuotaExhausted QuotaExhaustedCallback
+	OnQuotaExhausted QuotaExhaustedCallback
 }
 
-var defaultOpts = options{
-	safetyRatio: 0.95,
+var defaultOpts = Options{
+	SafetyRatio: 0.95,
 }
 
 // WithSafetyRatio 设置安全阈值比例（0.0 ~ 1.0）。
 // 默认 0.95，即剩余量 < 5% 时视为不可用。
 func WithSafetyRatio(ratio float64) Option {
-	return func(o *options) { o.safetyRatio = ratio }
+	return func(o *Options) { o.SafetyRatio = ratio }
 }
 
 // WithUsageStore 设置用量追踪数据存储后端。
 func WithUsageStore(store storage.UsageStore) Option {
-	return func(o *options) { o.store = store }
+	return func(o *Options) { o.Store = store }
 }
 
 // WithCallback 统一的回调注册函数（泛型）。
@@ -55,10 +56,10 @@ func WithUsageStore(store storage.UsageStore) Option {
 //	    // 处理配额耗尽
 //	}))
 func WithCallback[T QuotaExhaustedCallback](cb T) Option {
-	return func(o *options) {
+	return func(o *Options) {
 		switch fn := any(cb).(type) {
 		case QuotaExhaustedCallback:
-			o.onQuotaExhausted = fn
+			o.OnQuotaExhausted = fn
 		default:
 			panic(fmt.Sprintf("usagetracker: unsupported callback type: %T", cb))
 		}

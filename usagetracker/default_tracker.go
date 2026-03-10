@@ -16,7 +16,7 @@ var _ UsageTracker = (*defaultUsageTracker)(nil)
 // defaultUsageTracker 是 UsageTracker 接口的默认实现。
 // 通过 storage.UsageStore 接口管理追踪数据，支持内存和 Redis 等多种后端。
 type defaultUsageTracker struct {
-	opts  options
+	opts  Options
 	store storage.UsageStore
 }
 
@@ -27,7 +27,7 @@ func NewUsageTracker(opts ...Option) UsageTracker {
 	for _, opt := range opts {
 		opt(&o)
 	}
-	store := o.store
+	store := o.Store
 	if store == nil {
 		store = usagestore.NewMemoryUsageStore()
 	}
@@ -55,7 +55,7 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 	}
 
 	// 检测配额是否达到安全阈值，触发回调
-	if t.opts.onQuotaExhausted != nil {
+	if t.opts.OnQuotaExhausted != nil {
 		// 重新获取最新数据（IncrLocalUsed 后数据已变更）
 		usages, err = t.store.GetAll(ctx, accountID)
 		if err != nil {
@@ -71,8 +71,8 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 				continue
 			}
 			usedRatio := u.EstimatedUsed() / u.Rule.Total
-			if usedRatio >= t.opts.safetyRatio {
-				t.opts.onQuotaExhausted(ctx, accountID, u.Rule)
+		if usedRatio >= t.opts.SafetyRatio {
+				t.opts.OnQuotaExhausted(ctx, accountID, u.Rule)
 				return nil // 触发一次即可，由回调方决定如何处理
 			}
 		}
@@ -100,7 +100,7 @@ func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID st
 			continue // 窗口已过期，跳过
 		}
 		usedRatio := u.EstimatedUsed() / u.Rule.Total
-		if usedRatio >= t.opts.safetyRatio {
+		if usedRatio >= t.opts.SafetyRatio {
 			return false, nil
 		}
 	}

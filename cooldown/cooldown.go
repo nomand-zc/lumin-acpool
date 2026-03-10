@@ -18,20 +18,20 @@ type CooldownManager interface {
 }
 
 // Option is a functional option for configuring the default CooldownManager.
-type Option func(*options)
+type Option func(*Options)
 
-// options holds the cooldown manager configuration.
-type options struct {
-	// defaultDuration is the default cooldown duration, used when the rate limit response
+// Options holds the cooldown manager configuration.
+type Options struct {
+	// DefaultDuration is the default cooldown duration, used when the rate limit response
 	// does not provide a cooldown expiration time (default 30s).
-	defaultDuration time.Duration
+	DefaultDuration time.Duration
 }
 
-var defaultOptions = options{
-	defaultDuration: 30 * time.Second,
+var defaultOptions = Options{
+	DefaultDuration: 30 * time.Second,
 }
 
 // WithDefaultDuration sets the default cooldown duration.
 func WithDefaultDuration(d time.Duration) Option {
-	return func(o *options) { o.defaultDuration = d }
+	return func(o *Options) { o.DefaultDuration = d }
 }

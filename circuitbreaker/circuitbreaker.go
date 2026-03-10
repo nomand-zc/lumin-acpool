@@ -25,50 +25,50 @@ type CircuitBreaker interface {
 }
 
 // Option is a functional option for configuring the default CircuitBreaker.
-type Option func(*options)
+type Option func(*Options)
 
-// options holds the circuit breaker configuration.
-type options struct {
-	// defaultThreshold 默认连续失败阈值（当账号无 UsageRules 时使用，默认 5）。
-	defaultThreshold int
-	// defaultTimeout 默认熔断恢复时间窗口（当账号无 UsageRules 时使用，默认 60s）。
-	defaultTimeout time.Duration
-	// thresholdRatio 动态阈值比例（取规则 Total 的比例，默认 0.5 即 50%）。
-	thresholdRatio float64
-	// minThreshold 最小阈值（动态计算后不低于此值，默认 3）。
-	minThreshold int
-	// statsStore 运行时统计存储，用于读写 ConsecutiveFailures。
-	statsStore storage.StatsStore
+// Options holds the circuit breaker configuration.
+type Options struct {
+	// DefaultThreshold 默认连续失败阈值（当账号无 UsageRules 时使用，默认 5）。
+	DefaultThreshold int
+	// DefaultTimeout 默认熔断恢复时间窗口（当账号无 UsageRules 时使用，默认 60s）。
+	DefaultTimeout time.Duration
+	// ThresholdRatio 动态阈值比例（取规则 Total 的比例，默认 0.5 即 50%）。
+	ThresholdRatio float64
+	// MinThreshold 最小阈值（动态计算后不低于此值，默认 3）。
+	MinThreshold int
+	// StatsStore 运行时统计存储，用于读写 ConsecutiveFailures。
+	StatsStore storage.StatsStore
 }
 
-var defaultOptions = options{
-	defaultThreshold: 5,
-	defaultTimeout:   60 * time.Second,
-	thresholdRatio:   0.5,
-	minThreshold:     3,
+var defaultOptions = Options{
+	DefaultThreshold: 5,
+	DefaultTimeout:   60 * time.Second,
+	ThresholdRatio:   0.5,
+	MinThreshold:     3,
 }
 
 // WithDefaultThreshold sets the default consecutive failure count threshold.
 func WithDefaultThreshold(n int) Option {
-	return func(o *options) { o.defaultThreshold = n }
+	return func(o *Options) { o.DefaultThreshold = n }
 }
 
 // WithDefaultTimeout sets the default circuit breaker recovery time window.
 func WithDefaultTimeout(d time.Duration) Option {
-	return func(o *options) { o.defaultTimeout = d }
+	return func(o *Options) { o.DefaultTimeout = d }
 }
 
 // WithThresholdRatio sets the dynamic threshold ratio (proportion of rule Total).
 func WithThresholdRatio(ratio float64) Option {
-	return func(o *options) { o.thresholdRatio = ratio }
+	return func(o *Options) { o.ThresholdRatio = ratio }
 }
 
 // WithMinThreshold sets the minimum threshold for dynamic calculation.
 func WithMinThreshold(n int) Option {
-	return func(o *options) { o.minThreshold = n }
+	return func(o *Options) { o.MinThreshold = n }
 }
 
 // WithStatsStore sets the runtime statistics store for reading/writing ConsecutiveFailures.
 func WithStatsStore(store storage.StatsStore) Option {
-	return func(o *options) { o.statsStore = store }
+	return func(o *Options) { o.StatsStore = store }
 }

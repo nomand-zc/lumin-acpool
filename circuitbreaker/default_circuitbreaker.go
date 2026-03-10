@@ -13,7 +13,7 @@ import (
 // defaultCircuitBreaker 是 CircuitBreaker 接口的默认实现。
 // 基于连续失败次数判断是否触发熔断，支持基于账号 UsageRules 动态计算阈值和超时时间。
 type defaultCircuitBreaker struct {
-	opts options
+	opts Options
 }
 
 // NewCircuitBreaker 创建一个 CircuitBreaker 实例。
@@ -22,7 +22,7 @@ func NewCircuitBreaker(opts ...Option) (CircuitBreaker, error) {
 	for _, opt := range opts {
 		opt(&o)
 	}
-	if o.statsStore == nil {
+	if o.StatsStore == nil {
 		return nil, fmt.Errorf("circuitbreaker: StatsStore is required")
 	}
 	return &defaultCircuitBreaker{opts: o}, nil
@@ -30,7 +30,7 @@ func NewCircuitBreaker(opts ...Option) (CircuitBreaker, error) {
 
 // RecordSuccess 记录一次成功调用，重置连续失败计数。
 func (cb *defaultCircuitBreaker) RecordSuccess(ctx context.Context, acct *account.Account) error {
-	if err := cb.opts.statsStore.ResetConsecutiveFailures(ctx, acct.ID); err != nil {
+	if err := cb.opts.StatsStore.ResetConsecutiveFailures(ctx, acct.ID); err != nil {
 		return fmt.Errorf("circuitbreaker: reset consecutive failures: %w", err)
 	}
 	acct.CircuitOpenUntil = nil
@@ -40,7 +40,7 @@ func (cb *defaultCircuitBreaker) RecordSuccess(ctx context.Context, acct *accoun
 // RecordFailure 记录一次失败调用。
 // 返回是否触发熔断（true 表示账号应切换为 CircuitOpen 状态）。
 func (cb *defaultCircuitBreaker) RecordFailure(ctx context.Context, acct *account.Account) (tripped bool, err error) {
-	failures, err := cb.opts.statsStore.GetConsecutiveFailures(ctx, acct.ID)
+	failures, err := cb.opts.StatsStore.GetConsecutiveFailures(ctx, acct.ID)
 	if err != nil {
 		return false, fmt.Errorf("circuitbreaker: get consecutive failures: %w", err)
 	}
@@ -66,7 +66,7 @@ func (cb *defaultCircuitBreaker) ShouldAllow(acct *account.Account) bool {
 // 取请求类型规则中最小 Total 的比例，至少为 minThreshold。
 func (cb *defaultCircuitBreaker) dynamicThreshold(acct *account.Account) int {
 	if len(acct.UsageRules) == 0 {
-		return cb.opts.defaultThreshold
+		return cb.opts.DefaultThreshold
 	}
 
 	minTotal := math.MaxFloat64
@@ -77,12 +77,12 @@ func (cb *defaultCircuitBreaker) dynamicThreshold(acct *account.Account) int {
 	}
 
 	if minTotal == math.MaxFloat64 {
-		return cb.opts.defaultThreshold
+		return cb.opts.DefaultThreshold
 	}
 
-	threshold := int(minTotal * cb.opts.thresholdRatio)
-	if threshold < cb.opts.minThreshold {
-		threshold = cb.opts.minThreshold
+	threshold := int(minTotal * cb.opts.ThresholdRatio)
+	if threshold < cb.opts.MinThreshold {
+		threshold = cb.opts.MinThreshold
 	}
 	return threshold
 }
@@ -91,7 +91,7 @@ func (cb *defaultCircuitBreaker) dynamicThreshold(acct *account.Account) int {
 // 取最小规则窗口的剩余时间，至少为 defaultTimeout。
 func (cb *defaultCircuitBreaker) dynamicTimeout(acct *account.Account) time.Duration {
 	if len(acct.UsageRules) == 0 {
-		return cb.opts.defaultTimeout
+		return cb.opts.DefaultTimeout
 	}
 
 	now := time.Now()
@@ -110,8 +110,8 @@ func (cb *defaultCircuitBreaker) dynamicTimeout(acct *account.Account) time.Dura
 		}
 	}
 
-	if minRemain == time.Duration(math.MaxInt64) || minRemain < cb.opts.defaultTimeout {
-		return cb.opts.defaultTimeout
+	if minRemain == time.Duration(math.MaxInt64) || minRemain < cb.opts.DefaultTimeout {
+		return cb.opts.DefaultTimeout
 	}
 	return minRemain
 }
