@@ -1,5 +1,7 @@
 package usagetracker
 
+import "fmt"
+
 // Option 配置选项。
 type Option func(*options)
 
@@ -9,6 +11,9 @@ type options struct {
 	safetyRatio float64
 	// store 用量追踪数据存储后端。
 	store UsageStore
+	// onQuotaExhausted 配额耗尽时的回调函数。
+	// 当 RecordUsage 检测到某条规则的用量达到安全阈值时触发。
+	onQuotaExhausted QuotaExhaustedCallback
 }
 
 var defaultOpts = options{
@@ -24,4 +29,27 @@ func WithSafetyRatio(ratio float64) Option {
 // WithUsageStore 设置用量追踪数据存储后端。
 func WithUsageStore(store UsageStore) Option {
 	return func(o *options) { o.store = store }
+}
+
+// WithCallback 统一的回调注册函数（泛型）。
+// 通过传入不同类型的回调函数来配置不同的事件处理。
+// 当前支持的回调类型：
+//   - QuotaExhaustedCallback: 配额耗尽时触发，上层可在此回调中触发冷却
+//
+// 新增回调类型时，在类型约束中用 | 追加即可。
+//
+// 示例:
+//
+//	usagetracker.WithCallback(usagetracker.QuotaExhaustedCallback(func(ctx context.Context, accountID string, rule *usagerule.UsageRule) {
+//	    // 处理配额耗尽
+//	}))
+func WithCallback[T QuotaExhaustedCallback](cb T) Option {
+	return func(o *options) {
+		switch fn := any(cb).(type) {
+		case QuotaExhaustedCallback:
+			o.onQuotaExhausted = fn
+		default:
+			panic(fmt.Sprintf("usagetracker: unsupported callback type: %T", cb))
+		}
+	}
 }

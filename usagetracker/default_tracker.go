@@ -50,6 +50,31 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 			}
 		}
 	}
+
+	// 检测配额是否达到安全阈值，触发回调
+	if t.opts.onQuotaExhausted != nil {
+		// 重新获取最新数据（IncrLocalUsed 后数据已变更）
+		usages, err = t.store.GetAll(ctx, accountID)
+		if err != nil {
+			return nil // 检测失败不影响主流程
+		}
+		now := time.Now()
+		for _, u := range usages {
+			if u.Rule == nil || u.Rule.Total <= 0 || u.Rule.SourceType != sourceType {
+				continue
+			}
+			// 窗口已过期则跳过
+			if u.WindowEnd != nil && now.After(*u.WindowEnd) {
+				continue
+			}
+			usedRatio := u.EstimatedUsed() / u.Rule.Total
+			if usedRatio >= t.opts.safetyRatio {
+				t.opts.onQuotaExhausted(ctx, accountID, u.Rule)
+				return nil // 触发一次即可，由回调方决定如何处理
+			}
+		}
+	}
+
 	return nil
 }
 

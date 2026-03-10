@@ -9,14 +9,14 @@ import (
 
 // TargetProvider is the function type for providing targets to be checked.
 // The background periodic health check needs this function to obtain the current list of targets to check.
-type TargetProvider func(ctx context.Context) []CheckTarget
+type TargetProvider = func(ctx context.Context) []CheckTarget
 
 // ReportCallback is the callback function type for health check reports.
 // Called after a background check completes; the upper layer can use it to update account status, persist reports, etc.
 type ReportCallback func(ctx context.Context, report *HealthReport)
 
 // CheckerOption is a functional option for configuring defaultHealthChecker.
-type CheckerOption func(*defaultHealthChecker)
+type CheckerOption = func(*defaultHealthChecker)
 
 // WithTargetProvider sets the target provider for obtaining targets to check during background scanning.
 func WithTargetProvider(tp TargetProvider) CheckerOption {
@@ -25,11 +25,26 @@ func WithTargetProvider(tp TargetProvider) CheckerOption {
 	}
 }
 
-// WithReportCallback sets the health check report callback.
-// Called after each background check completes for a target, passing the report.
-func WithReportCallback(fn ReportCallback) CheckerOption {
+// WithCallback 统一的回调注册函数（泛型）。
+// 通过传入不同类型的回调函数来配置不同的事件处理。
+// 当前支持的回调类型：
+//   - ReportCallback: 健康检查报告回调，每次后台检查完成后触发
+//
+// 新增回调类型时，在类型约束中用 | 追加即可。
+//
+// 示例:
+//
+//	health.WithCallback(health.ReportCallback(func(ctx context.Context, report *HealthReport) {
+//	    // 处理检查报告
+//	}))
+func WithCallback[T ReportCallback](cb T) CheckerOption {
 	return func(c *defaultHealthChecker) {
-		c.onReport = fn
+		switch fn := any(cb).(type) {
+		case ReportCallback:
+			c.onReport = fn
+		default:
+			panic(fmt.Sprintf("health: unsupported callback type: %T", cb))
+		}
 	}
 }
 
@@ -265,14 +280,30 @@ func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastR
 
 	targets := c.targetProvider(ctx)
 	for _, target := range targets {
+		start := time.Now()
+		results := make([]*CheckResult, 0, len(dueChecks))
+
 		for _, check := range dueChecks {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				check.Check(ctx, target)
+				result := check.Check(ctx, target)
+				results = append(results, result)
 				lastRun[check.Name()] = now
 			}
+		}
+
+		// 将 tick 检查结果通过 onReport 回调通知上层
+		if c.onReport != nil && len(results) > 0 {
+			report := &HealthReport{
+				AccountID:     target.Account().ID,
+				ProviderKey:   target.Account().ProviderKey(),
+				Results:       results,
+				TotalDuration: time.Since(start),
+				Timestamp:     time.Now(),
+			}
+			c.onReport(ctx, report)
 		}
 	}
 }

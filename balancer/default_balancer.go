@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
+	"github.com/nomand-zc/lumin-acpool/cooldown"
 	"github.com/nomand-zc/lumin-acpool/provider"
 	"github.com/nomand-zc/lumin-acpool/resolver"
 	"github.com/nomand-zc/lumin-acpool/selector"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	"github.com/nomand-zc/lumin-acpool/usagetracker"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
@@ -30,6 +32,13 @@ func New(opts ...Option) (Balancer, error) {
 	// Validate required dependencies: AccountStorage is always needed (for ReportSuccess/ReportFailure)
 	if o.AccountStorage == nil {
 		return nil, fmt.Errorf("balancer: AccountStorage is required")
+	}
+
+	// 当配置了 CooldownManager 但未提供 UsageTracker 时，自动创建一个内置冷却回调的实例。
+	// 配额达到安全阈值时主动将账号标记为 CoolingDown，Resolver 查 Status=Available 时自然排除。
+	// 注意：若上层已提供 UsageTracker，需在创建时自行通过 WithCallback 配置冷却回调。
+	if o.CooldownManager != nil && o.UsageTracker == nil {
+		o.UsageTracker = newUsageTrackerWithCooldown(o.AccountStorage, o.CooldownManager)
 	}
 
 	// If Resolver is not set, use the default Storage-based implementation (requires ProviderStorage)
@@ -213,7 +222,14 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 		}
 	}
 
-	// 2. 通知熔断器
+	// 2. 记录用量到 UsageTracker（成功请求计为 1 次）
+	if b.opts.UsageTracker != nil {
+		if err := b.opts.UsageTracker.RecordUsage(ctx, accountID, usagerule.SourceTypeRequest, 1.0); err != nil {
+			return fmt.Errorf("balancer: record usage: %w", err)
+		}
+	}
+
+	// 3. 通知熔断器
 	if b.opts.CircuitBreaker != nil {
 		acct, err := b.opts.AccountStorage.Get(ctx, accountID)
 		if err != nil {
@@ -254,7 +270,12 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		}
 	}
 
-	// 2. 判断是否需要变更 Account 状态
+	// 2. 记录用量到 UsageTracker（无论成功失败，请求已发出即消耗配额）
+	if b.opts.UsageTracker != nil {
+		_ = b.opts.UsageTracker.RecordUsage(ctx, accountID, usagerule.SourceTypeRequest, 1.0)
+	}
+
+	// 3. 判断是否需要变更 Account 状态
 	needUpdate := false
 
 	acct, err := b.opts.AccountStorage.Get(ctx, accountID)
@@ -265,7 +286,7 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		return fmt.Errorf("balancer: get account: %w", err)
 	}
 
-	// 3. 检查是否是限流错误，优先冷却处理
+	// 4. 检查是否是限流错误，优先冷却处理
 	if isRateLimitError(callErr) {
 		// Double check: 通过 UsageTracker 标记对应规则已耗尽
 		if b.opts.UsageTracker != nil {
@@ -290,7 +311,7 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		}
 	}
 
-	// 4. 仅当状态变更时才持久化
+	// 5. 仅当状态变更时才持久化
 	if needUpdate {
 		acct.UpdatedAt = time.Now()
 		if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
@@ -379,4 +400,34 @@ func extractRetryAfter(err error) *time.Time {
 	}
 
 	return nil
+}
+
+// newUsageTrackerWithCooldown 创建一个内置冷却回调的 UsageTracker。
+// 当 RecordUsage 检测到配额达到安全阈值时，自动触发冷却机制：
+//   - 将账号状态设置为 CoolingDown
+//   - 根据规则窗口剩余时间计算冷却时长
+//   - 持久化到 AccountStorage
+func newUsageTrackerWithCooldown(
+	accountStorage storage.AccountStorage,
+	cooldownMgr cooldown.CooldownManager,
+) usagetracker.UsageTracker {
+	return usagetracker.NewUsageTracker(
+		usagetracker.WithCallback(func(ctx context.Context, accountID string, rule *usagerule.UsageRule) {
+			acct, err := accountStorage.Get(ctx, accountID)
+			if err != nil {
+				return // 获取失败静默忽略，不影响主流程
+			}
+
+			// 仅对 Available 状态的账号触发冷却
+			if acct.Status != account.StatusAvailable {
+				return
+			}
+
+			// 触发冷却
+			cooldownMgr.StartCooldown(acct, nil)
+			acct.Status = account.StatusCoolingDown
+			acct.UpdatedAt = time.Now()
+			_ = accountStorage.Update(ctx, acct) // 持久化，失败静默忽略
+		}),
+	)
 }

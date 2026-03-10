@@ -55,7 +55,8 @@ func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) 
 		}
 	}
 
-	// Place the latest UsageStats in Data for the upper layer to write back to Account
+	// Place the latest UsageStats in Data for the upper layer to calibrate UsageTracker.
+	// 上层回调中应调用 UsageTracker.Calibrate(accountID, stats) 来校准本地计数。
 	data := map[string]any{UsageStatKey: stats}
 	minRatio := 1.0
 

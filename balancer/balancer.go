@@ -35,18 +35,22 @@ type Balancer interface {
 	//
 	// Behavior:
 	//   1. Update runtime stats via StatsStore: TotalCalls++, SuccessCalls++, ConsecutiveFailures=0
-	//   2. Notify CircuitBreaker.RecordSuccess (if configured)
-	//   3. Only persist Account when status changed (CircuitOpen → Available)
+	//   2. Record usage via UsageTracker.RecordUsage (if configured)
+	//      - If quota exhausted, auto-trigger cooldown via callback (account enters CoolingDown)
+	//   3. Notify CircuitBreaker.RecordSuccess (if configured)
+	//   4. Only persist Account when status changed (CircuitOpen → Available)
 	ReportSuccess(ctx context.Context, accountID string) error
 
 	// ReportFailure reports a failed call.
 	//
 	// Behavior:
 	//   1. Update runtime stats via StatsStore: TotalCalls++, FailedCalls++, ConsecutiveFailures++
-	//   2. Check if it's a rate limit error:
+	//   2. Record usage via UsageTracker.RecordUsage (request sent = quota consumed)
+	//      - If quota exhausted, auto-trigger cooldown via callback (account enters CoolingDown)
+	//   3. Check if it's a rate limit error:
 	//      - If yes → UsageTracker.CalibrateFromResponse (double check) + CooldownManager.StartCooldown
 	//      - If no  → CircuitBreaker.RecordFailure, trip if threshold reached
-	//   3. Only persist Account when status changed
+	//   4. Only persist Account when status changed
 	//
 	// callErr: the actual call error, used to determine error type (e.g., rate limit vs server error)
 	ReportFailure(ctx context.Context, accountID string, callErr error) error

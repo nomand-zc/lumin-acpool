@@ -7,6 +7,11 @@ import (
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
+// QuotaExhaustedCallback 配额耗尽时的回调函数。
+// 当 RecordUsage 检测到某条规则的用量达到安全阈值时触发。
+// 可通过 WithCallback 选项注入，上层可在此回调中触发冷却，将账号标记为 CoolingDown。
+type QuotaExhaustedCallback = func(ctx context.Context, accountID string, rule *usagerule.UsageRule)
+
 // TrackedUsage 单条规则的追踪数据。
 // 结合远端快照与本地乐观计数，实现对用量的实时估算。
 type TrackedUsage struct {

@@ -83,7 +83,8 @@ type CheckResult struct {
 	// nil means this check does not suggest any status change.
 	SuggestedStatus *account.Status
 	// Data holds additional data produced by the check item.
-	// For example, UsageQuotaCheck can place the latest UsageStats here for the upper layer to write back.
+	// For example, UsageQuotaCheck can place the latest UsageStats here
+	// for the upper layer to calibrate UsageTracker via Calibrate().
 	Data any
 	// Duration is the execution time of this check item.
 	Duration time.Duration
