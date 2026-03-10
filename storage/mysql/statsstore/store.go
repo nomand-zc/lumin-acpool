@@ -1,0 +1,151 @@
+package statsstore
+
+import (
+	"context"
+	"database/sql"
+	_ "embed"
+	"fmt"
+	"time"
+
+	"github.com/nomand-zc/lumin-acpool/account"
+	"github.com/nomand-zc/lumin-acpool/storage"
+	storeMysql "github.com/nomand-zc/lumin-acpool/storage/mysql"
+)
+
+//go:embed account_stats.sql
+var accountStatsTableSQL string
+
+// Compile-time interface compliance check.
+var _ storage.StatsStore = (*Store)(nil)
+
+// Store 是基于 MySQL 的 StatsStore 实现。
+type Store struct {
+	client storeMysql.Client
+}
+
+// NewStore 创建一个新的 MySQL 统计存储实例。
+// 通过 Options 传递 InstanceName 或 DSN 来创建 Client，并在 SkipInitDB 为 false 时自动创建 account_stats 表。
+func NewStore(opts ...Option) (*Store, error) {
+	o := DefaultOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	client, err := buildClient(o)
+	if err != nil {
+		return nil, fmt.Errorf("statsstore: %w", err)
+	}
+
+	store := &Store{client: client}
+
+	if !o.SkipInitDB {
+		if err := store.initDB(); err != nil {
+			return nil, fmt.Errorf("statsstore: %w", err)
+		}
+	}
+
+	return store, nil
+}
+
+// initDB 执行建表 DDL，初始化 account_stats 表。
+func (s *Store) initDB() error {
+	_, err := s.client.Exec(context.Background(), accountStatsTableSQL)
+	if err != nil {
+		return fmt.Errorf("failed to init account_stats table: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) Get(ctx context.Context, accountID string) (*account.AccountStats, error) {
+	var stats *account.AccountStats
+	err := s.client.Query(ctx, func(rows *sql.Rows) error {
+		if !rows.Next() {
+			return nil
+		}
+		var (
+			s           account.AccountStats
+			lastUsedAt  sql.NullTime
+			lastErrorAt sql.NullTime
+			lastErrMsg  sql.NullString
+		)
+		if scanErr := rows.Scan(
+			&s.AccountID, &s.TotalCalls, &s.SuccessCalls, &s.FailedCalls,
+			&s.ConsecutiveFailures, &lastUsedAt, &lastErrorAt, &lastErrMsg,
+		); scanErr != nil {
+			return scanErr
+		}
+		if lastUsedAt.Valid {
+			s.LastUsedAt = &lastUsedAt.Time
+		}
+		if lastErrorAt.Valid {
+			s.LastErrorAt = &lastErrorAt.Time
+		}
+		if lastErrMsg.Valid {
+			s.LastErrorMsg = lastErrMsg.String
+		}
+		stats = &s
+		return nil
+	}, queryGetStats, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("statsstore: failed to get stats: %w", err)
+	}
+	if stats == nil {
+		// 不存在统计记录，返回零值
+		return &account.AccountStats{AccountID: accountID}, nil
+	}
+	return stats, nil
+}
+
+func (s *Store) IncrSuccess(ctx context.Context, accountID string) error {
+	now := time.Now()
+	_, err := s.client.Exec(ctx, queryIncrSuccess, accountID, now, now)
+	if err != nil {
+		return fmt.Errorf("statsstore: failed to incr success: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) IncrFailure(ctx context.Context, accountID string, errMsg string) error {
+	now := time.Now()
+	_, err := s.client.Exec(ctx, queryIncrFailure, accountID, now, errMsg, now, errMsg)
+	if err != nil {
+		return fmt.Errorf("statsstore: failed to incr failure: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) UpdateLastUsed(ctx context.Context, accountID string, t time.Time) error {
+	_, err := s.client.Exec(ctx, queryUpdateLastUsed, accountID, t, t)
+	if err != nil {
+		return fmt.Errorf("statsstore: failed to update last used: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) GetConsecutiveFailures(ctx context.Context, accountID string) (int, error) {
+	var failures int
+	err := s.client.QueryRow(ctx, []any{&failures}, queryGetConsecutiveFailures, accountID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("statsstore: failed to get consecutive failures: %w", err)
+	}
+	return failures, nil
+}
+
+func (s *Store) ResetConsecutiveFailures(ctx context.Context, accountID string) error {
+	_, err := s.client.Exec(ctx, queryResetConsecutiveFailures, accountID)
+	if err != nil {
+		return fmt.Errorf("statsstore: failed to reset consecutive failures: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) Remove(ctx context.Context, accountID string) error {
+	_, err := s.client.Exec(ctx, queryDeleteStats, accountID)
+	if err != nil {
+		return fmt.Errorf("statsstore: failed to remove stats: %w", err)
+	}
+	return nil
+}

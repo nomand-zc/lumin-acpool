@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS `accounts` (
+    `id`                 VARCHAR(255) NOT NULL COMMENT '账号唯一标识',
+    `provider_type`      VARCHAR(128) NOT NULL COMMENT '供应商类型',
+    `provider_name`      VARCHAR(128) NOT NULL COMMENT '供应商实例名称',
+    `credential`         JSON         NOT NULL COMMENT '凭证信息（JSON格式）',
+    `status`             INT          NOT NULL DEFAULT 1 COMMENT '账号状态',
+    `priority`           INT          NOT NULL DEFAULT 0 COMMENT '优先级',
+    `tags`               JSON                  DEFAULT NULL COMMENT '标签（JSON格式）',
+    `metadata`           JSON                  DEFAULT NULL COMMENT '扩展元数据（JSON格式）',
+    `usage_rules`        JSON                  DEFAULT NULL COMMENT '用量规则（JSON数组）',
+    `cooldown_until`     DATETIME(3)           DEFAULT NULL COMMENT '冷却到期时间',
+    `circuit_open_until` DATETIME(3)           DEFAULT NULL COMMENT '熔断到期时间',
+    `created_at`         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `updated_at`         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    INDEX `idx_provider` (`provider_type`, `provider_name`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_priority` (`priority`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='账号信息表';
