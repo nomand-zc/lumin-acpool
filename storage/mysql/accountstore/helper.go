@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	storeMysql "github.com/nomand-zc/lumin-acpool/storage/mysql"
 	"github.com/nomand-zc/lumin-client/credentials"
 )
 
@@ -44,13 +44,8 @@ var accountFieldMapping = map[string]string{
 	storage.AccountFieldUpdatedAt:        "updated_at",
 }
 
-// scanner 是 sql.Row 和 sql.Rows 的通用 Scan 接口。
-type scanner interface {
-	Scan(dest ...any) error
-}
-
 // scanAccountFields 从扫描结果中构建 Account 对象。
-func scanAccountFields(s scanner) (*account.Account, error) {
+func scanAccountFields(s storeMysql.Scanner) (*account.Account, error) {
 	var (
 		acct             account.Account
 		credentialJSON   []byte
@@ -128,18 +123,4 @@ func unmarshalCredential(providerType string, data []byte) (credentials.Credenti
 	return cred, nil
 }
 
-// marshalJSON 将任意值序列化为 JSON，nil 返回 nil。
-func marshalJSON(v any) ([]byte, error) {
-	if v == nil {
-		return nil, nil
-	}
-	return json.Marshal(v)
-}
 
-// isDuplicateEntry 判断是否为主键冲突错误。
-func isDuplicateEntry(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062")
-}

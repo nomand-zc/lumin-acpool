@@ -46,6 +46,11 @@ type TxFunc func(*sql.Tx) error
 // TxOption 配置事务选项。
 type TxOption func(*sql.TxOptions)
 
+// Scanner 是 sql.Row 和 sql.Rows 的通用 Scan 接口。
+type Scanner interface {
+	Scan(dest ...any) error
+}
+
 // ErrBreak 可在 NextFunc 中返回，用于提前终止迭代而不产生错误。
 var ErrBreak = errors.New("mysql scan rows break")
 
@@ -261,5 +266,3 @@ func GetInstance(name string) ([]ClientBuilderOpt, bool) {
 	}
 	return mysqlRegistry[name], true
 }
-
-

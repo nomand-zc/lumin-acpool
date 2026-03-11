@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	storeMysql "github.com/nomand-zc/lumin-acpool/storage/mysql"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
@@ -47,13 +47,8 @@ var providerFieldMapping = map[string]string{
 	storage.ProviderFieldUpdatedAt:             "updated_at",
 }
 
-// scanner 是 sql.Row 和 sql.Rows 的通用 Scan 接口。
-type scanner interface {
-	Scan(dest ...any) error
-}
-
 // scanProviderFields 从扫描结果中构建 ProviderInfo 对象。
-func scanProviderFields(s scanner) (*account.ProviderInfo, error) {
+func scanProviderFields(s storeMysql.Scanner) (*account.ProviderInfo, error) {
 	var (
 		info           account.ProviderInfo
 		statusInt      int
@@ -107,29 +102,11 @@ func scanProviderFields(s scanner) (*account.ProviderInfo, error) {
 	return &info, nil
 }
 
-func scanProvider(row *sql.Row) (*account.ProviderInfo, error) {
-	return scanProviderFields(row)
-}
-
 func scanProviderFromRows(rows *sql.Rows) (*account.ProviderInfo, error) {
 	return scanProviderFields(rows)
 }
 
-// marshalJSON 将任意值序列化为 JSON，nil 返回 nil。
-func marshalJSON(v any) ([]byte, error) {
-	if v == nil {
-		return nil, nil
-	}
-	return json.Marshal(v)
-}
 
-// isDuplicateEntry 判断是否为主键冲突错误。
-func isDuplicateEntry(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062")
-}
 
 // 以下用于消除未使用的导入警告。
 var _ = (*usagerule.UsageRule)(nil)

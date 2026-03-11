@@ -117,15 +117,15 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal credential: %w", err)
 	}
-	tagsJSON, err := marshalJSON(acct.Tags)
+	tagsJSON, err := storeMysql.MarshalJSON(acct.Tags)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal tags: %w", err)
 	}
-	metadataJSON, err := marshalJSON(acct.Metadata)
+	metadataJSON, err := storeMysql.MarshalJSON(acct.Metadata)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal metadata: %w", err)
 	}
-	usageRulesJSON, err := marshalJSON(acct.UsageRules)
+	usageRulesJSON, err := storeMysql.MarshalJSON(acct.UsageRules)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal usage_rules: %w", err)
 	}
@@ -138,7 +138,7 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 		createdAt, now,
 	)
 	if err != nil {
-		if isDuplicateEntry(err) {
+		if storeMysql.IsDuplicateEntry(err) {
 			return storage.ErrAlreadyExists
 		}
 		return fmt.Errorf("accountstore: failed to add account: %w", err)
@@ -151,15 +151,15 @@ func (s *Store) Update(ctx context.Context, acct *account.Account) error {
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal credential: %w", err)
 	}
-	tagsJSON, err := marshalJSON(acct.Tags)
+	tagsJSON, err := storeMysql.MarshalJSON(acct.Tags)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal tags: %w", err)
 	}
-	metadataJSON, err := marshalJSON(acct.Metadata)
+	metadataJSON, err := storeMysql.MarshalJSON(acct.Metadata)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal metadata: %w", err)
 	}
-	usageRulesJSON, err := marshalJSON(acct.UsageRules)
+	usageRulesJSON, err := storeMysql.MarshalJSON(acct.UsageRules)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal usage_rules: %w", err)
 	}

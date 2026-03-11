@@ -112,19 +112,19 @@ func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
 		createdAt = now
 	}
 
-	tagsJSON, err := marshalJSON(info.Tags)
+	tagsJSON, err := storeMysql.MarshalJSON(info.Tags)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal tags: %w", err)
 	}
-	modelsJSON, err := marshalJSON(info.SupportedModels)
+	modelsJSON, err := storeMysql.MarshalJSON(info.SupportedModels)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal supported_models: %w", err)
 	}
-	usageRulesJSON, err := marshalJSON(info.UsageRules)
+	usageRulesJSON, err := storeMysql.MarshalJSON(info.UsageRules)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal usage_rules: %w", err)
 	}
-	metadataJSON, err := marshalJSON(info.Metadata)
+	metadataJSON, err := storeMysql.MarshalJSON(info.Metadata)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal metadata: %w", err)
 	}
@@ -137,7 +137,7 @@ func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
 		createdAt, now,
 	)
 	if err != nil {
-		if isDuplicateEntry(err) {
+		if storeMysql.IsDuplicateEntry(err) {
 			return storage.ErrAlreadyExists
 		}
 		return fmt.Errorf("providerstore: failed to add provider: %w", err)
@@ -146,19 +146,19 @@ func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
 }
 
 func (s *Store) Update(ctx context.Context, info *account.ProviderInfo) error {
-	tagsJSON, err := marshalJSON(info.Tags)
+	tagsJSON, err := storeMysql.MarshalJSON(info.Tags)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal tags: %w", err)
 	}
-	modelsJSON, err := marshalJSON(info.SupportedModels)
+	modelsJSON, err := storeMysql.MarshalJSON(info.SupportedModels)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal supported_models: %w", err)
 	}
-	usageRulesJSON, err := marshalJSON(info.UsageRules)
+	usageRulesJSON, err := storeMysql.MarshalJSON(info.UsageRules)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal usage_rules: %w", err)
 	}
-	metadataJSON, err := marshalJSON(info.Metadata)
+	metadataJSON, err := storeMysql.MarshalJSON(info.Metadata)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal metadata: %w", err)
 	}
