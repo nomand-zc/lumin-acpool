@@ -20,11 +20,11 @@ The LUMIN project consists of multiple sub-projects, each responsible for a spec
 
 | Sub-Project | Role | Description |
 |---|---|---|
-| **lumin-client** | Client SDK | Core library for interfacing with various AI vendor platforms; provides unified request/response format conversion, credential management, and usage rule parsing |
+| **lumin-client** | Client SDK | Core library for interfacing with various AI vendor platforms; provides unified request/response format conversion and usage rule parsing |
 | **lumin-acpool** | Resource Pool Service | Core library for unified resource management, intelligent scheduling, availability assurance, and account allocation |
 | **lumin-proxy** | Proxy Service | Business-layer proxy service handling API key management, authentication, billing, and request forwarding |
 | **lumin-admin** | Admin Web Service | Web-based management console for account pool visualization, business API key management, user management, billing policies, and token top-up |
-| **lumin-actool** | Account Production Tool | CLI tool for generating and provisioning accounts across various AI vendor channels |
+| **lumin-actool** | Account Production Tool | CLI tool dedicated to continuously producing usable account resources for lumin-acpool across various AI vendor channels, ensuring a steady supply of available accounts |
 | **lumin-desktop** | Desktop Application | Local desktop proxy app built on lumin-client and lumin-acpool, providing standalone local proxy capabilities |
 
 ---
@@ -64,7 +64,6 @@ graph TB
     DESKTOP -->|Direct Call| ACPOOL
     PROXY -->|Account Selection| ACPOOL
     ADMIN -->|Pool Management| ACPOOL
-    ADMIN -->|Configuration| PROXY
     ACPOOL -->|Model Invocation| CLIENT
     CLIENT -->|Platform Protocol| KIRO
     CLIENT -->|Platform Protocol| GEMINI
@@ -92,19 +91,19 @@ graph LR
     ACPOOL -->|depends on| CLIENT
     PROXY -->|depends on| ACPOOL
     PROXY -->|depends on| CLIENT
-    ADMIN -->|depends on| PROXY
     ADMIN -->|depends on| ACPOOL
     DESKTOP -->|depends on| ACPOOL
     DESKTOP -->|depends on| CLIENT
     ACTOOL -->|depends on| CLIENT
+    ACTOOL -->|produces accounts for| ACPOOL
 ```
 
 - **lumin-client** is the foundational layer, depended on by all other sub-projects. It defines the `Provider` interface, `Credential` interface, unified `Request`/`Response` models, and platform-specific converters (Kiro, GeminiCLI, Codex, iFlow, etc.).
-- **lumin-acpool** depends on lumin-client. It uses lumin-client's `Provider` for health checks, credential validation, and usage rule fetching while providing resource pool scheduling capabilities on top.
+- **lumin-acpool** depends on lumin-client. It uses lumin-client's `Provider` for health checks and usage rule fetching, while itself handling credential management, credential validation, and resource pool scheduling capabilities on top.
 - **lumin-proxy** depends on both lumin-acpool and lumin-client, orchestrating business-layer requests through account selection and model invocation.
-- **lumin-admin** depends on lumin-proxy and lumin-acpool, providing a web management interface for the entire system.
+- **lumin-admin** depends on lumin-acpool, providing a web management interface for account pool visualization and system configuration.
 - **lumin-desktop** depends on lumin-acpool and lumin-client, implementing a standalone local AI proxy application.
-- **lumin-actool** depends on lumin-client for account generation across multiple AI vendor channels.
+- **lumin-actool** depends on lumin-client and lumin-acpool, dedicated to continuously producing usable account resources for lumin-acpool across multiple AI vendor channels, ensuring the resource pool always has a steady supply of available accounts.
 
 ---
 
