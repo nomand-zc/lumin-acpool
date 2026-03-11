@@ -20,6 +20,7 @@ var (
 	defaultAddCmd    addCmd
 	defaultUpdateCmd updateCmd
 	defaultRemoveCmd removeCmd
+	defaultHealthCmd healthCmd
 )
 
 // CMD 返回 account 命令组，注册所有子命令。
@@ -37,6 +38,7 @@ func CMD() *cobra.Command {
 		defaultAddCmd.cmd(),
 		defaultUpdateCmd.cmd(),
 		defaultRemoveCmd.cmd(),
+		defaultHealthCmd.cmd(),
 	)
 
 	return cmd
