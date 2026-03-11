@@ -70,15 +70,23 @@ func TestStore_Update(t *testing.T) {
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
 	_ = store.Add(ctx, acct)
 
-	// 更新状态和优先级
-	updated := newTestAccount("acc-1", "kiro", "team-a", account.StatusCoolingDown, 10)
-	if err := store.Update(ctx, updated); err != nil {
+	// 先 Get 获取最新版本，再修改并 Update（乐观锁正确用法）
+	got, _ := store.Get(ctx, "acc-1")
+	got.Status = account.StatusCoolingDown
+	got.Priority = 10
+	if err := store.Update(ctx, got); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	got, _ := store.Get(ctx, "acc-1")
-	if got.Status != account.StatusCoolingDown || got.Priority != 10 {
-		t.Fatalf("Update not persisted: %+v", got)
+	got2, _ := store.Get(ctx, "acc-1")
+	if got2.Status != account.StatusCoolingDown || got2.Priority != 10 {
+		t.Fatalf("Update not persisted: %+v", got2)
+	}
+
+	// 使用旧版本号更新应返回 ErrVersionConflict
+	got.Priority = 20
+	if err := store.Update(ctx, got); err != storage.ErrVersionConflict {
+		t.Fatalf("expected ErrVersionConflict, got: %v", err)
 	}
 
 	// 更新不存在的
@@ -95,9 +103,10 @@ func TestStore_UpdateProviderKey(t *testing.T) {
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
 	_ = store.Add(ctx, acct)
 
-	// 修改 ProviderName（从 team-a 迁移到 team-b）
-	moved := newTestAccount("acc-1", "kiro", "team-b", account.StatusAvailable, 5)
-	_ = store.Update(ctx, moved)
+	// 先 Get 获取最新版本，修改 ProviderName 后 Update
+	got, _ := store.Get(ctx, "acc-1")
+	got.ProviderName = "team-b"
+	_ = store.Update(ctx, got)
 
 	// team-a 下应该没有账号了
 	list, _ := store.Search(ctx, filtercond.And(

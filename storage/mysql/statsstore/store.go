@@ -105,13 +105,27 @@ func (s *Store) IncrSuccess(ctx context.Context, accountID string) error {
 	return nil
 }
 
-func (s *Store) IncrFailure(ctx context.Context, accountID string, errMsg string) error {
+func (s *Store) IncrFailure(ctx context.Context, accountID string, errMsg string) (int, error) {
 	now := time.Now()
-	_, err := s.client.Exec(ctx, queryIncrFailure, accountID, now, errMsg, now, errMsg)
+	result, err := s.client.Exec(ctx, queryIncrFailure, accountID, now, errMsg, now, errMsg)
 	if err != nil {
-		return fmt.Errorf("statsstore: failed to incr failure: %w", err)
+		return 0, fmt.Errorf("statsstore: failed to incr failure: %w", err)
 	}
-	return nil
+
+	// 使用 LAST_INSERT_ID() 技巧获取递增后的值。
+	// 当记录是新插入时（RowsAffected=1），consecutive_failures 初始值为 1。
+	// 当记录是更新时（RowsAffected=2，ON DUPLICATE KEY UPDATE 的约定），
+	// LastInsertId 返回 LAST_INSERT_ID(consecutive_failures + 1) 设置的值。
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 1 {
+		// 新插入，consecutive_failures = 1
+		return 1, nil
+	}
+	lastID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("statsstore: failed to get last insert id: %w", err)
+	}
+	return int(lastID), nil
 }
 
 func (s *Store) UpdateLastUsed(ctx context.Context, accountID string, t time.Time) error {

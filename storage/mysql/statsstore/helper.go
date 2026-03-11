@@ -16,12 +16,13 @@ const (
 			last_used_at = ?`
 
 	// queryIncrFailure 增加失败调用计数（upsert 语义）。
+	// 使用 LAST_INSERT_ID() 技巧，使递增后的 consecutive_failures 可通过 Result.LastInsertId() 原子获取。
 	queryIncrFailure = `INSERT INTO account_stats (account_id, total_calls, failed_calls, consecutive_failures, last_error_at, last_error_msg) 
 		VALUES (?, 1, 1, 1, ?, ?) 
 		ON DUPLICATE KEY UPDATE 
 			total_calls = total_calls + 1, 
 			failed_calls = failed_calls + 1, 
-			consecutive_failures = consecutive_failures + 1, 
+			consecutive_failures = LAST_INSERT_ID(consecutive_failures + 1), 
 			last_error_at = ?, 
 			last_error_msg = ?`
 

@@ -21,6 +21,11 @@ type UsageStore interface {
 	// ruleIndex: 规则索引，amount: 增量。
 	IncrLocalUsed(ctx context.Context, accountID string, ruleIndex int, amount float64) error
 
+	// CalibrateRule 原子校准指定规则的远端数据并重置本地计数。
+	// 使用原子操作 SET remote_used=?, remote_remain=?, local_used=0, ...
+	// 避免 Save 全量替换导致并发 IncrLocalUsed 的增量丢失。
+	CalibrateRule(ctx context.Context, accountID string, ruleIndex int, usage *account.TrackedUsage) error
+
 	// Remove 删除指定账号的追踪数据。
 	Remove(ctx context.Context, accountID string) error
 }
@@ -66,6 +71,7 @@ type AccountStorage interface {
 
 	// Update updates account info (full replacement).
 	// Returns ErrNotFound if the ID does not exist.
+	// Returns ErrVersionConflict if the version does not match (optimistic lock conflict).
 	Update(ctx context.Context, acct *account.Account) error
 
 	// Remove deletes an account.
@@ -111,7 +117,8 @@ type StatsStore interface {
 	IncrSuccess(ctx context.Context, accountID string) error
 
 	// IncrFailure 原子递增失败计数和连续失败计数，更新错误信息。
-	IncrFailure(ctx context.Context, accountID string, errMsg string) error
+	// 返回递增后的连续失败次数（用于熔断判断，避免 TOCTOU 竞态）。
+	IncrFailure(ctx context.Context, accountID string, errMsg string) (int, error)
 
 	// UpdateLastUsed 更新最后使用时间。
 	UpdateLastUsed(ctx context.Context, accountID string, t time.Time) error

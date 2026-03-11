@@ -38,15 +38,11 @@ func (cb *defaultCircuitBreaker) RecordSuccess(ctx context.Context, acct *accoun
 }
 
 // RecordFailure 记录一次失败调用。
+// consecutiveFailures 为当前连续失败次数（由调用方从 StatsStore.IncrFailure 原子获取）。
 // 返回是否触发熔断（true 表示账号应切换为 CircuitOpen 状态）。
-func (cb *defaultCircuitBreaker) RecordFailure(ctx context.Context, acct *account.Account) (tripped bool, err error) {
-	failures, err := cb.opts.StatsStore.GetConsecutiveFailures(ctx, acct.ID)
-	if err != nil {
-		return false, fmt.Errorf("circuitbreaker: get consecutive failures: %w", err)
-	}
-
+func (cb *defaultCircuitBreaker) RecordFailure(ctx context.Context, acct *account.Account, consecutiveFailures int) (tripped bool, err error) {
 	threshold := cb.dynamicThreshold(acct)
-	if failures >= threshold {
+	if consecutiveFailures >= threshold {
 		// 达到阈值，触发熔断，设置熔断恢复时间
 		timeout := cb.dynamicTimeout(acct)
 		until := time.Now().Add(timeout)

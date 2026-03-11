@@ -18,4 +18,10 @@ const (
 	// queryIncrLocalUsed 增加本地用量。
 	queryIncrLocalUsed = `UPDATE tracked_usages SET local_used = local_used + ? 
 		WHERE account_id=? AND rule_index=?`
+
+	// queryCalibrateRule 原子校准指定规则的远端数据并重置本地计数。
+	queryCalibrateRule = `UPDATE tracked_usages SET 
+		remote_used=?, remote_remain=?, local_used=0, 
+		window_start=?, window_end=?, last_sync_at=? 
+		WHERE account_id=? AND rule_index=?`
 )

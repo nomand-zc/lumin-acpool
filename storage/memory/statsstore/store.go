@@ -67,7 +67,7 @@ func (s *MemoryStatsStore) IncrSuccess(_ context.Context, accountID string) erro
 	return nil
 }
 
-func (s *MemoryStatsStore) IncrFailure(_ context.Context, accountID string, errMsg string) error {
+func (s *MemoryStatsStore) IncrFailure(_ context.Context, accountID string, errMsg string) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -78,7 +78,7 @@ func (s *MemoryStatsStore) IncrFailure(_ context.Context, accountID string, errM
 	now := time.Now()
 	st.LastErrorAt = &now
 	st.LastErrorMsg = errMsg
-	return nil
+	return st.ConsecutiveFailures, nil
 }
 
 func (s *MemoryStatsStore) UpdateLastUsed(_ context.Context, accountID string, t time.Time) error {

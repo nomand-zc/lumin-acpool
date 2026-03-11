@@ -253,12 +253,16 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 			return fmt.Errorf("balancer: circuit breaker record success: %w", err)
 		}
 
-		// 仅当状态需要变更时才持久化 Account
+	// 仅当状态需要变更时才持久化 Account（使用乐观锁避免竞态覆盖）
 		if acct.Status == account.StatusCircuitOpen {
 			acct.Status = account.StatusAvailable
 			acct.CircuitOpenUntil = nil
 			acct.UpdatedAt = time.Now()
 			if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
+				if errors.Is(err, storage.ErrVersionConflict) {
+					// 版本冲突，已被其他实例更新，忽略（幂等）
+					return nil
+				}
 				return fmt.Errorf("balancer: update account: %w", err)
 			}
 		}
@@ -274,8 +278,11 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 	if callErr != nil {
 		errMsg = callErr.Error()
 	}
+	var consecutiveFailures int
 	if b.opts.StatsStore != nil {
-		if err := b.opts.StatsStore.IncrFailure(ctx, accountID, errMsg); err != nil {
+		var err error
+		consecutiveFailures, err = b.opts.StatsStore.IncrFailure(ctx, accountID, errMsg)
+		if err != nil {
 			return fmt.Errorf("balancer: incr failure stats: %w", err)
 		}
 	}
@@ -311,7 +318,7 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		}
 	} else if b.opts.CircuitBreaker != nil {
 		// 非限流错误，通知熔断器
-		tripped, cbErr := b.opts.CircuitBreaker.RecordFailure(ctx, acct)
+		tripped, cbErr := b.opts.CircuitBreaker.RecordFailure(ctx, acct, consecutiveFailures)
 		if cbErr != nil {
 			return fmt.Errorf("balancer: circuit breaker record failure: %w", cbErr)
 		}
@@ -321,10 +328,14 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		}
 	}
 
-	// 5. 仅当状态变更时才持久化
+	// 5. 仅当状态变更时才持久化（使用乐观锁避免竞态覆盖）
 	if needUpdate {
 		acct.UpdatedAt = time.Now()
 		if err := b.opts.AccountStorage.Update(ctx, acct); err != nil {
+			if errors.Is(err, storage.ErrVersionConflict) {
+				// 版本冲突，已被其他实例更新（如已被标记为 CoolingDown/CircuitOpen），忽略
+				return nil
+			}
 			return fmt.Errorf("balancer: update account: %w", err)
 		}
 	}
@@ -437,7 +448,7 @@ func newUsageTrackerWithCooldown(
 			cooldownMgr.StartCooldown(acct, nil)
 			acct.Status = account.StatusCoolingDown
 			acct.UpdatedAt = time.Now()
-			_ = accountStorage.Update(ctx, acct) // 持久化，失败静默忽略
+		_ = accountStorage.Update(ctx, acct) // 乐观锁持久化，冲突静默忽略
 		}),
 	)
 }

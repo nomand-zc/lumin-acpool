@@ -42,8 +42,8 @@ func TestRecordSuccess_ResetsConsecutiveFailures(t *testing.T) {
 	ss := statsstore.NewMemoryStatsStore()
 
 	// 先注入一些失败
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
 
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss))
 	acct := newTestAccount("acc-1")
@@ -71,13 +71,13 @@ func TestRecordFailure_BelowThreshold(t *testing.T) {
 	ss := statsstore.NewMemoryStatsStore()
 
 	// 注入 2 次失败（默认阈值 5）
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
 
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss))
 	acct := newTestAccount("acc-1")
 
-	tripped, err := cb.RecordFailure(ctx, acct)
+	tripped, err := cb.RecordFailure(ctx, acct, 2)
 	if err != nil {
 		t.Fatalf("RecordFailure failed: %v", err)
 	}
@@ -95,13 +95,13 @@ func TestRecordFailure_ReachesThreshold(t *testing.T) {
 
 	// 注入 5 次失败（= 默认阈值 5）
 	for i := 0; i < 5; i++ {
-		_ = ss.IncrFailure(ctx, "acc-1", "err")
+		_, _ = ss.IncrFailure(ctx, "acc-1", "err")
 	}
 
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss))
 	acct := newTestAccount("acc-1")
 
-	tripped, err := cb.RecordFailure(ctx, acct)
+	tripped, err := cb.RecordFailure(ctx, acct, 5)
 	if err != nil {
 		t.Fatalf("RecordFailure failed: %v", err)
 	}
@@ -123,11 +123,11 @@ func TestRecordFailure_CustomThreshold(t *testing.T) {
 	// 自定义阈值为 2
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss), WithDefaultThreshold(2))
 
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
 
 	acct := newTestAccount("acc-1")
-	tripped, _ := cb.RecordFailure(ctx, acct)
+	tripped, _ := cb.RecordFailure(ctx, acct, 2)
 	if !tripped {
 		t.Fatal("should trip with custom threshold of 2")
 	}
@@ -187,10 +187,10 @@ func TestDynamicThreshold_WithUsageRules(t *testing.T) {
 
 	// 注入 10 次失败
 	for i := 0; i < 10; i++ {
-		_ = ss.IncrFailure(ctx, "acc-1", "err")
+		_, _ = ss.IncrFailure(ctx, "acc-1", "err")
 	}
 
-	tripped, _ := cb.RecordFailure(ctx, acct)
+	tripped, _ := cb.RecordFailure(ctx, acct, 10)
 	if !tripped {
 		t.Fatal("should trip when failures reach dynamic threshold (10)")
 	}
@@ -214,17 +214,17 @@ func TestDynamicThreshold_MinThresholdFloor(t *testing.T) {
 	}
 
 	// 注入 2 次失败（低于 MinThreshold 3）
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
 
-	tripped, _ := cb.RecordFailure(ctx, acct)
+	tripped, _ := cb.RecordFailure(ctx, acct, 2)
 	if tripped {
 		t.Fatal("should not trip when failures (2) below MinThreshold (3)")
 	}
 
 	// 再注入 1 次（达到 3 = MinThreshold）
-	_ = ss.IncrFailure(ctx, "acc-1", "err")
-	tripped, _ = cb.RecordFailure(ctx, acct)
+	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
+	tripped, _ = cb.RecordFailure(ctx, acct, 3)
 	if !tripped {
 		t.Fatal("should trip when failures reach MinThreshold (3)")
 	}

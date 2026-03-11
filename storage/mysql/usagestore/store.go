@@ -184,3 +184,15 @@ func (s *Store) Remove(ctx context.Context, accountID string) error {
 	}
 	return nil
 }
+
+func (s *Store) CalibrateRule(ctx context.Context, accountID string, ruleIndex int, usage *account.TrackedUsage) error {
+	_, err := s.client.Exec(ctx, queryCalibrateRule,
+		usage.RemoteUsed, usage.RemoteRemain,
+		usage.WindowStart, usage.WindowEnd, time.Now(),
+		accountID, ruleIndex,
+	)
+	if err != nil {
+		return fmt.Errorf("usagestore: failed to calibrate rule: %w", err)
+	}
+	return nil
+}

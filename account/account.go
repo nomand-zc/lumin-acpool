@@ -43,6 +43,9 @@ type Account struct {
 	CreatedAt time.Time
 	// UpdatedAt is the last update time.
 	UpdatedAt time.Time
+	// Version 乐观锁版本号，每次 Update 时自动递增。
+	// 用于集群部署时避免并发写入的覆盖问题。
+	Version int
 }
 
 // IsCooldownExpired returns whether the cooldown period has expired.

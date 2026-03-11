@@ -77,6 +77,7 @@ func (s *Store) Add(_ context.Context, acct *account.Account) error {
 		stored.CreatedAt = now
 	}
 	stored.UpdatedAt = now
+	stored.Version = 1
 
 	s.accounts[acct.ID] = stored
 	s.addToIndex(stored)
@@ -92,11 +93,17 @@ func (s *Store) Update(_ context.Context, acct *account.Account) error {
 		return storage.ErrNotFound
 	}
 
+	// 乐观锁检查：版本号必须一致
+	if old.Version != acct.Version {
+		return storage.ErrVersionConflict
+	}
+
 	// Remove from old index first
 	s.removeFromIndex(old)
 
 	stored := acct.Clone()
 	stored.UpdatedAt = time.Now()
+	stored.Version++ // 递增版本号
 
 	s.accounts[acct.ID] = stored
 	// Add to new index

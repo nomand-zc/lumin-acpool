@@ -16,8 +16,9 @@ type CircuitBreaker interface {
 	RecordSuccess(ctx context.Context, acct *account.Account) error
 
 	// RecordFailure records a failed call.
+	// consecutiveFailures 为当前连续失败次数（由 StatsStore.IncrFailure 原子返回）。
 	// Returns whether the circuit is tripped (true means the account should switch to CircuitOpen status).
-	RecordFailure(ctx context.Context, acct *account.Account) (tripped bool, err error)
+	RecordFailure(ctx context.Context, acct *account.Account, consecutiveFailures int) (tripped bool, err error)
 
 	// ShouldAllow checks whether a circuit-broken account can attempt a half-open probe,
 	// i.e., whether the circuit breaker timeout window has elapsed.

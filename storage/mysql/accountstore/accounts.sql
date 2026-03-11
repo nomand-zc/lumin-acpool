@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `accounts` (
     `circuit_open_until` DATETIME(3)           DEFAULT NULL COMMENT '熔断到期时间',
     `created_at`         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     `updated_at`         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    `version`            INT          NOT NULL DEFAULT 1 COMMENT '乐观锁版本号',
     PRIMARY KEY (`id`),
     INDEX `idx_provider` (`provider_type`, `provider_name`),
     INDEX `idx_status` (`status`),

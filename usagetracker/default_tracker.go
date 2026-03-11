@@ -116,7 +116,7 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 	}
 
 	if len(usages) == 0 {
-		// 根据远端 stats 初始化
+		// 根据远端 stats 初始化（首次校准，无并发写入，可安全使用 Save）
 		newUsages := make([]*account.TrackedUsage, 0, len(stats))
 		for _, s := range stats {
 			if s == nil {
@@ -135,20 +135,31 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 		return t.store.Save(ctx, accountID, newUsages)
 	}
 
-	// 校准已有规则
+	// 校准已有规则：逐条原子更新，避免全量 Save 覆盖并发 IncrLocalUsed 的增量
+	hasNewRules := false
 	for _, s := range stats {
 		if s == nil || s.Rule == nil {
 			continue
 		}
 		matched := false
-		for _, u := range usages {
+		for i, u := range usages {
 			if u.Rule != nil && u.Rule.SourceType == s.Rule.SourceType &&
 				u.Rule.TimeGranularity == s.Rule.TimeGranularity &&
 				u.Rule.WindowSize == s.Rule.WindowSize {
-				// 匹配到，校准数据
+				// 匹配到已有规则，使用原子校准（重置 local_used=0 并更新远端数据）
+				calibrated := &account.TrackedUsage{
+					RemoteUsed:   s.Used,
+					RemoteRemain: s.Remain,
+					WindowStart:  s.StartTime,
+					WindowEnd:    s.EndTime,
+				}
+				if err := t.store.CalibrateRule(ctx, accountID, i, calibrated); err != nil {
+					return err
+				}
+				// 同步更新内存中的 usages 以保持一致性
 				u.RemoteUsed = s.Used
 				u.RemoteRemain = s.Remain
-				u.LocalUsed = 0 // 重置本地计数
+				u.LocalUsed = 0
 				u.WindowStart = s.StartTime
 				u.WindowEnd = s.EndTime
 				u.LastSyncAt = time.Now()
@@ -157,7 +168,7 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 			}
 		}
 		if !matched {
-			// 新增规则
+			// 新增规则，追加到 usages
 			usages = append(usages, &account.TrackedUsage{
 				Rule:         s.Rule,
 				LocalUsed:    0,
@@ -167,9 +178,16 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 				WindowEnd:    s.EndTime,
 				LastSyncAt:   time.Now(),
 			})
+			hasNewRules = true
 		}
 	}
-	return t.store.Save(ctx, accountID, usages)
+
+	// 如果有新增规则，需要全量 Save（因为需要插入新行）
+	if hasNewRules {
+		return t.store.Save(ctx, accountID, usages)
+	}
+
+	return nil
 }
 
 func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, accountID string, sourceType usagerule.SourceType) error {

@@ -135,7 +135,7 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 		credentialJSON, int(acct.Status), acct.Priority,
 		tagsJSON, metadataJSON, usageRulesJSON,
 		acct.CooldownUntil, acct.CircuitOpenUntil,
-		createdAt, now,
+		createdAt, now, 1,
 	)
 	if err != nil {
 		if storeMysql.IsDuplicateEntry(err) {
@@ -169,7 +169,7 @@ func (s *Store) Update(ctx context.Context, acct *account.Account) error {
 		credentialJSON, int(acct.Status), acct.Priority,
 		tagsJSON, metadataJSON, usageRulesJSON,
 		acct.CooldownUntil, acct.CircuitOpenUntil,
-		time.Now(), acct.ID,
+		time.Now(), acct.ID, acct.Version,
 	)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to update account: %w", err)
@@ -180,7 +180,7 @@ func (s *Store) Update(ctx context.Context, acct *account.Account) error {
 		return fmt.Errorf("accountstore: failed to get rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
-		return storage.ErrNotFound
+		return storage.ErrVersionConflict
 	}
 	return nil
 }

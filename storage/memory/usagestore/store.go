@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
@@ -80,5 +81,28 @@ func (s *MemoryUsageStore) Remove(_ context.Context, accountID string) error {
 	defer s.mu.Unlock()
 
 	delete(s.store, accountID)
+	return nil
+}
+
+func (s *MemoryUsageStore) CalibrateRule(_ context.Context, accountID string, ruleIndex int, usage *account.TrackedUsage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	usages, ok := s.store[accountID]
+	if !ok {
+		return nil // 未初始化，静默忽略
+	}
+
+	if ruleIndex < 0 || ruleIndex >= len(usages) {
+		return fmt.Errorf("usagestore: rule index %d out of range [0, %d)", ruleIndex, len(usages))
+	}
+
+	u := usages[ruleIndex]
+	u.RemoteUsed = usage.RemoteUsed
+	u.RemoteRemain = usage.RemoteRemain
+	u.LocalUsed = 0
+	u.WindowStart = usage.WindowStart
+	u.WindowEnd = usage.WindowEnd
+	u.LastSyncAt = time.Now()
 	return nil
 }

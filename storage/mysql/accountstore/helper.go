@@ -14,18 +14,19 @@ import (
 const (
 	// accountSelectColumns 是 accounts 表的通用查询列。
 	accountSelectColumns = `id, provider_type, provider_name, credential, status, priority, 
-		tags, metadata, usage_rules, cooldown_until, circuit_open_until, created_at, updated_at`
+		tags, metadata, usage_rules, cooldown_until, circuit_open_until, created_at, updated_at, version`
 
 	// queryGetAccount 根据 ID 查询单个账号。
 	queryGetAccount = `SELECT ` + accountSelectColumns + ` FROM accounts WHERE id = ?`
 
 	// queryInsertAccount 插入新账号。
-	queryInsertAccount = `INSERT INTO accounts (` + accountSelectColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	queryInsertAccount = `INSERT INTO accounts (` + accountSelectColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	// queryUpdateAccount 更新账号信息。
+	// queryUpdateAccount 更新账号信息（乐观锁：WHERE version=?，自动递增 version）。
 	queryUpdateAccount = `UPDATE accounts SET provider_type=?, provider_name=?, credential=?, status=?, priority=?, 
-		tags=?, metadata=?, usage_rules=?, cooldown_until=?, circuit_open_until=?, updated_at=? 
-		WHERE id=?`
+		tags=?, metadata=?, usage_rules=?, cooldown_until=?, circuit_open_until=?, updated_at=?, 
+		version=version+1 
+		WHERE id=? AND version=?`
 
 	// queryDeleteAccount 根据 ID 删除账号。
 	queryDeleteAccount = `DELETE FROM accounts WHERE id=?`
@@ -62,7 +63,7 @@ func scanAccountFields(s storeMysql.Scanner) (*account.Account, error) {
 		&credentialJSON, &statusInt, &acct.Priority,
 		&tagsJSON, &metadataJSON, &usageRulesJSON,
 		&cooldownUntil, &circuitOpenUntil,
-		&acct.CreatedAt, &acct.UpdatedAt,
+		&acct.CreatedAt, &acct.UpdatedAt, &acct.Version,
 	)
 	if err != nil {
 		return nil, err
