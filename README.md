@@ -22,7 +22,7 @@ The LUMIN project consists of multiple sub-projects, each responsible for a spec
 |---|---|---|
 | **lumin-client** | Client SDK | Core library for interfacing with various AI vendor platforms; provides unified request/response format conversion and usage rule parsing |
 | **lumin-acpool** | Resource Pool Service | Core library for unified resource management, intelligent scheduling, availability assurance, and account allocation |
-| **lumin-proxy** | Proxy Gateway | Business-layer proxy gateway handling API key management, authentication, billing, and request forwarding; **works in tandem with lumin-admin** as a matched pair |
+| **lumin-proxy** | Proxy Gateway | Business-layer proxy gateway supporting **multiple mainstream model protocols** (OpenAI, Anthropic, etc.), allowing users to call models via various standard protocols; also handles API key management, authentication, billing, and request forwarding; **works in tandem with lumin-admin** as a matched pair |
 | **lumin-admin** | Admin Web Service | Web-based management console for account pool visualization, business API key management, user management, billing policies, and token top-up; **works in tandem with lumin-proxy** as a matched pair |
 | **lumin-actool** | Account Production Tool | A fully **independent** CLI tool (no dependency on any other LUMIN sub-project) that produces account credential files across various AI vendor channels; outputs compressed archives of credential JSON files, which are then imported into lumin-acpool to ensure a steady supply of available accounts |
 | **lumin-desktop** | Desktop Application | Local desktop proxy client built on lumin-client and lumin-acpool, providing standalone local proxy capabilities; serves as an alternative to lumin-proxy — users choose one or the other |
@@ -39,7 +39,7 @@ graph TB
     end
 
     subgraph "Gateway Layer (lumin-proxy + lumin-admin, matched pair)"
-        PROXY[lumin-proxy<br/>Proxy Gateway<br/>API Key / Auth / Billing]
+        PROXY[lumin-proxy<br/>Proxy Gateway<br/>Multi-Protocol / API Key / Auth / Billing]
         ADMIN[lumin-admin<br/>Management Console<br/>Visualization / Config]
         ADMIN -.->|paired with| PROXY
     end
@@ -61,7 +61,7 @@ graph TB
         MORE[...]
     end
 
-    BIZ -->|API Request| PROXY
+    BIZ -->|"OpenAI / Anthropic / ... Protocol"| PROXY
     BIZ -->|API Request| DESKTOP
     DESKTOP -->|Direct Call| ACPOOL
     PROXY -->|Account Selection| ACPOOL
@@ -101,7 +101,7 @@ graph LR
 
 - **lumin-client** is the foundational layer, depended on by all other sub-projects. It defines the `Provider` interface, `Credential` interface, unified `Request`/`Response` models, and platform-specific converters (Kiro, GeminiCLI, Codex, iFlow, etc.).
 - **lumin-acpool** depends on lumin-client. It uses lumin-client's `Provider` for health checks and usage rule fetching, while itself handling credential management, credential validation, and resource pool scheduling capabilities on top.
-- **lumin-proxy** and **lumin-admin** are a **matched pair** designed to work together: lumin-proxy serves as the user-facing proxy gateway for model requests (handling API key management, authentication, billing, and request forwarding), while lumin-admin serves as the management backend for operations and configuration. lumin-proxy depends on both lumin-acpool and lumin-client; lumin-admin depends on lumin-acpool.
+- **lumin-proxy** and **lumin-admin** are a **matched pair** designed to work together: lumin-proxy serves as the user-facing proxy gateway for model requests, supporting **multiple mainstream model protocols** (OpenAI, Anthropic, etc.) so that users can call models via their preferred standard protocol; it also handles API key management, authentication, billing, and request forwarding. lumin-admin serves as the management backend for operations and configuration. lumin-proxy depends on both lumin-acpool and lumin-client; lumin-admin depends on lumin-acpool.
 - **lumin-desktop** depends on lumin-acpool and lumin-client, implementing a standalone local desktop proxy client. It serves as a local alternative to lumin-proxy — users choose either the cloud-based lumin-proxy or the local lumin-desktop for their AI proxy needs.
 - **lumin-actool** is a **fully independent** tool with no dependency on any other LUMIN sub-project. It is solely responsible for producing account credential files — outputting compressed archives of credential JSON files. These credential archives are then imported into lumin-acpool, ensuring the resource pool always has a steady supply of available accounts.
 
@@ -122,27 +122,27 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph "Entry Layer"
-        BAL[Balancer<br/>Load Balancer Orchestrator]
+    subgraph "Balancer — Orchestration Layer"
+        BAL[Balancer<br/>Top-level Orchestrator<br/>Resolve → Filter → Select → Report]
+
+        subgraph "Discovery"
+            RES[Resolver<br/>Service Discovery]
+            GS[GroupSelector<br/>Provider Selection]
+        end
+
+        subgraph "Selection"
+            OC[OccupancyController<br/>Concurrency Filter & Acquire]
+            AS[Selector<br/>Account Selection]
+        end
+
+        subgraph "Resilience"
+            CB[CircuitBreaker<br/>Circuit Breaker]
+            CD[CooldownManager<br/>Cooldown Management]
+            UT[UsageTracker<br/>Usage Tracking]
+        end
     end
 
-    subgraph "Selection Layer"
-        GS[GroupSelector<br/>Provider Selection]
-        AS[Selector<br/>Account Selection]
-    end
-
-    subgraph "Discovery Layer"
-        RES[Resolver<br/>Service Discovery]
-    end
-
-    subgraph "Resilience Layer"
-        CB[CircuitBreaker<br/>Circuit Breaker]
-        CD[CooldownManager<br/>Cooldown Management]
-        UT[UsageTracker<br/>Usage Tracking]
-        OC[OccupancyController<br/>Concurrency Control]
-    end
-
-    subgraph "Health Layer"
+    subgraph "Health — Background Assurance"
         HC[HealthChecker<br/>Health Check Orchestrator]
         CC[CredentialCheck]
         UC[UsageCheck]
@@ -168,23 +168,41 @@ graph TB
         REDIS[Redis]
     end
 
-    BAL --> GS
-    BAL --> AS
-    BAL --> CB
-    BAL --> CD
-    BAL --> UT
-    GS --> RES
-    AS --> RES
+    %% Balancer Pick flow: Resolve → Filter → Select
+    BAL -->|"①  Resolve Providers"| RES
+    BAL -->|"②  Select Provider"| GS
+    BAL -->|"③  Resolve Accounts"| RES
+    BAL -->|"④  Filter by Occupancy"| OC
+    BAL -->|"⑤  Select Account"| AS
+
+    %% Balancer Report flow
+    BAL -->|"Report"| CB
+    BAL -->|"Report"| CD
+    BAL -->|"Report"| UT
+
+    %% Resolver → Storage
     RES --> ACST
     RES --> PVST
-    RES --> UT
-    RES --> OC
+
+    %% OccupancyController → OccupancyStore
+    OC --> OCST
+
+    %% UsageTracker → UsageStore
+    UT --> USST
+
+    %% Stats
+    BAL --> STST
+
+    %% Health checks
     HC --> CC
     HC --> UC
     HC --> PC
     HC --> RC
     HC --> RF
     HC --> MD
+    HC --> ACST
+
+    %% Storage backends
     ACST --> MEM
     ACST --> SQLITE
     ACST --> MYSQL
@@ -204,19 +222,41 @@ graph TB
     AFST --> REDIS
 ```
 
+**Pick 核心流程**:
+```
+Balancer.Pick()
+  │
+  ├─ ① Resolver.ResolveProviders()          // 发现可用供应商列表
+  ├─ ② GroupSelector.Select()                // 选取最佳供应商
+  ├─ ③ Resolver.ResolveAccounts()            // 发现该供应商下的可用账号集
+  ├─ ④ OccupancyController.FilterAvailable() // 过滤已达并发上限的账号
+  ├─ ⑤ Selector.Select()                     // 从候选中选取最佳账号
+  ├─ ⑥ OccupancyController.Acquire()         // 原子操作占用槽位
+  └─ return PickResult
+
+Balancer.ReportSuccess() / ReportFailure()
+  │
+  ├─ StatsStore                              // 更新调用统计
+  ├─ UsageTracker.RecordUsage()              // 记录用量（触发冷却回调）
+  ├─ CircuitBreaker.Record()                 // 熔断状态判定
+  ├─ CooldownManager                         // 冷却管理
+  └─ OccupancyController.Release()           // 释放占用槽位
+```
+
 #### Core Modules
 
-| Module | Description |
-|---|---|
-| **Balancer** | Top-level orchestrator implementing the complete "resolve → select → report" flow with failover and retry support |
-| **Selector** | Two-level selection strategy: `GroupSelector` for provider-level and `Selector` for account-level; built-in strategies include Round Robin, Weighted, Priority, Least Used, Affinity |
-| **Resolver** | Service discovery layer resolving available providers and accounts from storage, with pre-filtering of quota-exhausted accounts |
-| **CircuitBreaker** | Consecutive-failure-based circuit breaker with dynamic threshold calculation based on account usage rules |
-| **CooldownManager** | Rate-limit-triggered cooldown management with configurable cooldown duration |
-| **UsageTracker** | Hybrid local+remote usage tracking for real-time quota estimation and proactive quota-exhaustion filtering |
-| **HealthChecker** | Pluggable health check orchestrator with dependency-aware execution order; built-in checks: Credential, Usage, Probe, Recovery, Refresh, ModelDiscovery |
-| **OccupancyController** | Per-account concurrency control with adaptive and fixed-limit strategies |
-| **Storage** | Pluggable storage backends (Memory / SQLite / MySQL / Redis) for accounts, providers, stats, usage, occupancy, and affinity data |
+| Module | Location | Description |
+|---|---|---|
+| **Balancer** | `balancer/` | Top-level orchestrator implementing the complete "discover → filter → select → report" flow with failover and retry support |
+| **Resolver** | `resolver/` | Service discovery layer resolving available providers and accounts from storage; executes first in the Pick flow to produce candidate sets |
+| **GroupSelector** | `selector/` | Provider-level selection strategy; built-in: Priority, MostAvailable, GroupAffinity |
+| **Selector** | `selector/` | Account-level selection strategy; built-in: RoundRobin, Weighted, Priority, LeastUsed, Affinity |
+| **OccupancyController** | `balancer/occupancy/` | Per-account concurrency control (sub-module of Balancer); filters over-limit accounts before selection and acquires slots atomically after selection; built-in: Unlimited, FixedLimit, AdaptiveLimit |
+| **CircuitBreaker** | `circuitbreaker/` | Consecutive-failure-based circuit breaker with dynamic threshold calculation based on account usage rules |
+| **CooldownManager** | `cooldown/` | Rate-limit-triggered cooldown management with configurable cooldown duration |
+| **UsageTracker** | `usagetracker/` | Hybrid local+remote usage tracking for real-time quota estimation and proactive quota-exhaustion filtering |
+| **HealthChecker** | `health/` | Background health assurance orchestrator with dependency-aware execution order; built-in checks: Credential, Usage, Probe, Recovery, Refresh, ModelDiscovery |
+| **Storage** | `storage/` | Pluggable storage backends (Memory / SQLite / MySQL / Redis) for accounts, providers, stats, usage, occupancy, and affinity data |
 
 #### Account Status Lifecycle
 
