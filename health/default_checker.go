@@ -25,6 +25,15 @@ func WithTargetProvider(tp TargetProvider) CheckerOption {
 	}
 }
 
+// WithLeaderElector 设置可选的领导者选举器。
+// 集群部署时注入，后台任务执行前先判断 IsLeader，只有 leader 实例才执行健康检查。
+// 未设置时默认当前实例为 leader（兼容单机部署）。
+func WithLeaderElector(le LeaderElector) CheckerOption {
+	return func(c *defaultHealthChecker) {
+		c.leaderElector = le
+	}
+}
+
 // WithCallback 统一的回调注册函数（泛型）。
 // 通过传入不同类型的回调函数来配置不同的事件处理，支持一次注册多个回调。
 // 当前支持的回调类型：
@@ -64,6 +73,11 @@ type defaultHealthChecker struct {
 	// onReports is the list of health check report callbacks.
 	// Multiple callbacks can be registered to handle reports independently.
 	onReports []ReportCallback
+
+	// leaderElector 可选的领导者选举器。
+	// 集群部署时注入，后台任务执行前先判断 IsLeader。
+	// 为 nil 时默认当前实例为 leader（兼容单机部署）。
+	leaderElector LeaderElector
 
 	// Background check lifecycle control
 	cancel context.CancelFunc
@@ -220,8 +234,10 @@ func (c *defaultHealthChecker) Stop() error {
 func (c *defaultHealthChecker) backgroundLoop(ctx context.Context) {
 	defer close(c.done)
 
-	// Execute a full scan immediately on startup
-	c.runFullScan(ctx)
+	// 只有 leader 执行启动时的全量扫描
+	if c.isLeader(ctx) {
+		c.runFullScan(ctx)
+	}
 
 	c.mu.RLock()
 	minInterval := c.getMinInterval()
@@ -263,6 +279,11 @@ func (c *defaultHealthChecker) getMinInterval() time.Duration {
 
 // tickRun executes due check items on each tick.
 func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastRun map[string]time.Time) {
+	// 非 leader 实例跳过本次 tick
+	if !c.isLeader(ctx) {
+		return
+	}
+
 	c.mu.RLock()
 	var dueChecks []HealthCheck
 	for _, s := range c.schedules {
@@ -310,6 +331,15 @@ func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastR
 			}
 		}
 	}
+}
+
+// isLeader 判断当前实例是否为 leader。
+// 未注入 LeaderElector 时，默认返回 true（兼容单机部署）。
+func (c *defaultHealthChecker) isLeader(ctx context.Context) bool {
+	if c.leaderElector == nil {
+		return true
+	}
+	return c.leaderElector.IsLeader(ctx, leaderKeyHealthChecker)
 }
 
 // runFullScan performs a full health check on all targets.
