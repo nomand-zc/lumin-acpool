@@ -13,8 +13,9 @@ var _ Controller = (*FixedLimit)(nil)
 
 // FixedLimit 固定并发上限的占用控制器。
 // 通过 OccupancyStore 原子计数器跟踪每个账号的当前并发数，并与预设的固定上限进行比较。
-// 支持四层粒度的限额配置（优先级由高到低）：
-//   - 账号 ID 级别（accountLimits）
+// 支持五层粒度的限额配置（优先级由高到低）：
+//   - 账号 Metadata 级别（Account.Metadata["occupancy_limit"]，可通过管理 API 动态调整）
+//   - 账号 ID 级别（accountLimits，代码级配置）
 //   - provider_type + provider_name 级别（providerKeyLimits）
 //   - provider_type 级别（providerTypeLimits）
 //   - 全局默认值（defaultLimit）
@@ -22,7 +23,7 @@ type FixedLimit struct {
 	store storage.OccupancyStore
 
 	defaultLimit       int64
-	providerTypeLimits map[string]int64             // provider_type → limit
+	providerTypeLimits map[string]int64              // provider_type → limit
 	providerKeyLimits  map[account.ProviderKey]int64 // ProviderKey{Type, Name} → limit
 	accountLimits      map[string]int64              // accountID → limit
 }
@@ -119,24 +120,29 @@ func (f *FixedLimit) Release(ctx context.Context, accountID string) {
 	_ = f.store.Decr(ctx, accountID)
 }
 
-// getLimit 按照 账号ID > ProviderKey > ProviderType > 默认值 的优先级获取限额。
+// getLimit 按照 Metadata > 账号ID > ProviderKey > ProviderType > 默认值 的优先级获取限额。
 func (f *FixedLimit) getLimit(acct *account.Account) int64 {
-	// 优先级 1：账号 ID 级别
+	// 优先级 1：账号 Metadata 级别（可通过管理 API 动态调整，无需重启）
+	if limit, ok := metadataInt64(acct, MetaKeyOccupancyLimit); ok && limit > 0 {
+		return limit
+	}
+
+	// 优先级 2：账号 ID 级别（代码级配置）
 	if limit, ok := f.accountLimits[acct.ID]; ok {
 		return limit
 	}
 
-	// 优先级 2：ProviderKey 级别（provider_type + provider_name）
+	// 优先级 3：ProviderKey 级别（provider_type + provider_name）
 	key := acct.ProviderKey()
 	if limit, ok := f.providerKeyLimits[key]; ok {
 		return limit
 	}
 
-	// 优先级 3：provider_type 级别
+	// 优先级 4：provider_type 级别
 	if limit, ok := f.providerTypeLimits[acct.ProviderType]; ok {
 		return limit
 	}
 
-	// 优先级 4：全局默认值
+	// 优先级 5：全局默认值
 	return f.defaultLimit
 }

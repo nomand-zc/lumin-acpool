@@ -26,6 +26,9 @@ var _ Controller = (*AdaptiveLimit)(nil)
 //   - 窗口剩余秒数: 通过 UsageTracker.GetTrackedUsages 获取窗口结束时间计算
 //   - 因子 (Factor): 调控参数，默认 1.0
 //
+// 所有参数均支持从 Account.Metadata 动态覆盖（优先级高于本地配置），
+// 可通过管理 API 调整单个账号的策略参数，无需重启服务。
+//
 // 适用于账号有明确配额限制（如每分钟 N 次请求）的场景。
 type AdaptiveLimit struct {
 	store   storage.OccupancyStore
@@ -61,12 +64,10 @@ func NewAdaptiveLimit(tracker usagetracker.UsageTracker, opts ...AdaptiveLimitOp
 		minLimit:      1,
 		maxLimit:      0,
 		fallbackLimit: 1,
+		store:         occupancystore.NewMemoryOccupancyStore(),
 	}
 	for _, opt := range opts {
 		opt(a)
-	}
-	if a.store == nil {
-		a.store = occupancystore.NewMemoryOccupancyStore()
 	}
 	return a
 }
@@ -103,7 +104,7 @@ func WithFallbackLimit(limit int64) AdaptiveLimitOption {
 func (a *AdaptiveLimit) FilterAvailable(ctx context.Context, accounts []*account.Account) []*account.Account {
 	result := make([]*account.Account, 0, len(accounts))
 	for _, acct := range accounts {
-		limit := a.calculateLimit(ctx, acct.ID)
+		limit := a.calculateLimit(ctx, acct)
 		current, err := a.store.Get(ctx, acct.ID)
 		if err != nil {
 			// 存储查询失败，保守策略：保留该账号
@@ -118,7 +119,7 @@ func (a *AdaptiveLimit) FilterAvailable(ctx context.Context, accounts []*account
 }
 
 func (a *AdaptiveLimit) Acquire(ctx context.Context, acct *account.Account) bool {
-	limit := a.calculateLimit(ctx, acct.ID)
+	limit := a.calculateLimit(ctx, acct)
 
 	// 原子递增并判断是否超过上限
 	newVal, err := a.store.Incr(ctx, acct.ID)
@@ -142,17 +143,24 @@ func (a *AdaptiveLimit) Release(ctx context.Context, accountID string) {
 // calculateLimit 基于当前配额和窗口信息动态计算并发上限。
 // 公式：limit = floor(remainAmount / remainSeconds * factor)
 // 其中 remainAmount 为最小剩余配额，remainSeconds 为距窗口结束的秒数。
-func (a *AdaptiveLimit) calculateLimit(ctx context.Context, accountID string) int64 {
+// 所有参数均优先从 Account.Metadata 读取，未配置时回退到本地默认值。
+func (a *AdaptiveLimit) calculateLimit(ctx context.Context, acct *account.Account) int64 {
+	// 从 Metadata 或本地配置解析参数
+	factor := a.getFactor(acct)
+	minLimit := a.getMinLimit(acct)
+	maxLimit := a.getMaxLimit(acct)
+	fallbackLimit := a.getFallbackLimit(acct)
+
 	// 获取追踪数据以计算窗口剩余时间
-	usages, err := a.tracker.GetTrackedUsages(ctx, accountID)
+	usages, err := a.tracker.GetTrackedUsages(ctx, acct.ID)
 	if err != nil || len(usages) == 0 {
-		return a.fallbackLimit
+		return fallbackLimit
 	}
 
 	// 获取最小剩余比例
-	minRatio, err := a.tracker.MinRemainRatio(ctx, accountID)
+	minRatio, err := a.tracker.MinRemainRatio(ctx, acct.ID)
 	if err != nil {
-		return a.fallbackLimit
+		return fallbackLimit
 	}
 
 	// 找到约束最紧的规则来计算
@@ -170,7 +178,7 @@ func (a *AdaptiveLimit) calculateLimit(ctx context.Context, accountID string) in
 		// 计算该规则的剩余量
 		remainAmount := u.EstimatedRemain()
 		if remainAmount <= 0 {
-			return a.minLimit // 已耗尽，返回最小值
+			return minLimit // 已耗尽，返回最小值
 		}
 
 		// 计算窗口剩余秒数
@@ -187,7 +195,7 @@ func (a *AdaptiveLimit) calculateLimit(ctx context.Context, accountID string) in
 		}
 
 		// 计算该规则允许的并发数 = 剩余量 / 剩余秒数 * 因子
-		limit := int64(math.Floor(remainAmount / remainSeconds * a.factor))
+		limit := int64(math.Floor(remainAmount / remainSeconds * factor))
 
 		if limit < bestLimit {
 			bestLimit = limit
@@ -196,7 +204,7 @@ func (a *AdaptiveLimit) calculateLimit(ctx context.Context, accountID string) in
 	}
 
 	if !found {
-		return a.fallbackLimit
+		return fallbackLimit
 	}
 
 	// 如果 minRatio 非常低（接近耗尽），进一步压缩
@@ -205,12 +213,44 @@ func (a *AdaptiveLimit) calculateLimit(ctx context.Context, accountID string) in
 	}
 
 	// 应用上下限约束
-	if bestLimit < a.minLimit {
-		bestLimit = a.minLimit
+	if bestLimit < minLimit {
+		bestLimit = minLimit
 	}
-	if a.maxLimit > 0 && bestLimit > a.maxLimit {
-		bestLimit = a.maxLimit
+	if maxLimit > 0 && bestLimit > maxLimit {
+		bestLimit = maxLimit
 	}
 
 	return bestLimit
+}
+
+// getFactor 获取调控因子，优先从 Metadata 读取，否则使用本地配置。
+func (a *AdaptiveLimit) getFactor(acct *account.Account) float64 {
+	if v, ok := metadataFloat64(acct, MetaKeyOccupancyFactor); ok && v > 0 {
+		return v
+	}
+	return a.factor
+}
+
+// getMinLimit 获取最小并发上限，优先从 Metadata 读取，否则使用本地配置。
+func (a *AdaptiveLimit) getMinLimit(acct *account.Account) int64 {
+	if v, ok := metadataInt64(acct, MetaKeyOccupancyMinLimit); ok && v > 0 {
+		return v
+	}
+	return a.minLimit
+}
+
+// getMaxLimit 获取最大并发上限，优先从 Metadata 读取，否则使用本地配置。
+func (a *AdaptiveLimit) getMaxLimit(acct *account.Account) int64 {
+	if v, ok := metadataInt64(acct, MetaKeyOccupancyMaxLimit); ok && v >= 0 {
+		return v
+	}
+	return a.maxLimit
+}
+
+// getFallbackLimit 获取回退并发上限，优先从 Metadata 读取，否则使用本地配置。
+func (a *AdaptiveLimit) getFallbackLimit(acct *account.Account) int64 {
+	if v, ok := metadataInt64(acct, MetaKeyOccupancyFallbackLimit); ok && v > 0 {
+		return v
+	}
+	return a.fallbackLimit
 }
