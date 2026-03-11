@@ -28,8 +28,9 @@ func WithTargetProvider(tp TargetProvider) CheckerOption {
 // WithLeaderElector 设置可选的领导者选举器。
 // 集群部署时注入，后台任务执行前先判断 IsLeader，只有 leader 实例才执行健康检查。
 // 未设置时默认当前实例为 leader（兼容单机部署）。
-func WithLeaderElector(le LeaderElector) CheckerOption {
+func WithLeaderElector(leaderKey string, le LeaderElector) CheckerOption {
 	return func(c *defaultHealthChecker) {
+		c.leaderKey = leaderKey
 		c.leaderElector = le
 	}
 }
@@ -77,6 +78,7 @@ type defaultHealthChecker struct {
 	// leaderElector 可选的领导者选举器。
 	// 集群部署时注入，后台任务执行前先判断 IsLeader。
 	// 为 nil 时默认当前实例为 leader（兼容单机部署）。
+	leaderKey string
 	leaderElector LeaderElector
 
 	// Background check lifecycle control
@@ -339,7 +341,7 @@ func (c *defaultHealthChecker) isLeader(ctx context.Context) bool {
 	if c.leaderElector == nil {
 		return true
 	}
-	return c.leaderElector.IsLeader(ctx, leaderKeyHealthChecker)
+	return c.leaderElector.IsLeader(ctx, c.leaderKey)
 }
 
 // runFullScan performs a full health check on all targets.

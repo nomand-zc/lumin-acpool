@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/nomand-zc/lumin-acpool/cli/cmd/account"
 	"github.com/nomand-zc/lumin-acpool/cli/cmd/provider"
 	"github.com/nomand-zc/lumin-acpool/cli/internal/bootstrap"
 	"github.com/nomand-zc/lumin-acpool/cli/internal/config"
@@ -48,4 +49,5 @@ func init() {
 
 	// 注册命令组
 	rootCmd.AddCommand(provider.CMD())
+	rootCmd.AddCommand(account.CMD())
 }
