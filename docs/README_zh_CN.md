@@ -1,5 +1,3 @@
-English | [中文](./docs/README_zh_CN.md)
-
 ## LUMIN
 
 点亮智能路由，隐藏底层复杂。
