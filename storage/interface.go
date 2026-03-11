@@ -132,3 +132,22 @@ type StatsStore interface {
 	// Remove 删除统计数据（账号注销时调用）。
 	Remove(ctx context.Context, accountID string) error
 }
+
+// OccupancyStore 占用计数存储接口。
+// 存储每个账号当前的并发占用数量，支持原子操作确保竞态安全。
+// 在单机部署时，可使用内置的 MemoryOccupancyStore（内存实现）；
+// 在集群部署时，应注入基于 Redis 等共享存储的实现，
+// 使多个实例能够共享占用状态，实现跨实例的并发控制。
+type OccupancyStore interface {
+	// Incr 原子递增指定账号的占用计数，并返回递增后的值。
+	// 用于 Acquire 操作：先递增，再判断是否超过上限。
+	Incr(ctx context.Context, accountID string) (int64, error)
+
+	// Decr 原子递减指定账号的占用计数（不会低于 0）。
+	// 用于 Release 操作。
+	Decr(ctx context.Context, accountID string) error
+
+	// Get 获取指定账号当前的占用计数。
+	// 用于 FilterAvailable 操作：判断是否还有余量。
+	Get(ctx context.Context, accountID string) (int64, error)
+}

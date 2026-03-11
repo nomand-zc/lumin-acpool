@@ -149,7 +149,7 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 		}
 
 		// If selection failed and failover is enabled, exclude this provider and retry
-		if enableFailover && (errors.Is(err, ErrNoAvailableAccount) || errors.Is(err, ErrMaxRetriesExceeded)) {
+		if enableFailover && (errors.Is(err, ErrNoAvailableAccount) || errors.Is(err, ErrMaxRetriesExceeded) || errors.Is(err, ErrOccupancyFull)) {
 			excludeProviderKeys = append(excludeProviderKeys, chosen.ProviderKey())
 			// Reset ExcludeAccountIDs (no need to exclude accounts from previous provider after switching)
 			selReq.ExcludeAccountIDs = nil
@@ -188,6 +188,13 @@ func (b *defaultBalancer) selectAccountFromProvider(
 			return nil, ErrNoAvailableAccount
 		}
 
+		// 占用过滤：排除已达并发上限的账号
+		accounts = b.opts.OccupancyController.FilterAvailable(ctx, accounts)
+		if len(accounts) == 0 {
+			selReq.ExcludeAccountIDs = originalExclude
+			return nil, ErrOccupancyFull
+		}
+
 		// Use Selector to select an account
 		chosen, err := b.opts.Selector.Select(accounts, selReq)
 		if err != nil {
@@ -199,10 +206,19 @@ func (b *defaultBalancer) selectAccountFromProvider(
 			return nil, fmt.Errorf("balancer: select account: %w", err)
 		}
 
+		// 占用获取：原子操作确保竞态安全
+		if !b.opts.OccupancyController.Acquire(ctx, chosen) {
+			// 竞态失败（FilterAvailable 通过但 Acquire 时已被其他请求占满），排除后重试
+			selReq.ExcludeAccountIDs = append(selReq.ExcludeAccountIDs, chosen.ID)
+			continue
+		}
+
 		// Update LastUsedAt via StatsStore
 		now := time.Now()
 		if b.opts.StatsStore != nil {
 			if err := b.opts.StatsStore.UpdateLastUsed(ctx, chosen.ID, now); err != nil {
+				// UpdateLastUsed 失败，需释放已获取的占用槽位
+				b.opts.OccupancyController.Release(ctx, chosen.ID)
 				selReq.ExcludeAccountIDs = append(selReq.ExcludeAccountIDs, chosen.ID)
 				continue
 			}
@@ -225,6 +241,11 @@ func (b *defaultBalancer) selectAccountFromProvider(
 
 // ReportSuccess reports a successful call.
 func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) error {
+	// 0. 释放占用槽位（Pick 时 Acquire 的对称操作）
+	if b.opts.OccupancyController != nil {
+		b.opts.OccupancyController.Release(ctx, accountID)
+	}
+
 	// 1. 更新运行时统计（通过 StatsStore 原子操作）
 	if b.opts.StatsStore != nil {
 		if err := b.opts.StatsStore.IncrSuccess(ctx, accountID); err != nil {
@@ -253,7 +274,7 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 			return fmt.Errorf("balancer: circuit breaker record success: %w", err)
 		}
 
-	// 仅当状态需要变更时才持久化 Account（使用乐观锁避免竞态覆盖）
+		// 仅当状态需要变更时才持久化 Account（使用乐观锁避免竞态覆盖）
 		if acct.Status == account.StatusCircuitOpen {
 			acct.Status = account.StatusAvailable
 			acct.CircuitOpenUntil = nil
@@ -273,6 +294,11 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 
 // ReportFailure reports a failed call.
 func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, callErr error) error {
+	// 0. 释放占用槽位（Pick 时 Acquire 的对称操作）
+	if b.opts.OccupancyController != nil {
+		b.opts.OccupancyController.Release(ctx, accountID)
+	}
+
 	// 1. 更新运行时统计（通过 StatsStore 原子操作）
 	errMsg := ""
 	if callErr != nil {
@@ -448,7 +474,7 @@ func newUsageTrackerWithCooldown(
 			cooldownMgr.StartCooldown(acct, nil)
 			acct.Status = account.StatusCoolingDown
 			acct.UpdatedAt = time.Now()
-		_ = accountStorage.Update(ctx, acct) // 乐观锁持久化，冲突静默忽略
+			_ = accountStorage.Update(ctx, acct) // 乐观锁持久化，冲突静默忽略
 		}),
 	)
 }

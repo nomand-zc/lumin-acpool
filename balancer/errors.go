@@ -17,4 +17,6 @@ var (
 	ErrMaxRetriesExceeded = errors.New("balancer: max retries exceeded")
 	// ErrAccountNotFound indicates that the account was not found when reporting results.
 	ErrAccountNotFound = errors.New("balancer: account not found")
+	// ErrOccupancyFull 表示所有候选账号的并发已满，无法获取可用账号。
+	ErrOccupancyFull = errors.New("balancer: all accounts occupancy full")
 )

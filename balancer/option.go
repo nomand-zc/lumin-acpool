@@ -1,6 +1,7 @@
 package balancer
 
 import (
+	"github.com/nomand-zc/lumin-acpool/balancer/occupancy"
 	"github.com/nomand-zc/lumin-acpool/circuitbreaker"
 	"github.com/nomand-zc/lumin-acpool/cooldown"
 	"github.com/nomand-zc/lumin-acpool/resolver"
@@ -16,6 +17,7 @@ var defaultOptions = Options{
 	DefaultEnableFailover: false,
 	Selector:              accountstrategies.NewRoundRobin(),
 	GroupSelector:         groupstrategies.NewGroupPriority(),
+	OccupancyController:   occupancy.NewUnlimited(),
 }
 
 // Option is a functional option for the load balancer.
@@ -41,6 +43,10 @@ type Options struct {
 	StatsStore storage.StatsStore
 	// UsageTracker is the usage tracker (optional, used for quota pre-filtering and usage recording).
 	UsageTracker usagetracker.UsageTracker
+	// OccupancyController 账号占用控制器（可选）。
+	// 控制单个账号的并发使用数量，防止多个请求同时选中同一个账号导致超过其限额或触发限流。
+	// 默认为 nil（不限制并发，等价于 occupancy.Unlimited）。
+	OccupancyController occupancy.Controller
 	// DefaultMaxRetries is the default maximum retry count.
 	DefaultMaxRetries int
 	// DefaultEnableFailover indicates whether failover is enabled by default.
@@ -90,6 +96,15 @@ func WithStatsStore(ss storage.StatsStore) Option {
 // WithUsageTracker sets the usage tracker.
 func WithUsageTracker(ut usagetracker.UsageTracker) Option {
 	return func(o *Options) { o.UsageTracker = ut }
+}
+
+// WithOccupancyController 设置账号占用控制器。
+// 用于控制单个账号的并发使用数量，内置策略：
+//   - occupancy.NewUnlimited(): 不限制（默认行为）
+//   - occupancy.NewFixedLimit(limit): 固定并发上限
+//   - occupancy.NewAdaptiveLimit(tracker): 基于配额动态调整
+func WithOccupancyController(oc occupancy.Controller) Option {
+	return func(o *Options) { o.OccupancyController = oc }
 }
 
 // WithDefaultMaxRetries sets the default maximum retry count.
