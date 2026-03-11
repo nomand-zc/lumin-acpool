@@ -242,9 +242,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 // ReportSuccess reports a successful call.
 func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) error {
 	// 0. 释放占用槽位（Pick 时 Acquire 的对称操作）
-	if b.opts.OccupancyController != nil {
-		b.opts.OccupancyController.Release(ctx, accountID)
-	}
+	b.opts.OccupancyController.Release(ctx, accountID)
 
 	// 1. 更新运行时统计（通过 StatsStore 原子操作）
 	if b.opts.StatsStore != nil {
@@ -295,9 +293,7 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 // ReportFailure reports a failed call.
 func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, callErr error) error {
 	// 0. 释放占用槽位（Pick 时 Acquire 的对称操作）
-	if b.opts.OccupancyController != nil {
-		b.opts.OccupancyController.Release(ctx, accountID)
-	}
+	b.opts.OccupancyController.Release(ctx, accountID)
 
 	// 1. 更新运行时统计（通过 StatsStore 原子操作）
 	errMsg := ""
