@@ -30,6 +30,19 @@ type UsageStore interface {
 	Remove(ctx context.Context, accountID string) error
 }
 
+// SearchFilter 是通用查询过滤器，将高频索引字段提升为一级字段，
+// 方便 Redis 等非关系型存储直接用字段值定位索引，无需从 filtercond.Filter 树中解析。
+type SearchFilter struct {
+	// ProviderType 按供应商类型过滤（精确匹配），空值表示不过滤。
+	ProviderType string
+	// ProviderName 按供应商名称过滤（精确匹配），空值表示不过滤。
+	ProviderName string
+	// Status 按状态过滤（精确匹配），零值表示不过滤。
+	Status int
+	// ExtraCond 额外的通用过滤条件（filtercond 表达式树），用于上面三个字段无法表达的查询。
+	ExtraCond *filtercond.Filter
+}
+
 // ProviderStorage is the provider storage interface.
 // Responsible for CRUD operations on ProviderInfo metadata.
 type ProviderStorage interface {
@@ -39,7 +52,7 @@ type ProviderStorage interface {
 
 	// Search queries provider list.
 	// Returns all providers when filter is nil.
-	Search(ctx context.Context, filter *filtercond.Filter) ([]*account.ProviderInfo, error)
+	Search(ctx context.Context, filter *SearchFilter) ([]*account.ProviderInfo, error)
 
 	// Add adds a provider.
 	// Returns ErrAlreadyExists if the ProviderKey already exists.
@@ -63,7 +76,7 @@ type AccountStorage interface {
 
 	// Search queries account list.
 	// Returns all accounts when filter is nil.
-	Search(ctx context.Context, filter *filtercond.Filter) ([]*account.Account, error)
+	Search(ctx context.Context, filter *SearchFilter) ([]*account.Account, error)
 
 	// Add adds an account.
 	// Returns ErrAlreadyExists if the ID already exists.
@@ -80,15 +93,11 @@ type AccountStorage interface {
 
 	// RemoveFilter batch deletes accounts by condition.
 	// Deletes all accounts when filter is nil.
-	RemoveFilter(ctx context.Context, filter *filtercond.Filter) error
+	RemoveFilter(ctx context.Context, filter *SearchFilter) error
 
 	// Count returns the account count.
 	// Returns the total count when filter is nil.
-	Count(ctx context.Context, filter *filtercond.Filter) (int, error)
-
-	// CountByProvider returns the account count under the specified provider.
-	// Returns the total count under that provider when filter is nil.
-	CountByProvider(ctx context.Context, key account.ProviderKey, filter *filtercond.Filter) (int, error)
+	Count(ctx context.Context, filter *SearchFilter) (int, error)
 }
 
 // AffinityStore 是亲和绑定关系的存储接口。

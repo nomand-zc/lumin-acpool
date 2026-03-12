@@ -7,7 +7,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/cli/internal/bootstrap"
-	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
+	"github.com/nomand-zc/lumin-acpool/storage"
 )
 
 // removeCmd 持有 provider remove 命令的参数。
@@ -100,20 +100,9 @@ func (c *removeCmd) cascadeRemoveAccounts(cmd *cobra.Command, deps *bootstrap.De
 }
 
 // buildCascadeFilter 构建用于级联删除的过滤条件（精确匹配 provider_type 和 provider_name）。
-func buildCascadeFilter(providerType, providerName string) *filtercond.Filter {
-	return &filtercond.Filter{
-		Operator: filtercond.OperatorAnd,
-		Value: []*filtercond.Filter{
-			{
-				Field:    "provider_type",
-				Operator: filtercond.OperatorEqual,
-				Value:    providerType,
-			},
-			{
-				Field:    "provider_name",
-				Operator: filtercond.OperatorEqual,
-				Value:    providerName,
-			},
-		},
+func buildCascadeFilter(providerType, providerName string) *storage.SearchFilter {
+	return &storage.SearchFilter{
+		ProviderType: providerType,
+		ProviderName: providerName,
 	}
 }

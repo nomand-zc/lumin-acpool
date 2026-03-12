@@ -45,8 +45,12 @@ func (s *Store) Get(_ context.Context, id string) (*account.Account, error) {
 	return acct.Clone(), nil
 }
 
-func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
-	filterFn, err := s.converter.Convert(filter)
+func (s *Store) Search(_ context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
+	var cond *filtercond.Filter
+	if filter != nil {
+		cond = filter.ExtraCond
+	}
+	filterFn, err := s.converter.Convert(cond)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +60,31 @@ func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account
 
 	result := make([]*account.Account, 0)
 	for _, acct := range s.accounts {
+		if !matchSearchFilter(acct, filter) {
+			continue
+		}
 		if filterFn(acct) {
 			result = append(result, acct.Clone())
 		}
 	}
 	return result, nil
+}
+
+// matchSearchFilter 检查账号是否匹配 SearchFilter 的一级字段条件。
+func matchSearchFilter(acct *account.Account, filter *storage.SearchFilter) bool {
+	if filter == nil {
+		return true
+	}
+	if filter.ProviderType != "" && acct.ProviderType != filter.ProviderType {
+		return false
+	}
+	if filter.ProviderName != "" && acct.ProviderName != filter.ProviderName {
+		return false
+	}
+	if filter.Status != 0 && int(acct.Status) != filter.Status {
+		return false
+	}
+	return true
 }
 
 func (s *Store) Add(_ context.Context, acct *account.Account) error {
@@ -125,8 +149,12 @@ func (s *Store) Remove(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *Store) RemoveFilter(_ context.Context, filter *filtercond.Filter) error {
-	filterFn, err := s.converter.Convert(filter)
+func (s *Store) RemoveFilter(_ context.Context, filter *storage.SearchFilter) error {
+	var cond *filtercond.Filter
+	if filter != nil {
+		cond = filter.ExtraCond
+	}
+	filterFn, err := s.converter.Convert(cond)
 	if err != nil {
 		return err
 	}
@@ -135,6 +163,9 @@ func (s *Store) RemoveFilter(_ context.Context, filter *filtercond.Filter) error
 	defer s.mu.Unlock()
 
 	for id, acct := range s.accounts {
+		if !matchSearchFilter(acct, filter) {
+			continue
+		}
 		if filterFn(acct) {
 			s.removeFromIndex(acct)
 			delete(s.accounts, id)
@@ -143,8 +174,12 @@ func (s *Store) RemoveFilter(_ context.Context, filter *filtercond.Filter) error
 	return nil
 }
 
-func (s *Store) Count(_ context.Context, filter *filtercond.Filter) (int, error) {
-	filterFn, err := s.converter.Convert(filter)
+func (s *Store) Count(_ context.Context, filter *storage.SearchFilter) (int, error) {
+	var cond *filtercond.Filter
+	if filter != nil {
+		cond = filter.ExtraCond
+	}
+	filterFn, err := s.converter.Convert(cond)
 	if err != nil {
 		return 0, err
 	}
@@ -154,31 +189,7 @@ func (s *Store) Count(_ context.Context, filter *filtercond.Filter) (int, error)
 
 	count := 0
 	for _, acct := range s.accounts {
-		if filterFn(acct) {
-			count++
-		}
-	}
-	return count, nil
-}
-
-func (s *Store) CountByProvider(_ context.Context, key account.ProviderKey, filter *filtercond.Filter) (int, error) {
-	filterFn, err := s.converter.Convert(filter)
-	if err != nil {
-		return 0, err
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	ids, ok := s.providerIndex[key]
-	if !ok {
-		return 0, nil
-	}
-
-	count := 0
-	for id := range ids {
-		acct, exists := s.accounts[id]
-		if !exists {
+		if !matchSearchFilter(acct, filter) {
 			continue
 		}
 		if filterFn(acct) {
@@ -187,6 +198,8 @@ func (s *Store) CountByProvider(_ context.Context, key account.ProviderKey, filt
 	}
 	return count, nil
 }
+
+
 
 // --- Internal helper methods ---
 

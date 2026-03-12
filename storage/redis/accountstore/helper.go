@@ -148,6 +148,31 @@ type indexCondition struct {
 	residual     *filtercond.Filter // 去除已下推条件后的残余 Filter（用于内存过滤）
 }
 
+// extractIndexFromSearchFilter 从 SearchFilter 一级字段直接构建索引条件，
+// 无需再从 filtercond.Filter 树中解析。
+func extractIndexFromSearchFilter(filter *storage.SearchFilter) *indexCondition {
+	if filter == nil {
+		return nil
+	}
+
+	cond := &indexCondition{
+		providerType: filter.ProviderType,
+		providerName: filter.ProviderName,
+	}
+	if filter.Status != 0 {
+		cond.statusValues = []int{filter.Status}
+	}
+
+	// 如果什么都没提取到，返回 nil
+	if cond.providerType == "" && cond.providerName == "" && len(cond.statusValues) == 0 {
+		return nil
+	}
+
+	// residual 仅用于 ExtraCond，已由调用方处理
+	cond.residual = nil
+	return cond
+}
+
 // extractIndexCondition 从 Filter 中提取可下推到 Redis 索引的等值条件。
 // 仅处理顶层 AND 组合或单条件，不递归到 OR 内部。
 // 返回提取结果。如果无法提取任何索引条件，返回 nil。

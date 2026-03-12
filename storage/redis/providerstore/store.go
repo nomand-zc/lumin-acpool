@@ -63,7 +63,7 @@ func (s *Store) Get(ctx context.Context, key account.ProviderKey) (*account.Prov
 	return info, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*account.ProviderInfo, error) {
+func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
 	// 获取所有供应商索引
 	members, err := s.client.SMembers(ctx, providerIndexRedisKey(s.keyPrefix))
 	if err != nil {
@@ -86,6 +86,11 @@ func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*accou
 		return nil, fmt.Errorf("providerstore: failed to pipeline get providers: %w", err)
 	}
 
+	var extraCond *filtercond.Filter
+	if filter != nil {
+		extraCond = filter.ExtraCond
+	}
+
 	var result []*account.ProviderInfo
 	for _, member := range members {
 		pc := cmds[member]
@@ -99,12 +104,35 @@ func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*accou
 			continue
 		}
 
-		if s.evaluator.Match(info, filter) {
+		// 先按一级字段过滤
+		if !matchProviderSearchFilter(info, filter) {
+			continue
+		}
+
+		// 再按 ExtraCond 过滤
+		if s.evaluator.Match(info, extraCond) {
 			result = append(result, info)
 		}
 	}
 
 	return result, nil
+}
+
+// matchProviderSearchFilter 检查供应商是否匹配 SearchFilter 的一级字段条件。
+func matchProviderSearchFilter(info *account.ProviderInfo, filter *storage.SearchFilter) bool {
+	if filter == nil {
+		return true
+	}
+	if filter.ProviderType != "" && info.ProviderType != filter.ProviderType {
+		return false
+	}
+	if filter.ProviderName != "" && info.ProviderName != filter.ProviderName {
+		return false
+	}
+	if filter.Status != 0 && int(info.Status) != filter.Status {
+		return false
+	}
+	return true
 }
 
 func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {

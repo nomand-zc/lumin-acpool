@@ -48,8 +48,12 @@ func (s *Store) Get(_ context.Context, key account.ProviderKey) (*account.Provid
 	return info.Clone(), nil
 }
 
-func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account.ProviderInfo, error) {
-	filterFn, err := s.converter.Convert(filter)
+func (s *Store) Search(_ context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
+	var cond *filtercond.Filter
+	if filter != nil {
+		cond = filter.ExtraCond
+	}
+	filterFn, err := s.converter.Convert(cond)
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +63,31 @@ func (s *Store) Search(_ context.Context, filter *filtercond.Filter) ([]*account
 
 	result := make([]*account.ProviderInfo, 0)
 	for _, info := range s.providers {
+		if !matchSearchFilter(info, filter) {
+			continue
+		}
 		if filterFn(info) {
 			result = append(result, info.Clone())
 		}
 	}
 	return result, nil
+}
+
+// matchSearchFilter 检查供应商是否匹配 SearchFilter 的一级字段条件。
+func matchSearchFilter(info *account.ProviderInfo, filter *storage.SearchFilter) bool {
+	if filter == nil {
+		return true
+	}
+	if filter.ProviderType != "" && info.ProviderType != filter.ProviderType {
+		return false
+	}
+	if filter.ProviderName != "" && info.ProviderName != filter.ProviderName {
+		return false
+	}
+	if filter.Status != 0 && int(info.Status) != filter.Status {
+		return false
+	}
+	return true
 }
 
 func (s *Store) Add(_ context.Context, info *account.ProviderInfo) error {

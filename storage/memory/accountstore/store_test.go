@@ -109,19 +109,19 @@ func TestStore_UpdateProviderKey(t *testing.T) {
 	_ = store.Update(ctx, got)
 
 	// team-a 下应该没有账号了
-	list, _ := store.Search(ctx, filtercond.And(
-		filtercond.Equal("provider_type", "kiro"),
-		filtercond.Equal("provider_name", "team-a"),
-	))
+	list, _ := store.Search(ctx, &storage.SearchFilter{
+		ProviderType: "kiro",
+		ProviderName: "team-a",
+	})
 	if len(list) != 0 {
 		t.Fatalf("expected 0 accounts under team-a, got %d", len(list))
 	}
 
 	// team-b 下应该有 1 个
-	list, _ = store.Search(ctx, filtercond.And(
-		filtercond.Equal("provider_type", "kiro"),
-		filtercond.Equal("provider_name", "team-b"),
-	))
+	list, _ = store.Search(ctx, &storage.SearchFilter{
+		ProviderType: "kiro",
+		ProviderName: "team-b",
+	})
 	if len(list) != 1 {
 		t.Fatalf("expected 1 account under team-b, got %d", len(list))
 	}
@@ -145,10 +145,10 @@ func TestStore_Remove(t *testing.T) {
 	}
 
 	// 确认索引已清理
-	list, _ := store.Search(ctx, filtercond.And(
-		filtercond.Equal("provider_type", "kiro"),
-		filtercond.Equal("provider_name", "team-a"),
-	))
+	list, _ := store.Search(ctx, &storage.SearchFilter{
+		ProviderType: "kiro",
+		ProviderName: "team-a",
+	})
 	if len(list) != 0 {
 		t.Fatalf("expected 0 accounts in index after Remove, got %d", len(list))
 	}
@@ -178,7 +178,9 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 按状态过滤
-	available, err := store.Search(ctx, filtercond.Equal("status", int(account.StatusAvailable)))
+	available, err := store.Search(ctx, &storage.SearchFilter{
+		Status: int(account.StatusAvailable),
+	})
 	if err != nil {
 		t.Fatalf("List(status=available) failed: %v", err)
 	}
@@ -187,7 +189,9 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 按优先级过滤
-	highPrio, err := store.Search(ctx, filtercond.GreaterThanOrEqual("priority", 5))
+	highPrio, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.GreaterThanOrEqual("priority", 5),
+	})
 	if err != nil {
 		t.Fatalf("List(priority>=5) failed: %v", err)
 	}
@@ -196,10 +200,10 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 组合条件：可用 + 优先级 >= 5
-	combined, err := store.Search(ctx, filtercond.And(
-		filtercond.Equal("status", int(account.StatusAvailable)),
-		filtercond.GreaterThanOrEqual("priority", 5),
-	))
+	combined, err := store.Search(ctx, &storage.SearchFilter{
+		Status:    int(account.StatusAvailable),
+		ExtraCond: filtercond.GreaterThanOrEqual("priority", 5),
+	})
 	if err != nil {
 		t.Fatalf("List(and) failed: %v", err)
 	}
@@ -208,10 +212,12 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// Or 条件
-	orResult, err := store.Search(ctx, filtercond.Or(
-		filtercond.Equal("provider_name", "team-b"),
-		filtercond.Equal("status", int(account.StatusBanned)),
-	))
+	orResult, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Or(
+			filtercond.Equal("provider_name", "team-b"),
+			filtercond.Equal("status", int(account.StatusBanned)),
+		),
+	})
 	if err != nil {
 		t.Fatalf("List(or) failed: %v", err)
 	}
@@ -238,33 +244,14 @@ func TestStore_Count(t *testing.T) {
 	}
 
 	// 按状态计数
-	availableCount, err := store.Count(ctx, filtercond.Equal("status", int(account.StatusAvailable)))
+	availableCount, err := store.Count(ctx, &storage.SearchFilter{
+		Status: int(account.StatusAvailable),
+	})
 	if err != nil {
 		t.Fatalf("Count(status=available) failed: %v", err)
 	}
 	if availableCount != 2 {
 		t.Fatalf("expected 2, got %d", availableCount)
-	}
-
-	// 按 ProviderKey 计数
-	keyCount, err := store.CountByProvider(ctx, account.BuildProviderKey("kiro", "team-a"), nil)
-	if err != nil {
-		t.Fatalf("CountByProvider failed: %v", err)
-	}
-	if keyCount != 2 {
-		t.Fatalf("expected 2, got %d", keyCount)
-	}
-
-	// 按 ProviderKey + 状态计数
-	keyAvail, err := store.CountByProvider(ctx,
-		account.BuildProviderKey("kiro", "team-a"),
-		filtercond.Equal("status", int(account.StatusAvailable)),
-	)
-	if err != nil {
-		t.Fatalf("CountByProvider(status=available) failed: %v", err)
-	}
-	if keyAvail != 1 {
-		t.Fatalf("expected 1, got %d", keyAvail)
 	}
 }
 
@@ -295,7 +282,9 @@ func TestStore_InOperator(t *testing.T) {
 	_ = store.Add(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusBanned, 1))
 
 	// In 操作符
-	result, err := store.Search(ctx, filtercond.In("status", int(account.StatusAvailable), int(account.StatusBanned)))
+	result, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.In("status", int(account.StatusAvailable), int(account.StatusBanned)),
+	})
 	if err != nil {
 		t.Fatalf("List(In) failed: %v", err)
 	}
@@ -313,7 +302,9 @@ func TestStore_BetweenOperator(t *testing.T) {
 	_ = store.Add(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusAvailable, 10))
 
 	// Between 操作符
-	result, err := store.Search(ctx, filtercond.Between("priority", 3, 8))
+	result, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Between("priority", 3, 8),
+	})
 	if err != nil {
 		t.Fatalf("List(Between) failed: %v", err)
 	}
@@ -334,7 +325,9 @@ func TestStore_LikeOperator(t *testing.T) {
 	_ = store.Add(ctx, newTestAccount("acc-3", "openai", "default", account.StatusAvailable, 8))
 
 	// Like 操作符
-	result, err := store.Search(ctx, filtercond.Like("provider_name", "team"))
+	result, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Like("provider_name", "team"),
+	})
 	if err != nil {
 		t.Fatalf("List(Like) failed: %v", err)
 	}
@@ -347,7 +340,9 @@ func TestStore_InvalidField(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_, err := store.Search(ctx, filtercond.Equal("nonexistent_field", "value"))
+	_, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Equal("nonexistent_field", "value"),
+	})
 	if err == nil {
 		t.Fatal("expected error for invalid field, got nil")
 	}

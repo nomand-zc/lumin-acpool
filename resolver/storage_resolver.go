@@ -53,23 +53,12 @@ func (r *storageResolver) ResolveProvider(ctx context.Context, key account.Provi
 
 // ResolveProviders resolves active providers that support the specified model from storage.
 func (r *storageResolver) ResolveProviders(ctx context.Context, model string, providerType string) ([]*account.ProviderInfo, error) {
-	// Active status filter
-statusFilter := filtercond.In(storage.ProviderFieldStatus, int(account.ProviderStatusActive), int(account.ProviderStatusDegraded))
-
-	var filter *filtercond.Filter
-	if providerType != "" {
-		// Filter by type + active status + supports specified model
-		filter = filtercond.And(
-			filtercond.Equal(storage.ProviderFieldType, providerType),
-			statusFilter,
+	filter := &storage.SearchFilter{
+		ProviderType: providerType,
+		ExtraCond: filtercond.And(
+			filtercond.In(storage.ProviderFieldStatus, int(account.ProviderStatusActive), int(account.ProviderStatusDegraded)),
 			filtercond.Equal(storage.ProviderFieldSupportedModel, model),
-		)
-	} else {
-		// Fully automatic, by model + active status
-		filter = filtercond.And(
-			filtercond.Equal(storage.ProviderFieldSupportedModel, model),
-			statusFilter,
-		)
+		),
 	}
 
 	candidates, err := r.providerStorage.Search(ctx, filter)
@@ -88,11 +77,11 @@ statusFilter := filtercond.In(storage.ProviderFieldStatus, int(account.ProviderS
 // ResolveAccounts resolves available accounts under the specified provider from storage.
 func (r *storageResolver) ResolveAccounts(ctx context.Context, req ResolveAccountsRequest) ([]*account.Account, error) {
 	// Only query available accounts under the specified provider
-	filter := filtercond.And(
-		filtercond.Equal(storage.AccountFieldProviderType, req.Key.Type),
-		filtercond.Equal(storage.AccountFieldProviderName, req.Key.Name),
-		filtercond.Equal(storage.AccountFieldStatus, int(account.StatusAvailable)),
-	)
+	filter := &storage.SearchFilter{
+		ProviderType: req.Key.Type,
+		ProviderName: req.Key.Name,
+		Status:       int(account.StatusAvailable),
+	}
 
 	accounts, err := r.accountStorage.Search(ctx, filter)
 	if err != nil {
@@ -113,19 +102,25 @@ func (r *storageResolver) ResolveAccounts(ctx context.Context, req ResolveAccoun
 }
 
 // fillAccountCounts 动态填充 ProviderInfo 的 AccountCount 和 AvailableAccountCount。
-// 通过 AccountStorage.CountByProvider 实时查询，确保 GroupSelector（如 MostAvailable）
+// 通过 AccountStorage.Count 实时查询，确保 GroupSelector（如 MostAvailable）
 // 能获取到准确的可用账号数。
 func (r *storageResolver) fillAccountCounts(ctx context.Context, info *account.ProviderInfo) {
 	key := info.ProviderKey()
 
 	// 查询总账号数
-	if total, err := r.accountStorage.CountByProvider(ctx, key, nil); err == nil {
+	if total, err := r.accountStorage.Count(ctx, &storage.SearchFilter{
+		ProviderType: key.Type,
+		ProviderName: key.Name,
+	}); err == nil {
 		info.AccountCount = total
 	}
 
 	// 查询可用账号数（Status == Available）
-	availableFilter := filtercond.Equal(storage.AccountFieldStatus, int(account.StatusAvailable))
-	if available, err := r.accountStorage.CountByProvider(ctx, key, availableFilter); err == nil {
+	if available, err := r.accountStorage.Count(ctx, &storage.SearchFilter{
+		ProviderType: key.Type,
+		ProviderName: key.Name,
+		Status:       int(account.StatusAvailable),
+	}); err == nil {
 		info.AvailableAccountCount = available
 	}
 }

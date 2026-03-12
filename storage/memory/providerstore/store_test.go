@@ -87,7 +87,9 @@ func TestStore_Update(t *testing.T) {
 	}
 
 	// 验证模型索引已更新
-	gpt4List, _ := store.Search(ctx, filtercond.Equal("supported_model", "gpt-4"))
+	gpt4List, _ := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Equal("supported_model", "gpt-4"),
+	})
 	if len(gpt4List) != 1 {
 		t.Fatalf("expected 1 provider for gpt-4 after update, got %d", len(gpt4List))
 	}
@@ -112,13 +114,17 @@ func TestStore_UpdateModelIndex(t *testing.T) {
 	_ = store.Update(ctx, updated)
 
 	// model-a 应该查不到了
-	listA, _ := store.Search(ctx, filtercond.Equal("supported_model", "model-a"))
+	listA, _ := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Equal("supported_model", "model-a"),
+	})
 	if len(listA) != 0 {
 		t.Fatalf("expected 0 providers for model-a, got %d", len(listA))
 	}
 
 	// model-b 应该能查到
-	listB, _ := store.Search(ctx, filtercond.Equal("supported_model", "model-b"))
+	listB, _ := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Equal("supported_model", "model-b"),
+	})
 	if len(listB) != 1 {
 		t.Fatalf("expected 1 provider for model-b, got %d", len(listB))
 	}
@@ -143,11 +149,15 @@ func TestStore_Remove(t *testing.T) {
 	}
 
 	// 确认索引已清理
-	typeList, _ := store.Search(ctx, filtercond.Equal("provider_type", "kiro"))
+	typeList, _ := store.Search(ctx, &storage.SearchFilter{
+		ProviderType: "kiro",
+	})
 	if len(typeList) != 0 {
 		t.Fatalf("expected 0 in type index after Remove, got %d", len(typeList))
 	}
-	modelList, _ := store.Search(ctx, filtercond.Equal("supported_model", "claude-sonnet-4-20250514"))
+	modelList, _ := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Equal("supported_model", "claude-sonnet-4-20250514"),
+	})
 	if len(modelList) != 0 {
 		t.Fatalf("expected 0 in model index after Remove, got %d", len(modelList))
 	}
@@ -176,7 +186,9 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 按状态过滤
-	active, err := store.Search(ctx, filtercond.Equal("provider_status", int(account.ProviderStatusActive)))
+	active, err := store.Search(ctx, &storage.SearchFilter{
+		Status: int(account.ProviderStatusActive),
+	})
 	if err != nil {
 		t.Fatalf("List(status=active) failed: %v", err)
 	}
@@ -185,7 +197,9 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 按优先级过滤
-	highPrio, err := store.Search(ctx, filtercond.GreaterThanOrEqual("priority", 5))
+	highPrio, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.GreaterThanOrEqual("priority", 5),
+	})
 	if err != nil {
 		t.Fatalf("List(priority>=5) failed: %v", err)
 	}
@@ -221,7 +235,9 @@ func TestStore_FilterBySupportedModel(t *testing.T) {
 	_ = store.Add(ctx, newTestProviderInfo("openai", "default", account.ProviderStatusActive, 8, 20, []string{"model-c"}))
 
 	// 通过 filtercond 查 supported_model = "model-a"
-	result, err := store.Search(ctx, filtercond.Equal("supported_model", "model-a"))
+	result, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Equal("supported_model", "model-a"),
+	})
 	if err != nil {
 		t.Fatalf("List(supported_model=model-a) failed: %v", err)
 	}
@@ -230,7 +246,9 @@ func TestStore_FilterBySupportedModel(t *testing.T) {
 	}
 
 	// 通过 filtercond 查 supported_model in ["model-a", "model-c"]
-	result2, err := store.Search(ctx, filtercond.In("supported_model", "model-a", "model-c"))
+	result2, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.In("supported_model", "model-a", "model-c"),
+	})
 	if err != nil {
 		t.Fatalf("List(supported_model in) failed: %v", err)
 	}
@@ -248,10 +266,10 @@ func TestStore_CombinedFilter(t *testing.T) {
 	_ = store.Add(ctx, newTestProviderInfo("openai", "default", account.ProviderStatusActive, 8, 20, []string{"model-b"}))
 
 	// And: active + 支持 model-a
-	result, err := store.Search(ctx, filtercond.And(
-		filtercond.Equal("provider_status", int(account.ProviderStatusActive)),
-		filtercond.Equal("supported_model", "model-a"),
-	))
+	result, err := store.Search(ctx, &storage.SearchFilter{
+		Status:    int(account.ProviderStatusActive),
+		ExtraCond: filtercond.Equal("supported_model", "model-a"),
+	})
 	if err != nil {
 		t.Fatalf("List(and) failed: %v", err)
 	}
@@ -263,10 +281,12 @@ func TestStore_CombinedFilter(t *testing.T) {
 	}
 
 	// Or: weight >= 20 或 priority >= 5
-	orResult, err := store.Search(ctx, filtercond.Or(
-		filtercond.GreaterThanOrEqual("weight", 20),
-		filtercond.GreaterThanOrEqual("priority", 5),
-	))
+	orResult, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Or(
+			filtercond.GreaterThanOrEqual("weight", 20),
+			filtercond.GreaterThanOrEqual("priority", 5),
+		),
+	})
 	if err != nil {
 		t.Fatalf("List(or) failed: %v", err)
 	}
@@ -279,7 +299,9 @@ func TestStore_InvalidField(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_, err := store.Search(ctx, filtercond.Equal("nonexistent_field", "value"))
+	_, err := store.Search(ctx, &storage.SearchFilter{
+		ExtraCond: filtercond.Equal("nonexistent_field", "value"),
+	})
 	if err == nil {
 		t.Fatal("expected error for invalid field, got nil")
 	}

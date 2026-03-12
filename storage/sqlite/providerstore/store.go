@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
@@ -80,13 +81,18 @@ func (s *Store) Get(ctx context.Context, key account.ProviderKey) (*account.Prov
 	return info, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*account.ProviderInfo, error) {
-	condResult, err := s.converter.Convert(filter)
+func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
+	var extraCond *filtercond.Filter
+	if filter != nil {
+		extraCond = filter.ExtraCond
+	}
+	condResult, err := s.converter.Convert(extraCond)
 	if err != nil {
 		return nil, fmt.Errorf("providerstore: failed to convert filter: %w", err)
 	}
 
-	query := fmt.Sprintf(`SELECT `+providerSelectColumns+` FROM providers WHERE %s`, condResult.Cond)
+	query := fmt.Sprintf(`SELECT `+providerSelectColumns+` FROM providers WHERE %s`, buildProviderWhereClause(filter, condResult))
+	args := buildProviderWhereArgs(filter, condResult)
 
 	var result []*account.ProviderInfo
 	err = s.client.Query(ctx, func(rows *sql.Rows) error {
@@ -98,11 +104,47 @@ func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*accou
 			result = append(result, info)
 		}
 		return nil
-	}, query, condResult.Args...)
+	}, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("providerstore: failed to search providers: %w", err)
 	}
 	return result, nil
+}
+
+// buildProviderWhereClause 根据 SearchFilter 一级字段和 ExtraCond 构建 WHERE 子句。
+func buildProviderWhereClause(filter *storage.SearchFilter, condResult *storeSqlite.CondConvertResult) string {
+	parts := []string{}
+	if filter != nil {
+		if filter.ProviderType != "" {
+			parts = append(parts, "provider_type=?")
+		}
+		if filter.ProviderName != "" {
+			parts = append(parts, "provider_name=?")
+		}
+		if filter.Status != 0 {
+			parts = append(parts, "status=?")
+		}
+	}
+	parts = append(parts, condResult.Cond)
+	return strings.Join(parts, " AND ")
+}
+
+// buildProviderWhereArgs 根据 SearchFilter 一级字段和 ExtraCond 构建查询参数。
+func buildProviderWhereArgs(filter *storage.SearchFilter, condResult *storeSqlite.CondConvertResult) []any {
+	var args []any
+	if filter != nil {
+		if filter.ProviderType != "" {
+			args = append(args, filter.ProviderType)
+		}
+		if filter.ProviderName != "" {
+			args = append(args, filter.ProviderName)
+		}
+		if filter.Status != 0 {
+			args = append(args, filter.Status)
+		}
+	}
+	args = append(args, condResult.Args...)
+	return args
 }
 
 func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {

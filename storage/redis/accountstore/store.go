@@ -80,11 +80,12 @@ func (s *Store) Get(ctx context.Context, id string) (*account.Account, error) {
 // 查询（利用三层索引下推）
 // ============================
 
-// resolveIDs 根据 Filter 利用分级索引获取候选 ID 列表，
+// resolveIDs 根据 SearchFilter 利用分级索引获取候选 ID 列表，
 // 同时返回索引无法覆盖的残余 Filter（需要内存过滤）。
 // 如果无法利用任何索引，回退到全局索引。
-func (s *Store) resolveIDs(ctx context.Context, filter *filtercond.Filter) (ids []string, residual *filtercond.Filter, err error) {
-	ic := extractIndexCondition(filter)
+func (s *Store) resolveIDs(ctx context.Context, filter *storage.SearchFilter) (ids []string, residual *filtercond.Filter, err error) {
+	// 从 SearchFilter 一级字段直接构建索引条件
+	ic := extractIndexFromSearchFilter(filter)
 	if ic != nil {
 		keys, allPushed := ic.resolveIndexKeys(s.keyPrefix)
 		if len(keys) > 0 {
@@ -111,13 +112,20 @@ func (s *Store) resolveIDs(ctx context.Context, filter *filtercond.Filter) (ids 
 				}
 			}
 
-			// 确定残余 Filter
+			// 确定残余 Filter：仅 ExtraCond 需内存过滤
 			if allPushed {
-				// 所有索引条件都被覆盖，只需过滤非索引条件
-				return ids, ic.residual, nil
+				var extra *filtercond.Filter
+				if filter != nil {
+					extra = filter.ExtraCond
+				}
+				return ids, extra, nil
 			}
-			// 部分索引条件未被覆盖，需要用原始 filter 做内存过滤
-			return ids, filter, nil
+			// 部分索引条件未被覆盖，需回退到 ExtraCond 做内存过滤
+			var extra *filtercond.Filter
+			if filter != nil {
+				extra = filter.ExtraCond
+			}
+			return ids, extra, nil
 		}
 	}
 
@@ -126,7 +134,11 @@ func (s *Store) resolveIDs(ctx context.Context, filter *filtercond.Filter) (ids 
 	if err != nil {
 		return nil, nil, fmt.Errorf("accountstore: failed to get account ids: %w", err)
 	}
-	return ids, filter, nil
+	var extra *filtercond.Filter
+	if filter != nil {
+		extra = filter.ExtraCond
+	}
+	return ids, extra, nil
 }
 
 // fetchAndFilter 通过 Pipeline 批量获取 IDs 对应的账号，并使用残余 Filter 做内存过滤。
@@ -169,7 +181,7 @@ func (s *Store) fetchAndFilter(ctx context.Context, ids []string, residual *filt
 	return result, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
+func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
 	ids, residual, err := s.resolveIDs(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -388,7 +400,7 @@ func (s *Store) Remove(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Store) RemoveFilter(ctx context.Context, filter *filtercond.Filter) error {
+func (s *Store) RemoveFilter(ctx context.Context, filter *storage.SearchFilter) error {
 	accounts, err := s.Search(ctx, filter)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to search accounts for removal: %w", err)
@@ -406,7 +418,7 @@ func (s *Store) RemoveFilter(ctx context.Context, filter *filtercond.Filter) err
 // 计数（优先使用 SCARD O(1)）
 // ============================
 
-func (s *Store) Count(ctx context.Context, filter *filtercond.Filter) (int, error) {
+func (s *Store) Count(ctx context.Context, filter *storage.SearchFilter) (int, error) {
 	if filter == nil {
 		// 无过滤条件，SCARD 全局索引 O(1)
 		n, err := s.client.SCard(ctx, accountIndexKey(s.keyPrefix))
@@ -416,9 +428,9 @@ func (s *Store) Count(ctx context.Context, filter *filtercond.Filter) (int, erro
 		return int(n), nil
 	}
 
-	// 尝试索引下推：如果所有条件都被索引覆盖且无残余，直接 SCARD
-	ic := extractIndexCondition(filter)
-	if ic != nil && ic.residual == nil {
+	// 尝试索引下推：如果所有一级字段条件都被索引覆盖且无 ExtraCond，直接 SCARD
+	ic := extractIndexFromSearchFilter(filter)
+	if ic != nil && filter.ExtraCond == nil {
 		keys, allPushed := ic.resolveIndexKeys(s.keyPrefix)
 		if len(keys) > 0 && allPushed {
 			total := int64(0)
@@ -435,46 +447,6 @@ func (s *Store) Count(ctx context.Context, filter *filtercond.Filter) (int, erro
 
 	// 回退：索引缩小范围 + 内存过滤
 	accounts, err := s.Search(ctx, filter)
-	if err != nil {
-		return 0, err
-	}
-	return len(accounts), nil
-}
-
-func (s *Store) CountByProvider(ctx context.Context, key account.ProviderKey, filter *filtercond.Filter) (int, error) {
-	provKey := providerIndexKey(s.keyPrefix, key.Type, key.Name)
-
-	if filter == nil {
-		// 无过滤条件，SCARD provider 索引 O(1)
-		n, err := s.client.SCard(ctx, provKey)
-		if err != nil {
-			return 0, fmt.Errorf("accountstore: failed to count accounts by provider: %w", err)
-		}
-		return int(n), nil
-	}
-
-	// 尝试从 filter 中提取 status 条件，利用层级 3 组合索引
-	ic := extractIndexCondition(filter)
-	if ic != nil && len(ic.statusValues) > 0 && ic.residual == nil {
-		total := int64(0)
-		for _, status := range ic.statusValues {
-			grpKey := groupIndexKey(s.keyPrefix, key.Type, key.Name, status)
-			n, err := s.client.SCard(ctx, grpKey)
-			if err != nil {
-				return 0, fmt.Errorf("accountstore: failed to scard group: %w", err)
-			}
-			total += n
-		}
-		return int(total), nil
-	}
-
-	// 回退：从 provider 索引拿 ID，Pipeline 批量获取 + 内存过滤
-	ids, err := s.client.SMembers(ctx, provKey)
-	if err != nil {
-		return 0, fmt.Errorf("accountstore: failed to get provider account ids: %w", err)
-	}
-
-	accounts, err := s.fetchAndFilter(ctx, ids, filter)
 	if err != nil {
 		return 0, err
 	}

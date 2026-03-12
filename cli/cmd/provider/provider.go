@@ -10,7 +10,6 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
 var (
@@ -95,45 +94,15 @@ func providerTableRows(providers []*account.ProviderInfo) [][]string {
 	return rows
 }
 
-// buildProviderFilter 根据命令行 flags 构建 filtercond.Filter。
-// 所有条件以 AND 方式组合，零值的 flag 不参与过滤。
-func buildProviderFilter(providerType, providerName string, status int) *filtercond.Filter {
-	var conditions []*filtercond.Filter
-
-	if providerType != "" {
-		conditions = append(conditions, &filtercond.Filter{
-			Field:    "provider_type",
-			Operator: filtercond.OperatorEqual,
-			Value:    providerType,
-		})
-	}
-
-	if providerName != "" {
-		conditions = append(conditions, &filtercond.Filter{
-			Field:    "provider_name",
-			Operator: filtercond.OperatorLike,
-			Value:    providerName,
-		})
-	}
-
-	if status > 0 {
-		conditions = append(conditions, &filtercond.Filter{
-			Field:    "status",
-			Operator: filtercond.OperatorEqual,
-			Value:    status,
-		})
-	}
-
-	if len(conditions) == 0 {
+// buildProviderFilter 根据命令行 flags 构建 SearchFilter。
+// 零值的 flag 不参与过滤。
+func buildProviderFilter(providerType, providerName string, status int) *storage.SearchFilter {
+	if providerType == "" && providerName == "" && status <= 0 {
 		return nil
 	}
-
-	if len(conditions) == 1 {
-		return conditions[0]
-	}
-
-	return &filtercond.Filter{
-		Operator: filtercond.OperatorAnd,
-		Value:    conditions,
+	return &storage.SearchFilter{
+		ProviderType: providerType,
+		ProviderName: providerName,
+		Status:       status,
 	}
 }

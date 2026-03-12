@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
@@ -81,13 +82,18 @@ func (s *Store) Get(ctx context.Context, id string) (*account.Account, error) {
 	return acct, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*account.Account, error) {
-	condResult, err := s.converter.Convert(filter)
+func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
+	var extraCond *filtercond.Filter
+	if filter != nil {
+		extraCond = filter.ExtraCond
+	}
+	condResult, err := s.converter.Convert(extraCond)
 	if err != nil {
 		return nil, fmt.Errorf("accountstore: failed to convert filter: %w", err)
 	}
 
-	query := fmt.Sprintf(`SELECT `+accountSelectColumns+` FROM accounts WHERE %s`, condResult.Cond)
+	query := fmt.Sprintf(`SELECT `+accountSelectColumns+` FROM accounts WHERE %s`, s.buildWhereClause(filter, condResult))
+	args := s.buildWhereArgs(filter, condResult)
 
 	var result []*account.Account
 	err = s.client.Query(ctx, func(rows *sql.Rows) error {
@@ -99,11 +105,47 @@ func (s *Store) Search(ctx context.Context, filter *filtercond.Filter) ([]*accou
 			result = append(result, acct)
 		}
 		return nil
-	}, query, condResult.Args...)
+	}, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("accountstore: failed to search accounts: %w", err)
 	}
 	return result, nil
+}
+
+// buildWhereClause 根据 SearchFilter 一级字段和 ExtraCond 构建 WHERE 子句。
+func (s *Store) buildWhereClause(filter *storage.SearchFilter, condResult *storeSqlite.CondConvertResult) string {
+	parts := []string{}
+	if filter != nil {
+		if filter.ProviderType != "" {
+			parts = append(parts, "provider_type=?")
+		}
+		if filter.ProviderName != "" {
+			parts = append(parts, "provider_name=?")
+		}
+		if filter.Status != 0 {
+			parts = append(parts, "status=?")
+		}
+	}
+	parts = append(parts, condResult.Cond)
+	return strings.Join(parts, " AND ")
+}
+
+// buildWhereArgs 根据 SearchFilter 一级字段和 ExtraCond 构建查询参数。
+func (s *Store) buildWhereArgs(filter *storage.SearchFilter, condResult *storeSqlite.CondConvertResult) []any {
+	var args []any
+	if filter != nil {
+		if filter.ProviderType != "" {
+			args = append(args, filter.ProviderType)
+		}
+		if filter.ProviderName != "" {
+			args = append(args, filter.ProviderName)
+		}
+		if filter.Status != 0 {
+			args = append(args, filter.Status)
+		}
+	}
+	args = append(args, condResult.Args...)
+	return args
 }
 
 func (s *Store) Add(ctx context.Context, acct *account.Account) error {
@@ -224,50 +266,44 @@ func (s *Store) Remove(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Store) RemoveFilter(ctx context.Context, filter *filtercond.Filter) error {
-	condResult, err := s.converter.Convert(filter)
+func (s *Store) RemoveFilter(ctx context.Context, filter *storage.SearchFilter) error {
+	var extraCond *filtercond.Filter
+	if filter != nil {
+		extraCond = filter.ExtraCond
+	}
+	condResult, err := s.converter.Convert(extraCond)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to convert filter: %w", err)
 	}
 
-	query := fmt.Sprintf(`DELETE FROM accounts WHERE %s`, condResult.Cond)
+	query := fmt.Sprintf(`DELETE FROM accounts WHERE %s`, s.buildWhereClause(filter, condResult))
+	args := s.buildWhereArgs(filter, condResult)
 
-	_, err = s.client.Exec(ctx, query, condResult.Args...)
+	_, err = s.client.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to remove accounts by filter: %w", err)
 	}
 	return nil
 }
 
-func (s *Store) Count(ctx context.Context, filter *filtercond.Filter) (int, error) {
-	condResult, err := s.converter.Convert(filter)
+func (s *Store) Count(ctx context.Context, filter *storage.SearchFilter) (int, error) {
+	var extraCond *filtercond.Filter
+	if filter != nil {
+		extraCond = filter.ExtraCond
+	}
+	condResult, err := s.converter.Convert(extraCond)
 	if err != nil {
 		return 0, fmt.Errorf("accountstore: failed to convert filter: %w", err)
 	}
 
-	query := fmt.Sprintf(`SELECT COUNT(*) FROM accounts WHERE %s`, condResult.Cond)
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM accounts WHERE %s`, s.buildWhereClause(filter, condResult))
+	args := s.buildWhereArgs(filter, condResult)
 	var count int
-	err = s.client.QueryRow(ctx, []any{&count}, query, condResult.Args...)
+	err = s.client.QueryRow(ctx, []any{&count}, query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("accountstore: failed to count accounts: %w", err)
 	}
 	return count, nil
 }
 
-func (s *Store) CountByProvider(ctx context.Context, key account.ProviderKey, filter *filtercond.Filter) (int, error) {
-	condResult, err := s.converter.Convert(filter)
-	if err != nil {
-		return 0, fmt.Errorf("accountstore: failed to convert filter: %w", err)
-	}
 
-	query := fmt.Sprintf(`SELECT COUNT(*) FROM accounts WHERE provider_type=? AND provider_name=? AND (%s)`,
-		condResult.Cond)
-	args := append([]any{key.Type, key.Name}, condResult.Args...)
-
-	var count int
-	err = s.client.QueryRow(ctx, []any{&count}, query, args...)
-	if err != nil {
-		return 0, fmt.Errorf("accountstore: failed to count accounts by provider: %w", err)
-	}
-	return count, nil
-}
