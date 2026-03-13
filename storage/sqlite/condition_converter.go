@@ -205,7 +205,8 @@ func (c *SqliteConverter) buildBetweenCondition(cond *filtercond.Filter) (*CondC
 
 // buildJSONCondition 构建JSON条件。
 // SQLite 中 JSON 数据存储为 TEXT 类型，使用 json_each() 函数 + EXISTS 子查询来实现类似 MySQL JSON_CONTAINS 的功能。
-// 生成的 SQL 形如: EXISTS(SELECT 1 FROM json_each("column") WHERE json_each.value = ?)
+// 使用 CAST(... AS TEXT) 来兼容历史数据中可能存在的 blob 类型（Go 的 []byte 会被 SQLite 存为 blob）。
+// 生成的 SQL 形如: EXISTS(SELECT 1 FROM json_each(CAST("column" AS TEXT)) WHERE json_each.value = ?)
 func (c *SqliteConverter) buildJSONCondition(cond *filtercond.Filter) (*CondConvertResult, error) {
 	if cond.Field == "" {
 		return nil, fmt.Errorf("field is empty")
@@ -214,14 +215,15 @@ func (c *SqliteConverter) buildJSONCondition(cond *filtercond.Filter) (*CondConv
 	fieldName := c.convertFieldName(cond.Field)
 
 	// SQLite 使用 json_each() 表值函数来遍历 JSON 数组，配合 EXISTS 子查询实现包含判断。
-	// 例如: EXISTS(SELECT 1 FROM json_each("supported_models") WHERE json_each.value = ?)
+	// 使用 CAST 确保即使历史数据存为 blob 也能正确解析。
+	// 例如: EXISTS(SELECT 1 FROM json_each(CAST("supported_models" AS TEXT)) WHERE json_each.value = ?)
 	notPrefix := ""
 	if cond.Operator == filtercond.OperatorJSONNotContains {
 		notPrefix = "NOT "
 	}
 
 	return &CondConvertResult{
-		Cond: fmt.Sprintf(`%sEXISTS(SELECT 1 FROM json_each("%s") WHERE json_each.value = ?)`, notPrefix, fieldName),
+		Cond: fmt.Sprintf(`%sEXISTS(SELECT 1 FROM json_each(CAST("%s" AS TEXT)) WHERE json_each.value = ?)`, notPrefix, fieldName),
 		Args: []any{cond.Value},
 	}, nil
 }

@@ -179,10 +179,11 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 		createdAt = now
 	}
 
-	credentialJSON, err := json.Marshal(acct.Credential.ToMap())
+	credentialBytes, err := json.Marshal(acct.Credential.ToMap())
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal credential: %w", err)
 	}
+	credentialJSON := string(credentialBytes)
 	tagsJSON, err := storeSqlite.MarshalJSON(acct.Tags)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal tags: %w", err)
@@ -225,10 +226,11 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 }
 
 func (s *Store) Update(ctx context.Context, acct *account.Account) error {
-	credentialJSON, err := json.Marshal(acct.Credential.ToMap())
+	credentialBytes, err := json.Marshal(acct.Credential.ToMap())
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal credential: %w", err)
 	}
+	credentialJSON := string(credentialBytes)
 	tagsJSON, err := storeSqlite.MarshalJSON(acct.Tags)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal tags: %w", err)

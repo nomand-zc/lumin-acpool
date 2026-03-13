@@ -144,7 +144,7 @@ func buildProviderWhereClause(filter *storage.SearchFilter, condResult *storeSql
 			parts = append(parts, "status=?")
 		}
 		if filter.SupportedModel != "" {
-			parts = append(parts, `EXISTS(SELECT 1 FROM json_each("supported_models") WHERE json_each.value = ?)`)
+			parts = append(parts, `EXISTS(SELECT 1 FROM json_each(CAST("supported_models" AS TEXT)) WHERE json_each.value = ?)`)
 		}
 	}
 	parts = append(parts, condResult.Cond)
