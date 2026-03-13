@@ -8,7 +8,6 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 )
 
 // storageResolver is the default implementation of Resolver based on Storage.
@@ -59,7 +58,7 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 		ProviderType:   providerType,
 		SupportedModel: model,
 		Status:         int(account.ProviderStatusActive),
-		ExtraCond:      filtercond.GreaterThan(storage.ProviderFieldAvailableAccountCount, 0),
+		// ExtraCond:      filtercond.GreaterThan(storage.ProviderFieldAvailableAccountCount, 0),
 	}
 
 	candidate, err := r.providerStorage.Search(ctx, filter)
@@ -67,6 +66,8 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 		return nil, fmt.Errorf("resolver: search providers: %w", err)
 	}
 
+	// TODO: 过滤掉 AccountCount <= 0 或 AvailableAccountCount <= 0 的提供者
+	// 前提是需要正确维护 AvailableAccountCount、AccountCount的值
 	var active []*account.ProviderInfo
 	for _, provInfo := range candidate {
 		r.fillAccountCounts(ctx, provInfo)
