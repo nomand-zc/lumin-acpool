@@ -112,55 +112,54 @@ func printStatusSummary(statusCounts map[acct.Status]int64) {
 	}
 }
 
-// runHealthCheck 使用 HealthChecker 对账号进行完整的健康检查，并根据检查结果设置账号状态。
-// 注册的检查项（按拓扑依赖顺序执行）：
-//   - CredentialValidity → CredentialRefresh（凭证校验与刷新）
-//   - CredentialValidity → Probe（真实请求探测可用性）
-//   - CredentialValidity → UsageQuota（用量配额检查）
-//   - CredentialValidity → UsageRulesRefresh（用量规则刷新）
-//   - CredentialValidity → ModelDiscovery（模型发现）
-func runHealthCheck(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, account *acct.Account, probeModel string) []*usagerule.UsageStats {
+// buildDefaultCheckSchedules 构建默认的全部健康检查项调度列表。
+// 按拓扑依赖顺序包含：
+//   - CredentialValidity（凭证格式与过期校验）
+//   - CredentialRefresh（凭证刷新）
+//   - Probe（真实请求探测可用性）
+//   - UsageQuota（用量配额检查）
+//   - UsageRulesRefresh（用量规则刷新）
+//   - ModelDiscovery（模型发现）
+func buildDefaultCheckSchedules(probeModel string) []health.CheckSchedule {
+	return []health.CheckSchedule{
+		{Check: &checks.CredentialValidityCheck{}, Enabled: true},
+		{Check: &checks.CredentialRefreshCheck{RefreshThreshold: 5 * time.Minute}, Enabled: true},
+		{Check: &checks.ProbeCheck{Timeout: 15 * time.Second, Model: probeModel}, Enabled: true},
+		{Check: &checks.UsageQuotaCheck{WarningThreshold: 0.01}, Enabled: true},
+		{Check: &checks.UsageRulesRefreshCheck{}, Enabled: true},
+		{Check: &checks.ModelDiscoveryCheck{}, Enabled: true},
+	}
+}
+
+// executeHealthCheck 封装通用的健康检查执行流程：
+//  1. 获取 Provider 实例
+//  2. 构建 HealthChecker 并注册检查项
+//  3. 构建 CheckTarget
+//  4. 执行全部检查
+//
+// 返回 HealthReport 和 error；如果 Provider 不存在则返回 nil, nil。
+func executeHealthCheck(cmd *cobra.Command, account *acct.Account, schedules []health.CheckSchedule) (*health.HealthReport, error) {
 	provider := providers.GetProvider(account.ProviderType, providers.DefaultProviderName)
 	if provider == nil {
-		fmt.Printf("⚠ 未找到类型为 %q 的 Provider 实例，跳过健康检查，默认设为可用\n", account.ProviderType)
-		account.Status = acct.StatusAvailable
-		return nil
+		return nil, fmt.Errorf("未找到类型为 %q 的 Provider 实例", account.ProviderType)
 	}
 
-	// 构建 HealthChecker 并注册适合"首次添加"场景的全部检查项
 	checker := health.NewHealthChecker()
-	checker.Register(health.CheckSchedule{
-		Check:   &checks.CredentialValidityCheck{},
-		Enabled: true,
-	})
-	checker.Register(health.CheckSchedule{
-		Check:   &checks.CredentialRefreshCheck{RefreshThreshold: 5 * time.Minute},
-		Enabled: true,
-	})
-	checker.Register(health.CheckSchedule{
-		Check:   &checks.ProbeCheck{Timeout: 15 * time.Second, Model: probeModel},
-		Enabled: true,
-	})
-	checker.Register(health.CheckSchedule{
-		Check:   &checks.UsageQuotaCheck{WarningThreshold: 0.01},
-		Enabled: true,
-	})
-	checker.Register(health.CheckSchedule{
-		Check:   &checks.UsageRulesRefreshCheck{},
-		Enabled: true,
-	})
-	checker.Register(health.CheckSchedule{
-		Check:   &checks.ModelDiscoveryCheck{},
-		Enabled: true,
-	})
+	for _, s := range schedules {
+		checker.Register(s)
+	}
 
-	// 构建检查目标
 	target := health.NewCheckTarget(account, provider)
+	return checker.RunAll(cmd.Context(), target)
+}
 
-	// 执行全部检查
-	report, err := checker.RunAll(cmd.Context(), target)
+// runHealthCheck 使用 HealthChecker 对账号进行完整的健康检查，并根据检查结果设置账号状态。
+// 这是 add/import 命令使用的便捷入口，内部调用 executeHealthCheck + applyReportToAccount。
+func runHealthCheck(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, account *acct.Account, probeModel string) []*usagerule.UsageStats {
+	schedules := buildDefaultCheckSchedules(probeModel)
+	report, err := executeHealthCheck(cmd, account, schedules)
 	if err != nil {
-		fmt.Printf("⚠ 健康检查执行失败: %v，默认设为可用\n", err)
+		fmt.Printf("⚠ %v，跳过健康检查，默认设为可用\n", err)
 		account.Status = acct.StatusAvailable
 		return nil
 	}

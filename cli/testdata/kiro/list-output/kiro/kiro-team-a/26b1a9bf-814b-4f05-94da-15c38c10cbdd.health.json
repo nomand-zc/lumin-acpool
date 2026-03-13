@@ -1,0 +1,69 @@
+{
+  "account_id": "26b1a9bf-814b-4f05-94da-15c38c10cbdd",
+  "provider_key": "kiro/kiro-team-a",
+  "checks": [
+    "all"
+  ],
+  "results": [
+    {
+      "check_name": "credential_validity",
+      "status": "passed",
+      "severity": "critical",
+      "message": "credential is valid",
+      "duration": "0s"
+    },
+    {
+      "check_name": "recovery",
+      "status": "passed",
+      "severity": "critical",
+      "message": "account status is banned, no recovery needed",
+      "duration": "0s"
+    },
+    {
+      "check_name": "credential_refresh",
+      "status": "passed",
+      "severity": "critical",
+      "message": "credential validity is sufficient, no refresh needed",
+      "duration": "0s"
+    },
+    {
+      "check_name": "model_discovery",
+      "status": "passed",
+      "severity": "info",
+      "message": "discovered 8 models",
+      "duration": "0s"
+    },
+    {
+      "check_name": "probe",
+      "status": "failed",
+      "severity": "warning",
+      "message": "probe request rejected, account may be banned: HTTP status code: 403",
+      "suggested_status": "banned",
+      "duration": "321ms"
+    },
+    {
+      "check_name": "usage_quota",
+      "status": "error",
+      "severity": "critical",
+      "message": "failed to get usage info: [server_error(403)] get usage limits failed, status=403 (raw status: 403)",
+      "duration": "876ms"
+    },
+    {
+      "check_name": "usage_rules_refresh",
+      "status": "error",
+      "severity": "info",
+      "message": "failed to refresh usage rules: [server_error(403)] get usage limits failed, status=403 (raw status: 403)",
+      "duration": "229ms"
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "passed": 4,
+    "warning": 0,
+    "failed": 1,
+    "skipped": 0,
+    "error": 2
+  },
+  "total_duration": "1.425s",
+  "timestamp": "2026-03-13T14:07:49+08:00"
+}

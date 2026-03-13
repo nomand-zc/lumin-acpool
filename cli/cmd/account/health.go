@@ -15,7 +15,7 @@ import (
 	"github.com/nomand-zc/lumin-acpool/cli/internal/ioutil"
 	"github.com/nomand-zc/lumin-acpool/health"
 	"github.com/nomand-zc/lumin-acpool/health/checks"
-	"github.com/nomand-zc/lumin-client/providers"
+	"github.com/nomand-zc/lumin-acpool/storage"
 
 	// 匿名导入，触发 credential / provider init 注册
 	_ "github.com/nomand-zc/lumin-client/credentials/kiro"
@@ -223,45 +223,15 @@ func (c *healthCmd) parseCheckNames() ([]string, error) {
 }
 
 // checkAccount 对单个账号执行健康检查。
+// 复用 common.go 中的 executeHealthCheck 执行检查流程，以及 applyReportToAccount 更新账号状态。
 func (c *healthCmd) checkAccount(cmd *cobra.Command, account *acct.Account, specifiedChecks []string) (*healthReportJSON, error) {
-	provider := providers.GetProvider(account.ProviderType, providers.DefaultProviderName)
-	if provider == nil {
-		return nil, fmt.Errorf("未找到类型为 %q 的 Provider 实例", account.ProviderType)
-	}
+	// 构建检查项调度列表（复用公共方法）
+	schedules := c.buildCheckSchedules(specifiedChecks)
 
-	// 构建 HealthChecker
-	checker := health.NewHealthChecker()
-	registeredChecks := c.buildCheckSchedules(specifiedChecks)
-	for _, schedule := range registeredChecks {
-		checker.Register(schedule)
-	}
-
-	// 构建检查目标
-	target := health.NewCheckTarget(account, provider)
-
-	// 执行检查
-	var report *health.HealthReport
-	var err error
-
-	if len(specifiedChecks) == 1 {
-		// 只指定了一个检查项，使用 RunOne
-		result, runErr := checker.RunOne(cmd.Context(), target, specifiedChecks[0])
-		if runErr != nil {
-			return nil, runErr
-		}
-		report = &health.HealthReport{
-			AccountID:     account.ID,
-			ProviderKey:   account.ProviderKey(),
-			Results:       []*health.CheckResult{result},
-			TotalDuration: result.Duration,
-			Timestamp:     time.Now(),
-		}
-	} else {
-		// 多个检查项或全部，使用 RunAll
-		report, err = checker.RunAll(cmd.Context(), target)
-		if err != nil {
-			return nil, err
-		}
+	// 执行检查（复用公共的 executeHealthCheck）
+	report, err := executeHealthCheck(cmd, account, schedules)
+	if err != nil {
+		return nil, err
 	}
 
 	// 终端输出检查过程
@@ -270,23 +240,54 @@ func (c *healthCmd) checkAccount(cmd *cobra.Command, account *acct.Account, spec
 		printHealthReport(report)
 	}
 
+	// 根据检查结果更新账号状态等信息
+	c.applyAndPersist(cmd, account, report)
+
 	// 转为 JSON 结构
 	return c.buildReportJSON(report, specifiedChecks), nil
 }
 
+// applyAndPersist 根据健康检查结果更新账号状态等信息，并持久化到存储。
+// 复用 add/import 命令中相同的 applyReportToAccount 逻辑，确保行为一致。
+func (c *healthCmd) applyAndPersist(cmd *cobra.Command, account *acct.Account, report *health.HealthReport) {
+	deps := bootstrap.DepsFromContext(cmd.Context())
+	providerKey := account.ProviderKey()
+
+	oldStatus := account.Status
+
+	// 复用公共的 applyReportToAccount，将检查结果中的状态、用量规则、模型列表等信息应用到账号
+	usageStats := applyReportToAccount(cmd, deps, providerKey, account, report)
+
+	// 更新账号信息到存储
+	account.UpdatedAt = time.Now()
+	if err := deps.AccountStorage.Update(cmd.Context(), account); err != nil {
+		if err == storage.ErrVersionConflict {
+			fmt.Printf("  ⚠ 更新 Account %s 失败: 版本冲突（账号可能已被其他操作修改）\n", account.ID)
+		} else {
+			fmt.Printf("  ⚠ 更新 Account %s 失败: %v\n", account.ID, err)
+		}
+		return
+	}
+
+	// 如果检查获取到了真实用量数据，更新 TrackedUsages
+	if len(usageStats) > 0 {
+		initTrackedUsages(cmd, deps, account.ID, usageStats)
+	}
+
+	if oldStatus != account.Status {
+		fmt.Printf("  → Account %s 状态已更新: %s → %s\n", account.ID, oldStatus, account.Status)
+	}
+}
+
 // buildCheckSchedules 根据指定的检查项名称构建调度配置。
 // 如果 specifiedChecks 为 nil，则注册全部检查项。
+// 复用 common.go 中的 buildDefaultCheckSchedules 获取基础检查项，并额外追加 RecoveryCheck。
 func (c *healthCmd) buildCheckSchedules(specifiedChecks []string) []health.CheckSchedule {
-	// 所有可用检查项的构造器
-	allChecks := []health.CheckSchedule{
-		{Check: &checks.CredentialValidityCheck{}, Enabled: true},
-		{Check: &checks.CredentialRefreshCheck{RefreshThreshold: 5 * time.Minute}, Enabled: true},
-		{Check: &checks.ProbeCheck{Timeout: 15 * time.Second, Model: c.probeModel}, Enabled: true},
-		{Check: &checks.UsageQuotaCheck{WarningThreshold: 0.01}, Enabled: true},
-		{Check: &checks.UsageRulesRefreshCheck{}, Enabled: true},
-		{Check: &checks.ModelDiscoveryCheck{}, Enabled: true},
-		{Check: checks.NewRecoveryCheck(), Enabled: true},
-	}
+	// 复用公共的基础检查项 + health 命令特有的 RecoveryCheck
+	allChecks := append(
+		buildDefaultCheckSchedules(c.probeModel),
+		health.CheckSchedule{Check: checks.NewRecoveryCheck(), Enabled: true},
+	)
 
 	// 不指定则全部注册
 	if len(specifiedChecks) == 0 {

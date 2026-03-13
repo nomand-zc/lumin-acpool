@@ -1,0 +1,68 @@
+{
+  "account_id": "3241daf8-098c-424a-adf2-7b41efd57991",
+  "provider_key": "kiro/kiro-team-a",
+  "checks": [
+    "all"
+  ],
+  "results": [
+    {
+      "check_name": "recovery",
+      "status": "passed",
+      "severity": "critical",
+      "message": "account status is banned, no recovery needed",
+      "duration": "0s"
+    },
+    {
+      "check_name": "credential_validity",
+      "status": "passed",
+      "severity": "critical",
+      "message": "credential is valid",
+      "duration": "0s"
+    },
+    {
+      "check_name": "model_discovery",
+      "status": "passed",
+      "severity": "info",
+      "message": "discovered 8 models",
+      "duration": "0s"
+    },
+    {
+      "check_name": "credential_refresh",
+      "status": "passed",
+      "severity": "critical",
+      "message": "credential validity is sufficient, no refresh needed",
+      "duration": "0s"
+    },
+    {
+      "check_name": "probe",
+      "status": "passed",
+      "severity": "warning",
+      "message": "probe request succeeded",
+      "duration": "2.067s"
+    },
+    {
+      "check_name": "usage_quota",
+      "status": "passed",
+      "severity": "critical",
+      "message": "usage is sufficient (51.2% remaining)",
+      "duration": "269ms"
+    },
+    {
+      "check_name": "usage_rules_refresh",
+      "status": "passed",
+      "severity": "info",
+      "message": "refreshed 1 usage rules",
+      "duration": "271ms"
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "warning": 0,
+    "failed": 0,
+    "skipped": 0,
+    "error": 0
+  },
+  "total_duration": "2.606s",
+  "timestamp": "2026-03-13T14:10:23+08:00"
+}

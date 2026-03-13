@@ -1,0 +1,1395 @@
+{
+  "total_accounts": 99,
+  "healthy_count": 59,
+  "unhealthy_count": 39,
+  "warning_count": 1,
+  "accounts": [
+    {
+      "account_id": "33c068c2-a10d-499c-882a-09c577dcbb3a",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.431s"
+    },
+    {
+      "account_id": "e5d2d1d4-fbe4-41f7-a4c4-8e443e03e0e5",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "1.884s"
+    },
+    {
+      "account_id": "42b26260-b9e8-41e5-bc5d-c2c43b53344f",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.28s"
+    },
+    {
+      "account_id": "26b1a9bf-814b-4f05-94da-15c38c10cbdd",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.425s"
+    },
+    {
+      "account_id": "7556fb75-f42d-47ef-9f63-ca1af54f993e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.515s"
+    },
+    {
+      "account_id": "c9e4edf7-57bd-4eee-9477-b0aad8c6b21e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "742ms"
+    },
+    {
+      "account_id": "4db340d6-a943-442e-baa0-c96f178ebbe3",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.895s"
+    },
+    {
+      "account_id": "e14ea6c1-7fe3-43b0-afdb-c9d5e4c942cb",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.377s"
+    },
+    {
+      "account_id": "bff1b694-91f5-4433-b161-001ea876054e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "1.999s"
+    },
+    {
+      "account_id": "1ae530b8-6f2e-4cbb-a1d3-3a37655323f5",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.313s"
+    },
+    {
+      "account_id": "1976861e-4497-4a18-ba22-cc8d831537ec",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.393s"
+    },
+    {
+      "account_id": "cbd74a99-4473-431d-86b9-40b241a586c3",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "755ms"
+    },
+    {
+      "account_id": "20d66a19-d231-4b40-b635-8a86da5ccc36",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.038s"
+    },
+    {
+      "account_id": "af89b980-52f9-459c-81b4-3f62232d3ba9",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.479s"
+    },
+    {
+      "account_id": "4fab0914-7ad1-43cd-a5eb-92196872132c",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.087s"
+    },
+    {
+      "account_id": "886fb2e7-d577-47f4-b815-a5594b0b1235",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.27s"
+    },
+    {
+      "account_id": "2c0cbbf9-6ff6-46d6-8b74-56046de0719f",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "1.905s"
+    },
+    {
+      "account_id": "92829570-7a7b-42e7-b23a-7a89de0c71ec",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "778ms"
+    },
+    {
+      "account_id": "781cbc96-f01d-4ac6-a13e-0337c0868a10",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.636s"
+    },
+    {
+      "account_id": "6216c4cc-123d-42f0-9fc8-f01dee69a513",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.388s"
+    },
+    {
+      "account_id": "f0ab0fa7-3699-4fe5-a322-1559c7cd44dc",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "4s"
+    },
+    {
+      "account_id": "9ba8976a-92a4-43a0-b3bd-569589c4eb92",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "812ms"
+    },
+    {
+      "account_id": "51baf218-680c-4f8b-b93f-efd333b6c722",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "764ms"
+    },
+    {
+      "account_id": "b50fec4d-eab4-4cda-9d40-7b4182c09b67",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.063s"
+    },
+    {
+      "account_id": "54da86e6-a79b-4c6b-bdd9-e4a0a2077b72",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.485s"
+    },
+    {
+      "account_id": "3e8e27e1-ea8d-4afb-a735-cdaf879a4c23",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.039s"
+    },
+    {
+      "account_id": "84ccd21b-346e-4eb4-a003-400c6704f981",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.171s"
+    },
+    {
+      "account_id": "da9361b5-cc9d-4efa-816d-91835515383d",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "786ms"
+    },
+    {
+      "account_id": "13c7a1da-4ed0-40d0-8e2f-e84e7ba43d52",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.635s"
+    },
+    {
+      "account_id": "bc12d703-f2fa-4edc-b0be-fd7cfc50c695",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.793s"
+    },
+    {
+      "account_id": "39c9d0f4-573f-4d5b-99e8-6671fc607d90",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.109s"
+    },
+    {
+      "account_id": "e082a6f8-0c34-4ab7-8d36-bae2c43429a7",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.144s"
+    },
+    {
+      "account_id": "bbeb1ae9-59b9-49f9-9348-c62d3513b932",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.446s"
+    },
+    {
+      "account_id": "35435edb-ef90-4eac-80e1-6c2324b3bcc4",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.446s"
+    },
+    {
+      "account_id": "055ef8a8-5580-428c-bc85-e2504dae860a",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.85s"
+    },
+    {
+      "account_id": "31ec2f7e-ba95-4451-b70e-ef9b14292c75",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "786ms"
+    },
+    {
+      "account_id": "0e9a086e-d815-4998-90b0-216e1734db9b",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.238s"
+    },
+    {
+      "account_id": "ef16213a-4598-4ae5-a009-cff5e14b030b",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.046s"
+    },
+    {
+      "account_id": "e20e6291-1096-44d5-b434-177094679a91",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.597s"
+    },
+    {
+      "account_id": "1ca4655d-7aca-4382-8d86-0e1b684b809c",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "776ms"
+    },
+    {
+      "account_id": "74b6da8b-848c-486c-9355-31746d63ba60",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.597s"
+    },
+    {
+      "account_id": "d044517f-799c-423c-9a15-dec4b08130ca",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.403s"
+    },
+    {
+      "account_id": "c42af62d-0bdd-4505-8e0a-3c333951c18d",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.732s"
+    },
+    {
+      "account_id": "f360a2e9-9ca7-4e61-851f-6418ceb7683e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.569s"
+    },
+    {
+      "account_id": "ff0628c7-42b6-4fe5-8868-fac03b1a5d2f",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "1.995s"
+    },
+    {
+      "account_id": "b7f3d66d-69af-4f00-b400-a9a0f5a95a83",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "1.912s"
+    },
+    {
+      "account_id": "6d0f3941-ece4-47e5-a40e-e4d3f72c961e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "1.889s"
+    },
+    {
+      "account_id": "4db78bde-d2f0-4dc0-bf19-e0f5f285ecee",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.993s"
+    },
+    {
+      "account_id": "05db28f6-b133-40a0-8836-dbf06b9d6fcd",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.523s"
+    },
+    {
+      "account_id": "f9cf3456-f5b4-4833-a707-d372a4f404a5",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "780ms"
+    },
+    {
+      "account_id": "3bb53cde-7ff5-49d4-90d4-fea5dc4793f5",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.91s"
+    },
+    {
+      "account_id": "26dc4f36-ef87-4c06-8f9b-dd0d3ab7a166",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 1,
+        "failed": 2,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.687s"
+    },
+    {
+      "account_id": "6e010499-5e14-4cd2-ba5c-c08e08ba95e1",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.084s"
+    },
+    {
+      "account_id": "448c15d1-9219-4cfd-aa06-d9d02641508d",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.035s"
+    },
+    {
+      "account_id": "090f7a34-c5b3-45aa-986c-97cdfe769fa6",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.519s"
+    },
+    {
+      "account_id": "02e5d793-0c85-4097-b69e-1dc4aa62e8b1",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.451s"
+    },
+    {
+      "account_id": "a737aac5-52b3-4ad9-afe6-85bcdb74ae6e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.556s"
+    },
+    {
+      "account_id": "ad501239-1369-445e-b118-e7deb8abd404",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.572s"
+    },
+    {
+      "account_id": "3ffbb706-6e30-48cd-bda4-886f2b7758ce",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.411s"
+    },
+    {
+      "account_id": "f24d50ac-7e5a-4b2c-8dd6-7fd69ea8ddb9",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.722s"
+    },
+    {
+      "account_id": "ffd30268-2ee5-402d-bf41-b5cd3bffa8a3",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "4.325s"
+    },
+    {
+      "account_id": "bdbc6e92-db8f-4e59-9433-42c919c50031",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "765ms"
+    },
+    {
+      "account_id": "1291da81-c8ec-4703-a6ab-049310defcf7",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.088s"
+    },
+    {
+      "account_id": "4bb539f0-9c06-42ef-bce1-f60dcb3f590a",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.127s"
+    },
+    {
+      "account_id": "a45485db-7252-4454-bf0a-e18fcee3894c",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "800ms"
+    },
+    {
+      "account_id": "f9d2dcb4-364f-4e00-86be-90e96221f6a8",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "warning",
+      "summary": {
+        "total": 7,
+        "passed": 6,
+        "warning": 1,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "4.836s"
+    },
+    {
+      "account_id": "6d98fcbe-ae05-4d08-97fd-eb0ce857846a",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.45s"
+    },
+    {
+      "account_id": "1339af4e-b03d-4faf-8313-166b2df1ec67",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.699s"
+    },
+    {
+      "account_id": "bc70035d-9431-42a9-8ded-a77284b2f428",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.476s"
+    },
+    {
+      "account_id": "a57974af-e7ec-46b4-a717-64aaa77b46be",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.479s"
+    },
+    {
+      "account_id": "a8c5ebe2-9315-445d-9caf-36d32f9d3a02",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.509s"
+    },
+    {
+      "account_id": "3241daf8-098c-424a-adf2-7b41efd57991",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.606s"
+    },
+    {
+      "account_id": "68882544-ef1f-47cf-bc01-9039a6781567",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.941s"
+    },
+    {
+      "account_id": "de7b8a38-e181-47b2-8b0f-79739accd64e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.164s"
+    },
+    {
+      "account_id": "6461ff69-0601-48a9-8907-87ec44788a65",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.365s"
+    },
+    {
+      "account_id": "80b791e8-21f3-448b-be0f-7ba798bb0a10",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.418s"
+    },
+    {
+      "account_id": "086874f5-007c-4940-a208-f06a2dce8aed",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.909s"
+    },
+    {
+      "account_id": "cb0fa2a7-3121-427b-85a8-ad652d942f5f",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.134s"
+    },
+    {
+      "account_id": "ce73578b-7713-4dc5-941a-ae6059d445c2",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.718s"
+    },
+    {
+      "account_id": "55a79f94-849a-4fdf-9c79-97eddd5c136f",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.232s"
+    },
+    {
+      "account_id": "d9f7ffd1-c1ec-4fbe-b4cd-d86b0295b891",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.386s"
+    },
+    {
+      "account_id": "f6c9308a-149c-49ef-ac60-ecc9c21fd9cd",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "758ms"
+    },
+    {
+      "account_id": "84187e5f-02e1-4b62-ba85-77372f855c38",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.46s"
+    },
+    {
+      "account_id": "67697ff5-b1d6-4d85-9ef6-a4ea4418e889",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "3.236s"
+    },
+    {
+      "account_id": "a9930d59-92d4-4f51-8800-51e9c51d4838",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.025s"
+    },
+    {
+      "account_id": "7fa574ec-b9a8-4b6a-8762-942ca6cfb840",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.726s"
+    },
+    {
+      "account_id": "38c43bd0-0d2e-4098-a274-1099ede80e8a",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.884s"
+    },
+    {
+      "account_id": "cb31c052-d9d7-4470-abc8-249139c4ecd9",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.232s"
+    },
+    {
+      "account_id": "e43f4d91-223a-4533-a0d9-2b844ff77490",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "773ms"
+    },
+    {
+      "account_id": "97a21dd0-ede6-4126-8f5b-6b4f44255c37",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "healthy",
+      "summary": {
+        "total": 7,
+        "passed": 7,
+        "warning": 0,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "duration": "2.423s"
+    },
+    {
+      "account_id": "b8e78696-536d-4156-a468-cb101278ab44",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "764ms"
+    },
+    {
+      "account_id": "84387135-ed93-4860-b2cb-c10a06343215",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.427s"
+    },
+    {
+      "account_id": "42d9d16a-f192-4d76-81e8-82db61122c96",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "750ms"
+    },
+    {
+      "account_id": "301a3919-a65f-4cd1-8f27-4718fea5ce9d",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "771ms"
+    },
+    {
+      "account_id": "7430bb1e-889f-4b78-a98c-f2b9fb7359eb",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.4s"
+    },
+    {
+      "account_id": "e47778e3-cdbd-452c-9aa1-dabe913e0830",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 3,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 3,
+        "error": 0
+      },
+      "duration": "1.178s"
+    },
+    {
+      "account_id": "f9ea9260-c612-4455-868f-11cb82f7a10e",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "757ms"
+    },
+    {
+      "account_id": "27a74da8-36bc-46dd-934b-d9eef80e73ba",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "770ms"
+    },
+    {
+      "account_id": "42cffafd-6694-4d29-8821-ea86c5e690d7",
+      "provider_key": "kiro/kiro-team-a",
+      "status": "unhealthy",
+      "summary": {
+        "total": 7,
+        "passed": 4,
+        "warning": 0,
+        "failed": 1,
+        "skipped": 0,
+        "error": 2
+      },
+      "duration": "1.447s"
+    }
+  ],
+  "timestamp": "2026-03-13T14:11:11+08:00"
+}
