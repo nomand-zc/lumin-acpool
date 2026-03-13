@@ -41,7 +41,8 @@ func (c *ProbeCheck) Check(ctx context.Context, target health.CheckTarget) *heal
 	start := time.Now()
 
 	req := c.buildProbeRequest()
-	_, err := target.Client().GenerateContent(ctx, target.Credential(), req)
+	req.Credential = target.Credential()
+	_, err := target.Client().GenerateContent(ctx, req)
 	if err == nil {
 		return &health.CheckResult{
 			CheckName: ProbeCheckName,
@@ -115,13 +116,13 @@ func (c *ProbeCheck) Check(ctx context.Context, target health.CheckTarget) *heal
 }
 
 // buildProbeRequest constructs the probe request.
-func (c *ProbeCheck) buildProbeRequest() providers.Request {
+func (c *ProbeCheck) buildProbeRequest() *providers.Request {
 	if c.ProbeRequest != nil {
-		return *c.ProbeRequest
+		return c.ProbeRequest
 	}
 	// Construct the lightest possible probe request
 	maxTokens := 1
-	return providers.Request{
+	return &providers.Request{
 		Messages: []providers.Message{
 			{Role: providers.RoleUser, Content: "hi, please only reply `Hi`"},
 		},
