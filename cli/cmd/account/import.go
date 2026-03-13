@@ -23,6 +23,7 @@ type importCmd struct {
 	providerType string
 	providerName string
 	priority     int
+	probeModel   string
 }
 
 // cmd 返回 cobra.Command。
@@ -61,6 +62,7 @@ Account ID 会自动生成 UUID，ProviderType 和 ProviderName 通过命令行�
 	cmd.Flags().StringVar(&c.providerType, "type", "kiro", "Provider 类型")
 	cmd.Flags().StringVar(&c.providerName, "name", "default", "Provider 名称")
 	cmd.Flags().IntVar(&c.priority, "priority", 1, "账号优先级（可选，默认 1）")
+	cmd.Flags().StringVar(&c.probeModel, "probe-model", "", "probe 检查使用的模型名称（不指定则使用 Provider 默认模型）")
 	_ = cmd.MarkFlagRequired("file")
 
 	return cmd
@@ -97,6 +99,7 @@ func (c *importCmd) runSingle(cmd *cobra.Command, filePath string) (acct.Status,
 		ProviderName: c.providerName,
 		Credential:   *credRaw,
 		Priority:     c.priority,
+		ProbeModel:   c.probeModel,
 	})
 }
 

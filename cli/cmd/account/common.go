@@ -27,6 +27,7 @@ type addAccountOptions struct {
 	Priority     int
 	Tags         map[string]string
 	Metadata     map[string]any
+	ProbeModel   string // probe 检查使用的模型名称（为空则使用 Provider 默认模型）
 }
 
 // addAccountFromOptions 是 add 和 import 命令共享的核心添加逻辑。
@@ -73,7 +74,7 @@ func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) (acct.St
 	// 通过 HealthChecker 完整检查账号的真实可用性状态
 	var usageStats []*usagerule.UsageStats
 	if account.Status == 0 {
-		usageStats = runHealthCheck(cmd, deps, providerKey, account)
+		usageStats = runHealthCheck(cmd, deps, providerKey, account, opts.ProbeModel)
 	}
 
 	// 如果健康检查没有获取到 UsageRules，从 Provider 继承
@@ -118,7 +119,7 @@ func printStatusSummary(statusCounts map[acct.Status]int64) {
 //   - CredentialValidity → UsageQuota（用量配额检查）
 //   - CredentialValidity → UsageRulesRefresh（用量规则刷新）
 //   - CredentialValidity → ModelDiscovery（模型发现）
-func runHealthCheck(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, account *acct.Account) []*usagerule.UsageStats {
+func runHealthCheck(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, account *acct.Account, probeModel string) []*usagerule.UsageStats {
 	provider := providers.GetProvider(account.ProviderType, providers.DefaultProviderName)
 	if provider == nil {
 		fmt.Printf("⚠ 未找到类型为 %q 的 Provider 实例，跳过健康检查，默认设为可用\n", account.ProviderType)
@@ -137,7 +138,7 @@ func runHealthCheck(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKe
 		Enabled: true,
 	})
 	checker.Register(health.CheckSchedule{
-		Check:   &checks.ProbeCheck{Timeout: 15 * time.Second},
+		Check:   &checks.ProbeCheck{Timeout: 15 * time.Second, Model: probeModel},
 		Enabled: true,
 	})
 	checker.Register(health.CheckSchedule{

@@ -50,6 +50,30 @@
             "env": {},
             "showLog": true,
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug List Account",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cli/main.go",
+            "args": [
+                "account",
+                "list",
+                "--type",
+                "kiro",
+                "--name",
+                "kiro-team-a",
+                "--status",
+                "1",
+                "--format",
+                "json",
+                "--output",
+                "${workspaceFolder}/cli/testdata/kiro/list-output"
+            ],
+            "env": {},
+            "showLog": true,
+            "console": "integratedTerminal"
         }
     ]
 }

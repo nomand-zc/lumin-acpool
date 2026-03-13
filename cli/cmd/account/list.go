@@ -45,7 +45,7 @@ func (c *listCmd) cmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&c.providerType, "type", "", "按 Provider 类型过滤")
 	cmd.Flags().StringVar(&c.providerName, "name", "", "按 Provider 名称过滤（模糊匹配）")
-	cmd.Flags().IntVar(&c.status, "status", 0, "按状态过滤 (1=available, 2=cooling_down, 3=circuit_open, 4=expired, 5=invalidated, 6=banned, 7=disabled)")
+	cmd.Flags().IntVar(&c.status, "status", 0, "按状态过滤 (0=全部, 1=available, 2=cooling_down, 3=circuit_open, 4=expired, 5=invalidated, 6=banned, 7=disabled)")
 	cmd.Flags().StringVarP((*string)(&c.format), "format", "f", string(output.FormatTable), "输出格式: table | json")
 	cmd.Flags().StringVarP(&c.outputDir, "output", "o", "", "输出到指定目录（不指定则输出到终端）")
 

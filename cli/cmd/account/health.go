@@ -72,6 +72,7 @@ type healthCmd struct {
 	checkNames   string // 逗号分隔的检查项名称
 	outputDir    string
 	listChecks   bool
+	probeModel   string // probe 检查使用的模型名称
 }
 
 // cmd 返回 cobra.Command。
@@ -117,6 +118,7 @@ func (c *healthCmd) cmd() *cobra.Command {
 	cmd.Flags().StringVar(&c.checkNames, "checks", "", "指定检查项名称（逗号分隔），不指定则执行全部")
 	cmd.Flags().StringVarP(&c.outputDir, "output", "o", "", "输出报告到指定目录")
 	cmd.Flags().BoolVar(&c.listChecks, "list-checks", false, "列出所有可用的检查项")
+	cmd.Flags().StringVar(&c.probeModel, "probe-model", "", "probe 检查使用的模型名称（不指定则使用 Provider 默认模型）")
 
 	return cmd
 }
@@ -279,7 +281,7 @@ func (c *healthCmd) buildCheckSchedules(specifiedChecks []string) []health.Check
 	allChecks := []health.CheckSchedule{
 		{Check: &checks.CredentialValidityCheck{}, Enabled: true},
 		{Check: &checks.CredentialRefreshCheck{RefreshThreshold: 5 * time.Minute}, Enabled: true},
-		{Check: &checks.ProbeCheck{Timeout: 15 * time.Second}, Enabled: true},
+		{Check: &checks.ProbeCheck{Timeout: 15 * time.Second, Model: c.probeModel}, Enabled: true},
 		{Check: &checks.UsageQuotaCheck{WarningThreshold: 0.01}, Enabled: true},
 		{Check: &checks.UsageRulesRefreshCheck{}, Enabled: true},
 		{Check: &checks.ModelDiscoveryCheck{}, Enabled: true},

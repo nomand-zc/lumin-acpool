@@ -23,6 +23,9 @@ type ProbeCheck struct {
 	ProbeRequest *providers.Request
 	// Timeout is the probe timeout duration, default 10s.
 	Timeout time.Duration
+	// Model is the model name to use for probing.
+	// If empty, the provider's default model will be used.
+	Model string
 }
 
 func (c *ProbeCheck) Name() string {
@@ -118,11 +121,15 @@ func (c *ProbeCheck) Check(ctx context.Context, target health.CheckTarget) *heal
 // buildProbeRequest constructs the probe request.
 func (c *ProbeCheck) buildProbeRequest() *providers.Request {
 	if c.ProbeRequest != nil {
+		if c.Model != "" && c.ProbeRequest.Model == "" {
+			c.ProbeRequest.Model = c.Model
+		}
 		return c.ProbeRequest
 	}
 	// Construct the lightest possible probe request
 	maxTokens := 1
 	return &providers.Request{
+		Model: c.Model,
 		Messages: []providers.Message{
 			{Role: providers.RoleUser, Content: "hi, please only reply `Hi`"},
 		},

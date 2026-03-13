@@ -57,6 +57,8 @@ func scanAccountFields(s storeSqlite.Scanner) (*account.Account, error) {
 		usageRulesJSON   sql.NullString
 		cooldownUntil    sql.NullString
 		circuitOpenUntil sql.NullString
+		createdAtStr     string
+		updatedAtStr     string
 	)
 
 	err := s.Scan(
@@ -64,10 +66,18 @@ func scanAccountFields(s storeSqlite.Scanner) (*account.Account, error) {
 		&credentialJSON, &statusInt, &acct.Priority,
 		&tagsJSON, &metadataJSON, &usageRulesJSON,
 		&cooldownUntil, &circuitOpenUntil,
-		&acct.CreatedAt, &acct.UpdatedAt, &acct.Version,
+		&createdAtStr, &updatedAtStr, &acct.Version,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	// SQLite 中时间存储为 TEXT，需要手动解析
+	if t, parseErr := parseTime(createdAtStr); parseErr == nil {
+		acct.CreatedAt = t
+	}
+	if t, parseErr := parseTime(updatedAtStr); parseErr == nil {
+		acct.UpdatedAt = t
 	}
 
 	return buildAccountInfo(&acct, credentialJSON, statusInt, tagsJSON, metadataJSON, usageRulesJSON, cooldownUntil, circuitOpenUntil)

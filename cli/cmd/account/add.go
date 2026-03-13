@@ -25,6 +25,7 @@ type addCmd struct {
 	filePath     string
 	providerType string
 	providerName string
+	probeModel   string
 }
 
 // cmd 返回 cobra.Command。
@@ -64,6 +65,7 @@ JSON 文件示例:
 	cmd.Flags().StringVarP(&c.filePath, "file", "f", "", "Account JSON 文件路径或目录路径（必填）")
 	cmd.Flags().StringVar(&c.providerType, "type", "kiro", "Provider 类型（可选，覆盖 JSON 中的 ProviderType）")
 	cmd.Flags().StringVar(&c.providerName, "name", "default", "Provider 名称（可选，覆盖 JSON 中的 ProviderName）")
+	cmd.Flags().StringVar(&c.probeModel, "probe-model", "", "probe 检查使用的模型名称（不指定则使用 Provider 默认模型）")
 	_ = cmd.MarkFlagRequired("file")
 
 	return cmd
@@ -115,6 +117,7 @@ func (c *addCmd) runSingle(cmd *cobra.Command, filePath string) (acct.Status, er
 		Priority:     raw.Priority,
 		Tags:         raw.Tags,
 		Metadata:     raw.Metadata,
+		ProbeModel:   c.probeModel,
 	})
 }
 
