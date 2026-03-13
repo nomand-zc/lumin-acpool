@@ -3,6 +3,7 @@ package checks
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
@@ -43,7 +44,7 @@ func (c *ProbeCheck) DependsOn() []string {
 func (c *ProbeCheck) Check(ctx context.Context, target health.CheckTarget) *health.CheckResult {
 	start := time.Now()
 
-	req := c.buildProbeRequest()
+	req := c.buildProbeRequest(ctx, target)
 	req.Credential = target.Credential()
 	_, err := target.Client().GenerateContent(ctx, req)
 	if err == nil {
@@ -119,17 +120,21 @@ func (c *ProbeCheck) Check(ctx context.Context, target health.CheckTarget) *heal
 }
 
 // buildProbeRequest constructs the probe request.
-func (c *ProbeCheck) buildProbeRequest() *providers.Request {
+// If Model is empty, it fetches the supported model list from target.Client()
+// and randomly selects one.
+func (c *ProbeCheck) buildProbeRequest(ctx context.Context, target health.CheckTarget) *providers.Request {
+	model := c.resolveModel(ctx, target)
+
 	if c.ProbeRequest != nil {
-		if c.Model != "" && c.ProbeRequest.Model == "" {
-			c.ProbeRequest.Model = c.Model
+		if model != "" && c.ProbeRequest.Model == "" {
+			c.ProbeRequest.Model = model
 		}
 		return c.ProbeRequest
 	}
 	// Construct the lightest possible probe request
 	maxTokens := 1
 	return &providers.Request{
-		Model: c.Model,
+		Model: model,
 		Messages: []providers.Message{
 			{Role: providers.RoleUser, Content: "hi, please only reply `Hi`"},
 		},
@@ -137,4 +142,18 @@ func (c *ProbeCheck) buildProbeRequest() *providers.Request {
 			MaxTokens: &maxTokens,
 		},
 	}
+}
+
+// resolveModel returns the model to use for probing.
+// If Model is explicitly set, use it directly.
+// Otherwise, fetch the model list from the provider and randomly select one.
+func (c *ProbeCheck) resolveModel(ctx context.Context, target health.CheckTarget) string {
+	if c.Model != "" {
+		return c.Model
+	}
+	models, err := target.Client().Models(ctx)
+	if err != nil || len(models) == 0 {
+		return ""
+	}
+	return models[rand.Intn(len(models))]
 }
