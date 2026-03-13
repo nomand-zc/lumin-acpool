@@ -42,7 +42,7 @@ func NewStore(opts ...Option) (*Store, error) {
 
 	store := &Store{
 		client:    client,
-		converter: storeMysql.NewConditionConverter(accountFieldMapping),
+		converter: storeMysql.NewConditionConverter(accountFieldMapping, nil),
 	}
 
 	if !o.SkipInitDB {
@@ -296,5 +296,3 @@ func (s *Store) Count(ctx context.Context, filter *storage.SearchFilter) (int, e
 	}
 	return count, nil
 }
-
-

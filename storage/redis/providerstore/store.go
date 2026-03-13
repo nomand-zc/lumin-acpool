@@ -141,6 +141,9 @@ func matchProviderSearchFilter(info *account.ProviderInfo, filter *storage.Searc
 	if filter.Status != 0 && int(info.Status) != filter.Status {
 		return false
 	}
+	if filter.SupportedModel != "" && !info.SupportsModel(filter.SupportedModel) {
+		return false
+	}
 	return true
 }
 

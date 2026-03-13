@@ -39,9 +39,14 @@ func NewStore(opts ...Option) (*Store, error) {
 		return nil, fmt.Errorf("providerstore: %w", err)
 	}
 
+	// 定义JSON字段映射（SQLite中存储为TEXT类型的JSON数组字段）
+	jsonFields := map[string]bool{
+		storage.ProviderFieldSupportedModel: true,
+	}
+
 	store := &Store{
 		client:    client,
-		converter: storeSqlite.NewConditionConverter(providerFieldMapping),
+		converter: storeSqlite.NewConditionConverter(providerFieldMapping, jsonFields),
 	}
 
 	if !o.SkipInitDB {
@@ -138,6 +143,9 @@ func buildProviderWhereClause(filter *storage.SearchFilter, condResult *storeSql
 		if filter.Status != 0 {
 			parts = append(parts, "status=?")
 		}
+		if filter.SupportedModel != "" {
+			parts = append(parts, `EXISTS(SELECT 1 FROM json_each("supported_models") WHERE json_each.value = ?)`)
+		}
 	}
 	parts = append(parts, condResult.Cond)
 	return strings.Join(parts, " AND ")
@@ -155,6 +163,9 @@ func buildProviderWhereArgs(filter *storage.SearchFilter, condResult *storeSqlit
 		}
 		if filter.Status != 0 {
 			args = append(args, filter.Status)
+		}
+		if filter.SupportedModel != "" {
+			args = append(args, filter.SupportedModel)
 		}
 	}
 	args = append(args, condResult.Args...)

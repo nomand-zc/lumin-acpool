@@ -42,7 +42,7 @@ func NewStore(opts ...Option) (*Store, error) {
 
 	store := &Store{
 		client:    client,
-		converter: storeSqlite.NewConditionConverter(accountFieldMapping),
+		converter: storeSqlite.NewConditionConverter(accountFieldMapping, nil),
 	}
 
 	if !o.SkipInitDB {

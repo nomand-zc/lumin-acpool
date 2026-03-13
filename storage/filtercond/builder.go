@@ -99,6 +99,24 @@ func Between(field string, min, max any) *Filter {
 	}
 }
 
+// JSONContains creates a condition for JSON_CONTAINS operator for JSON array fields.
+func JSONContains(field string, value any) *Filter {
+	return &Filter{
+		Field:    field,
+		Operator: OperatorJSONContains,
+		Value:    value,
+	}
+}
+
+// JSONNotContains creates a condition for NOT JSON_CONTAINS operator for JSON array fields.
+func JSONNotContains(field string, value any) *Filter {
+	return &Filter{
+		Field:    field,
+		Operator: OperatorJSONNotContains,
+		Value:    value,
+	}
+}
+
 // And creates a condition that combines multiple conditions with AND logic.
 func And(conditions ...*Filter) *Filter {
 	return &Filter{

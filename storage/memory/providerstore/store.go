@@ -61,8 +61,23 @@ func (s *Store) Search(_ context.Context, filter *storage.SearchFilter) ([]*acco
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	// 如果指定了 SupportedModel，先利用 modelIndex 缩小候选集
+	candidates := s.providers
+	if filter != nil && filter.SupportedModel != "" {
+		keys, ok := s.modelIndex[filter.SupportedModel]
+		if !ok || len(keys) == 0 {
+			return nil, nil
+		}
+		candidates = make(map[account.ProviderKey]*account.ProviderInfo, len(keys))
+		for key := range keys {
+			if info, exists := s.providers[key]; exists {
+				candidates[key] = info
+			}
+		}
+	}
+
 	result := make([]*account.ProviderInfo, 0)
-	for _, info := range s.providers {
+	for _, info := range candidates {
 		if !matchSearchFilter(info, filter) {
 			continue
 		}
@@ -87,6 +102,7 @@ func matchSearchFilter(info *account.ProviderInfo, filter *storage.SearchFilter)
 	if filter.Status != 0 && int(info.Status) != filter.Status {
 		return false
 	}
+	// SupportedModel 已通过 modelIndex 预过滤，此处无需重复检查
 	return true
 }
 

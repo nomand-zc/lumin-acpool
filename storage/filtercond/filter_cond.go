@@ -39,6 +39,12 @@ const (
 
 	// OperatorBetween is the "between" operator.
 	OperatorBetween = "between"
+
+	// OperatorJSONContains is the "JSON_CONTAINS" operator for JSON array fields.
+	OperatorJSONContains = "json_contains"
+
+	// OperatorJSONNotContains is the "NOT JSON_CONTAINS" operator for JSON array fields.
+	OperatorJSONNotContains = "json_not_contains"
 )
 
 // Converter is an interface for converting universal filter conditions to specific query formats.

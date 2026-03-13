@@ -28,6 +28,8 @@ type CondConvertResult struct {
 type SqliteConverter struct {
 	// fieldMapping 字段名映射，将 storage.Fields 中的逻辑字段名映射到数据库列名。
 	fieldMapping map[string]string
+	// jsonFields 标记哪些字段是JSON类型（SQLite中存储为TEXT），需要特殊处理。
+	jsonFields map[string]bool
 }
 
 // Compile-time interface compliance check.
@@ -35,12 +37,17 @@ var _ filtercond.Converter[*CondConvertResult] = (*SqliteConverter)(nil)
 
 // NewConditionConverter 创建一个新的 SQLite 条件转换器。
 // fieldMapping 用于将逻辑字段名映射到实际数据库列名，nil 表示直接使用字段名。
-func NewConditionConverter(fieldMapping map[string]string) *SqliteConverter {
+// jsonFields 用于标记JSON类型的字段（SQLite中为TEXT类型），nil 表示没有JSON字段。
+func NewConditionConverter(fieldMapping map[string]string, jsonFields map[string]bool) *SqliteConverter {
 	if fieldMapping == nil {
 		fieldMapping = make(map[string]string)
 	}
+	if jsonFields == nil {
+		jsonFields = make(map[string]bool)
+	}
 	return &SqliteConverter{
 		fieldMapping: fieldMapping,
+		jsonFields:   jsonFields,
 	}
 }
 
@@ -61,6 +68,11 @@ func (c *SqliteConverter) convertFieldName(field string) string {
 	return field
 }
 
+// isJSONField 检查字段是否为JSON类型。
+func (c *SqliteConverter) isJSONField(field string) bool {
+	return c.jsonFields[field]
+}
+
 func (c *SqliteConverter) convertCondition(cond *filtercond.Filter) (*CondConvertResult, error) {
 	if cond == nil {
 		return nil, fmt.Errorf("nil condition")
@@ -79,6 +91,8 @@ func (c *SqliteConverter) convertCondition(cond *filtercond.Filter) (*CondConver
 		return c.buildLikeCondition(cond)
 	case filtercond.OperatorBetween:
 		return c.buildBetweenCondition(cond)
+	case filtercond.OperatorJSONContains, filtercond.OperatorJSONNotContains:
+		return c.buildJSONCondition(cond)
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", cond.Operator)
 	}
@@ -186,5 +200,28 @@ func (c *SqliteConverter) buildBetweenCondition(cond *filtercond.Filter) (*CondC
 	return &CondConvertResult{
 		Cond: fmt.Sprintf(`"%s" BETWEEN ? AND ?`, fieldName),
 		Args: []any{value.Index(0).Interface(), value.Index(1).Interface()},
+	}, nil
+}
+
+// buildJSONCondition 构建JSON条件。
+// SQLite 中 JSON 数据存储为 TEXT 类型，使用 json_each() 函数 + EXISTS 子查询来实现类似 MySQL JSON_CONTAINS 的功能。
+// 生成的 SQL 形如: EXISTS(SELECT 1 FROM json_each("column") WHERE json_each.value = ?)
+func (c *SqliteConverter) buildJSONCondition(cond *filtercond.Filter) (*CondConvertResult, error) {
+	if cond.Field == "" {
+		return nil, fmt.Errorf("field is empty")
+	}
+
+	fieldName := c.convertFieldName(cond.Field)
+
+	// SQLite 使用 json_each() 表值函数来遍历 JSON 数组，配合 EXISTS 子查询实现包含判断。
+	// 例如: EXISTS(SELECT 1 FROM json_each("supported_models") WHERE json_each.value = ?)
+	notPrefix := ""
+	if cond.Operator == filtercond.OperatorJSONNotContains {
+		notPrefix = "NOT "
+	}
+
+	return &CondConvertResult{
+		Cond: fmt.Sprintf(`%sEXISTS(SELECT 1 FROM json_each("%s") WHERE json_each.value = ?)`, notPrefix, fieldName),
+		Args: []any{cond.Value},
 	}, nil
 }

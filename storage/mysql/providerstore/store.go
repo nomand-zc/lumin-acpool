@@ -39,9 +39,14 @@ func NewStore(opts ...Option) (*Store, error) {
 		return nil, fmt.Errorf("providerstore: %w", err)
 	}
 
+	// 定义JSON字段映射
+	jsonFields := map[string]bool{
+		storage.ProviderFieldSupportedModel: true,
+	}
+
 	store := &Store{
 		client:    client,
-		converter: storeMysql.NewConditionConverter(providerFieldMapping),
+		converter: storeMysql.NewConditionConverter(providerFieldMapping, jsonFields),
 	}
 
 	if !o.SkipInitDB {
@@ -136,6 +141,9 @@ func buildProviderWhereClause(filter *storage.SearchFilter, condResult *storeMys
 		if filter.Status != 0 {
 			parts = append(parts, "status=?")
 		}
+		if filter.SupportedModel != "" {
+			parts = append(parts, "JSON_CONTAINS(`supported_models`, ?)")
+		}
 	}
 	parts = append(parts, condResult.Cond)
 	return strings.Join(parts, " AND ")
@@ -153,6 +161,10 @@ func buildProviderWhereArgs(filter *storage.SearchFilter, condResult *storeMysql
 		}
 		if filter.Status != 0 {
 			args = append(args, filter.Status)
+		}
+		if filter.SupportedModel != "" {
+			// MySQL JSON_CONTAINS 需要 JSON 格式的值
+			args = append(args, fmt.Sprintf(`"%s"`, filter.SupportedModel))
 		}
 	}
 	args = append(args, condResult.Args...)

@@ -45,8 +45,10 @@ func (r *storageResolver) ResolveProvider(ctx context.Context, key account.Provi
 		return nil, ErrModelNotSupported
 	}
 
-	// 动态填充账号计数
 	r.fillAccountCounts(ctx, provInfo)
+	if provInfo.AccountCount <= 0 || provInfo.AvailableAccountCount <= 0 {
+		return nil, ErrNoAccount
+	}
 
 	return provInfo, nil
 }
@@ -54,24 +56,30 @@ func (r *storageResolver) ResolveProvider(ctx context.Context, key account.Provi
 // ResolveProviders resolves active providers that support the specified model from storage.
 func (r *storageResolver) ResolveProviders(ctx context.Context, model string, providerType string) ([]*account.ProviderInfo, error) {
 	filter := &storage.SearchFilter{
-		ProviderType: providerType,
-		ExtraCond: filtercond.And(
-			filtercond.In(storage.ProviderFieldStatus, int(account.ProviderStatusActive), int(account.ProviderStatusDegraded)),
-			filtercond.Equal(storage.ProviderFieldSupportedModel, model),
-		),
+		ProviderType:   providerType,
+		SupportedModel: model,
+		Status:         int(account.ProviderStatusActive),
+		ExtraCond:      filtercond.GreaterThan(storage.ProviderFieldAvailableAccountCount, 0),
 	}
 
-	candidates, err := r.providerStorage.Search(ctx, filter)
+	candidate, err := r.providerStorage.Search(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("resolver: search providers: %w", err)
 	}
 
-	// 动态填充每个 Provider 的账号计数
-	for _, p := range candidates {
-		r.fillAccountCounts(ctx, p)
+	var active []*account.ProviderInfo
+	for _, provInfo := range candidate {
+		r.fillAccountCounts(ctx, provInfo)
+		if provInfo.AccountCount > 0 && provInfo.AvailableAccountCount > 0 {
+			active = append(active, provInfo)
+		}
 	}
 
-	return candidates, nil
+	if len(active) == 0 {
+		return nil, ErrNoAccount
+	}
+
+	return active, nil
 }
 
 // ResolveAccounts resolves available accounts under the specified provider from storage.

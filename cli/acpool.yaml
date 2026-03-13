@@ -7,7 +7,7 @@ storage:
 # ===================== 日志配置 =====================
 log:
   # 日志级别: debug | info | warn | error
-  level: "info"
+  level: "debug"
   # 日志输出目录，为空则输出到 stdout
   dir: "./logs"
 

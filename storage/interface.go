@@ -39,6 +39,8 @@ type SearchFilter struct {
 	ProviderName string
 	// Status 按状态过滤（精确匹配），零值表示不过滤。
 	Status int
+	// SupportedModel 按支持的模型过滤（JSON数组包含匹配），空值表示不过滤。
+	SupportedModel string
 	// ExtraCond 额外的通用过滤条件（filtercond 表达式树），用于上面三个字段无法表达的查询。
 	ExtraCond *filtercond.Filter
 }
