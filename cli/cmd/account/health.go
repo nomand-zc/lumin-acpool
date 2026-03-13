@@ -37,6 +37,7 @@ var allCheckNames = map[string]string{
 type healthReportJSON struct {
 	AccountID   string             `json:"account_id"`
 	ProviderKey string             `json:"provider_key"`
+	FinalStatus string             `json:"final_status"`
 	Checks      []string           `json:"checks"`
 	Results     []*checkResultJSON `json:"results"`
 	Summary     *reportSummary     `json:"summary"`
@@ -243,8 +244,8 @@ func (c *healthCmd) checkAccount(cmd *cobra.Command, account *acct.Account, spec
 	// 根据检查结果更新账号状态等信息
 	c.applyAndPersist(cmd, account, report)
 
-	// 转为 JSON 结构
-	return c.buildReportJSON(report, specifiedChecks), nil
+	// 转为 JSON 结构（使用更新后的账号最终状态）
+	return c.buildReportJSON(report, specifiedChecks, account.Status.String()), nil
 }
 
 // applyAndPersist 根据健康检查结果更新账号状态等信息，并持久化到存储。
@@ -342,7 +343,8 @@ func (c *healthCmd) collectDependencies(specified map[string]struct{}, allChecks
 }
 
 // buildReportJSON 将 HealthReport 转为 JSON 输出结构。
-func (c *healthCmd) buildReportJSON(report *health.HealthReport, specifiedChecks []string) *healthReportJSON {
+// finalStatus 为账号健康检查后的最终状态。
+func (c *healthCmd) buildReportJSON(report *health.HealthReport, specifiedChecks []string, finalStatus string) *healthReportJSON {
 	checkNames := specifiedChecks
 	if len(checkNames) == 0 {
 		checkNames = []string{"all"}
@@ -386,6 +388,7 @@ func (c *healthCmd) buildReportJSON(report *health.HealthReport, specifiedChecks
 	return &healthReportJSON{
 		AccountID:   report.AccountID,
 		ProviderKey: report.ProviderKey.String(),
+		FinalStatus: finalStatus,
 		Checks:      checkNames,
 		Results:     results,
 		Summary:     summary,
@@ -489,15 +492,19 @@ func (c *healthCmd) writeReports(reports []*healthReportJSON) error {
 		dir = filepath.Join(dir, c.providerName)
 	}
 
-	// 确保输出目录存在
+	// 确保基础输出目录存在
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("创建输出目录失败: %w", err)
 	}
 
-	// 每个账号输出一个独立的 JSON 报告文件
+	// 按账号最终状态分子目录输出 JSON 报告文件
 	for _, r := range reports {
+		statusDir := filepath.Join(dir, r.FinalStatus)
+		if err := os.MkdirAll(statusDir, 0755); err != nil {
+			return fmt.Errorf("创建状态子目录 %s 失败: %w", r.FinalStatus, err)
+		}
 		fileName := fmt.Sprintf("%s.health.json", r.AccountID)
-		filePath := filepath.Join(dir, fileName)
+		filePath := filepath.Join(statusDir, fileName)
 		if err := ioutil.SaveJSONFile(filePath, r); err != nil {
 			return fmt.Errorf("导出 Account %s 健康报告失败: %w", r.AccountID, err)
 		}
@@ -516,12 +523,13 @@ func (c *healthCmd) writeReports(reports []*healthReportJSON) error {
 
 // summaryReport 输出到文件的汇总报告。
 type summaryReport struct {
-	TotalAccounts int                    `json:"total_accounts"`
-	HealthyCount  int                    `json:"healthy_count"`
-	UnhealthyCount int                   `json:"unhealthy_count"`
-	WarningCount  int                    `json:"warning_count"`
-	Accounts      []*accountHealthBrief  `json:"accounts"`
-	Timestamp     string                 `json:"timestamp"`
+	TotalAccounts  int                    `json:"total_accounts"`
+	HealthyCount   int                    `json:"healthy_count"`
+	UnhealthyCount int                    `json:"unhealthy_count"`
+	WarningCount   int                    `json:"warning_count"`
+	StatusCounts   map[string]int         `json:"status_counts"`
+	Accounts       []*accountHealthBrief  `json:"accounts"`
+	Timestamp      string                 `json:"timestamp"`
 }
 
 // accountHealthBrief 汇总中的单账号摘要。
@@ -529,6 +537,7 @@ type accountHealthBrief struct {
 	AccountID   string         `json:"account_id"`
 	ProviderKey string         `json:"provider_key"`
 	Status      string         `json:"status"`
+	FinalStatus string         `json:"final_status"`
 	Summary     *reportSummary `json:"summary"`
 	Duration    string         `json:"duration"`
 }
@@ -537,6 +546,7 @@ type accountHealthBrief struct {
 func (c *healthCmd) buildSummaryReport(reports []*healthReportJSON) *summaryReport {
 	sr := &summaryReport{
 		TotalAccounts: len(reports),
+		StatusCounts:  make(map[string]int),
 		Timestamp:     time.Now().Format(time.RFC3339),
 	}
 
@@ -552,10 +562,14 @@ func (c *healthCmd) buildSummaryReport(reports []*healthReportJSON) *summaryRepo
 			sr.HealthyCount++
 		}
 
+		// 按账号最终状态统计
+		sr.StatusCounts[r.FinalStatus]++
+
 		sr.Accounts = append(sr.Accounts, &accountHealthBrief{
 			AccountID:   r.AccountID,
 			ProviderKey: r.ProviderKey,
 			Status:      status,
+			FinalStatus: r.FinalStatus,
 			Summary:     r.Summary,
 			Duration:    r.Duration,
 		})
