@@ -40,7 +40,7 @@ func (c *UsageQuotaCheck) Severity() health.CheckSeverity {
 }
 
 func (c *UsageQuotaCheck) DependsOn() []string {
-	return []string{CredentialValidityCheckName}
+	return []string{CredentialRefreshCheckName}
 }
 
 func (c *UsageQuotaCheck) Check(ctx context.Context, target health.CheckTarget) *health.CheckResult {

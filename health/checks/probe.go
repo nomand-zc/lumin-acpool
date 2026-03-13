@@ -34,7 +34,7 @@ func (c *ProbeCheck) Severity() health.CheckSeverity {
 }
 
 func (c *ProbeCheck) DependsOn() []string {
-	return []string{CredentialValidityCheckName}
+	return []string{CredentialRefreshCheckName}
 }
 
 func (c *ProbeCheck) Check(ctx context.Context, target health.CheckTarget) *health.CheckResult {

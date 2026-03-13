@@ -17,6 +17,7 @@ var (
 	defaultListCmd   listCmd
 	defaultGetCmd    getCmd
 	defaultAddCmd    addCmd
+	defaultImportCmd importCmd
 	defaultUpdateCmd updateCmd
 	defaultRemoveCmd removeCmd
 	defaultHealthCmd healthCmd
@@ -35,6 +36,7 @@ func CMD() *cobra.Command {
 		defaultListCmd.cmd(),
 		defaultGetCmd.cmd(),
 		defaultAddCmd.cmd(),
+		defaultImportCmd.cmd(),
 		defaultUpdateCmd.cmd(),
 		defaultRemoveCmd.cmd(),
 		defaultHealthCmd.cmd(),

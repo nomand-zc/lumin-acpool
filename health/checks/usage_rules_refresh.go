@@ -30,7 +30,7 @@ func (c *UsageRulesRefreshCheck) Severity() health.CheckSeverity {
 }
 
 func (c *UsageRulesRefreshCheck) DependsOn() []string {
-	return []string{CredentialValidityCheckName}
+	return []string{CredentialRefreshCheckName}
 }
 
 func (c *UsageRulesRefreshCheck) Check(ctx context.Context, target health.CheckTarget) *health.CheckResult {
