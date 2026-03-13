@@ -2,6 +2,7 @@ package providerstore
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"time"
 
@@ -9,6 +10,14 @@ import (
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
 	storeRedis "github.com/nomand-zc/lumin-acpool/storage/redis"
+)
+
+var (
+	//go:embed scripts/provider_add.lua
+	scriptProviderAdd string
+
+	//go:embed scripts/provider_remove.lua
+	scriptProviderRemove string
 )
 
 // Compile-time interface compliance check.
@@ -161,29 +170,12 @@ func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
 	}
 
 	// 使用 Lua 脚本原子执行
-	script := `
-		local key = KEYS[1]
-		local indexKey = KEYS[2]
-		local member = ARGV[1]
-		
-		if redis.call("EXISTS", key) == 1 then
-			return 0
-		end
-		
-		for i = 2, #ARGV, 2 do
-			redis.call("HSET", key, ARGV[i], ARGV[i+1])
-		end
-		
-		redis.call("SADD", indexKey, member)
-		return 1
-	`
-
 	args := []any{member}
 	for k, v := range fields {
 		args = append(args, k, fmt.Sprintf("%v", v))
 	}
 
-	result, err := s.client.Eval(ctx, script, []string{redisKey, indexKey}, args...)
+	result, err := s.client.Eval(ctx, scriptProviderAdd, []string{redisKey, indexKey}, args...)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to add provider: %w", err)
 	}
@@ -240,12 +232,7 @@ func (s *Store) Remove(ctx context.Context, key account.ProviderKey) error {
 	}
 
 	// 使用 Lua 脚本原子执行
-	script := `
-		redis.call("DEL", KEYS[1])
-		redis.call("SREM", KEYS[2], ARGV[1])
-		return 1
-	`
-	_, err = s.client.Eval(ctx, script, []string{redisKey, indexKey}, member)
+	_, err = s.client.Eval(ctx, scriptProviderRemove, []string{redisKey, indexKey}, member)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to remove provider: %w", err)
 	}
