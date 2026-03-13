@@ -57,47 +57,43 @@ func (s *Store) initDB() error {
 }
 
 func (s *Store) Get(ctx context.Context, accountID string) (*account.AccountStats, error) {
-	var stats *account.AccountStats
-	err := s.client.Query(ctx, func(rows *sql.Rows) error {
-		if !rows.Next() {
-			return nil
-		}
-		var (
-			st          account.AccountStats
-			lastUsedAt  sql.NullString
-			lastErrorAt sql.NullString
-			lastErrMsg  sql.NullString
-		)
-		if scanErr := rows.Scan(
-			&st.AccountID, &st.TotalCalls, &st.SuccessCalls, &st.FailedCalls,
-			&st.ConsecutiveFailures, &lastUsedAt, &lastErrorAt, &lastErrMsg,
-		); scanErr != nil {
-			return scanErr
-		}
-		if lastUsedAt.Valid && lastUsedAt.String != "" {
-			if t, err := parseTime(lastUsedAt.String); err == nil {
-				st.LastUsedAt = &t
-			}
-		}
-		if lastErrorAt.Valid && lastErrorAt.String != "" {
-			if t, err := parseTime(lastErrorAt.String); err == nil {
-				st.LastErrorAt = &t
-			}
-		}
-		if lastErrMsg.Valid {
-			st.LastErrorMsg = lastErrMsg.String
-		}
-		stats = &st
-		return nil
-	}, queryGetStats, accountID)
+	var (
+		stats       account.AccountStats
+		lastUsedAt  sql.NullString
+		lastErrorAt sql.NullString
+		lastErrMsg  sql.NullString
+	)
+
+	dest := []any{
+		&stats.AccountID, &stats.TotalCalls, &stats.SuccessCalls, &stats.FailedCalls,
+		&stats.ConsecutiveFailures, &lastUsedAt, &lastErrorAt, &lastErrMsg,
+	}
+
+	err := s.client.QueryRow(ctx, dest, queryGetStats, accountID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			// 不存在统计记录，返回零值
+			return &account.AccountStats{AccountID: accountID}, nil
+		}
 		return nil, fmt.Errorf("statsstore: failed to get stats: %w", err)
 	}
-	if stats == nil {
-		// 不存在统计记录，返回零值
-		return &account.AccountStats{AccountID: accountID}, nil
+
+	// 解析时间字段（SQLite 存储为 TEXT）
+	if lastUsedAt.Valid && lastUsedAt.String != "" {
+		if t, err := parseTime(lastUsedAt.String); err == nil {
+			stats.LastUsedAt = &t
+		}
 	}
-	return stats, nil
+	if lastErrorAt.Valid && lastErrorAt.String != "" {
+		if t, err := parseTime(lastErrorAt.String); err == nil {
+			stats.LastErrorAt = &t
+		}
+	}
+	if lastErrMsg.Valid {
+		stats.LastErrorMsg = lastErrMsg.String
+	}
+
+	return &stats, nil
 }
 
 func (s *Store) IncrSuccess(ctx context.Context, accountID string) error {

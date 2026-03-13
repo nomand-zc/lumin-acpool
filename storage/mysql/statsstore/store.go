@@ -57,43 +57,38 @@ func (s *Store) initDB() error {
 }
 
 func (s *Store) Get(ctx context.Context, accountID string) (*account.AccountStats, error) {
-	var stats *account.AccountStats
-	err := s.client.Query(ctx, func(rows *sql.Rows) error {
-		if !rows.Next() {
-			return nil
-		}
-		var (
-			s           account.AccountStats
-			lastUsedAt  sql.NullTime
-			lastErrorAt sql.NullTime
-			lastErrMsg  sql.NullString
-		)
-		if scanErr := rows.Scan(
-			&s.AccountID, &s.TotalCalls, &s.SuccessCalls, &s.FailedCalls,
-			&s.ConsecutiveFailures, &lastUsedAt, &lastErrorAt, &lastErrMsg,
-		); scanErr != nil {
-			return scanErr
-		}
-		if lastUsedAt.Valid {
-			s.LastUsedAt = &lastUsedAt.Time
-		}
-		if lastErrorAt.Valid {
-			s.LastErrorAt = &lastErrorAt.Time
-		}
-		if lastErrMsg.Valid {
-			s.LastErrorMsg = lastErrMsg.String
-		}
-		stats = &s
-		return nil
-	}, queryGetStats, accountID)
+	var (
+		stats       account.AccountStats
+		lastUsedAt  sql.NullTime
+		lastErrorAt sql.NullTime
+		lastErrMsg  sql.NullString
+	)
+
+	dest := []any{
+		&stats.AccountID, &stats.TotalCalls, &stats.SuccessCalls, &stats.FailedCalls,
+		&stats.ConsecutiveFailures, &lastUsedAt, &lastErrorAt, &lastErrMsg,
+	}
+
+	err := s.client.QueryRow(ctx, dest, queryGetStats, accountID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			// 不存在统计记录，返回零值
+			return &account.AccountStats{AccountID: accountID}, nil
+		}
 		return nil, fmt.Errorf("statsstore: failed to get stats: %w", err)
 	}
-	if stats == nil {
-		// 不存在统计记录，返回零值
-		return &account.AccountStats{AccountID: accountID}, nil
+
+	if lastUsedAt.Valid {
+		stats.LastUsedAt = &lastUsedAt.Time
 	}
-	return stats, nil
+	if lastErrorAt.Valid {
+		stats.LastErrorAt = &lastErrorAt.Time
+	}
+	if lastErrMsg.Valid {
+		stats.LastErrorMsg = lastErrMsg.String
+	}
+
+	return &stats, nil
 }
 
 func (s *Store) IncrSuccess(ctx context.Context, accountID string) error {

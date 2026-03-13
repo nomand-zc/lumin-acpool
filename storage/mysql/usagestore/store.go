@@ -60,51 +60,49 @@ func (s *Store) initDB() error {
 func (s *Store) GetAll(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	var result []*account.TrackedUsage
 	err := s.client.Query(ctx, func(rows *sql.Rows) error {
-		for rows.Next() {
-			var (
-				ruleIndex       int
-				sourceType      int
-				timeGranularity string
-				windowSize      int
-				ruleTotal       float64
-				localUsed       float64
-				remoteUsed      float64
-				remoteRemain    float64
-				windowStart     sql.NullTime
-				windowEnd       sql.NullTime
-				lastSyncAt      time.Time
-			)
+		var (
+			ruleIndex       int
+			sourceType      int
+			timeGranularity string
+			windowSize      int
+			ruleTotal       float64
+			localUsed       float64
+			remoteUsed      float64
+			remoteRemain    float64
+			windowStart     sql.NullTime
+			windowEnd       sql.NullTime
+			lastSyncAt      time.Time
+		)
 
-			scanErr := rows.Scan(
-				&ruleIndex, &sourceType, &timeGranularity, &windowSize, &ruleTotal,
-				&localUsed, &remoteUsed, &remoteRemain,
-				&windowStart, &windowEnd, &lastSyncAt,
-			)
-			if scanErr != nil {
-				return fmt.Errorf("usagestore: failed to scan usage: %w", scanErr)
-			}
-
-			usage := &account.TrackedUsage{
-				Rule: &usagerule.UsageRule{
-					SourceType:      usagerule.SourceType(sourceType),
-					TimeGranularity: usagerule.TimeGranularity(timeGranularity),
-					WindowSize:      windowSize,
-					Total:           ruleTotal,
-				},
-				LocalUsed:    localUsed,
-				RemoteUsed:   remoteUsed,
-				RemoteRemain: remoteRemain,
-				LastSyncAt:   lastSyncAt,
-			}
-			if windowStart.Valid {
-				usage.WindowStart = &windowStart.Time
-			}
-			if windowEnd.Valid {
-				usage.WindowEnd = &windowEnd.Time
-			}
-
-			result = append(result, usage)
+		scanErr := rows.Scan(
+			&ruleIndex, &sourceType, &timeGranularity, &windowSize, &ruleTotal,
+			&localUsed, &remoteUsed, &remoteRemain,
+			&windowStart, &windowEnd, &lastSyncAt,
+		)
+		if scanErr != nil {
+			return fmt.Errorf("usagestore: failed to scan usage: %w", scanErr)
 		}
+
+		usage := &account.TrackedUsage{
+			Rule: &usagerule.UsageRule{
+				SourceType:      usagerule.SourceType(sourceType),
+				TimeGranularity: usagerule.TimeGranularity(timeGranularity),
+				WindowSize:      windowSize,
+				Total:           ruleTotal,
+			},
+			LocalUsed:    localUsed,
+			RemoteUsed:   remoteUsed,
+			RemoteRemain: remoteRemain,
+			LastSyncAt:   lastSyncAt,
+		}
+		if windowStart.Valid {
+			usage.WindowStart = &windowStart.Time
+		}
+		if windowEnd.Valid {
+			usage.WindowEnd = &windowEnd.Time
+		}
+
+		result = append(result, usage)
 		return nil
 	}, queryGetAllUsages, accountID)
 	if err != nil {

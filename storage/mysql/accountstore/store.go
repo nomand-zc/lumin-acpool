@@ -64,22 +64,38 @@ func (s *Store) initDB() error {
 }
 
 func (s *Store) Get(ctx context.Context, id string) (*account.Account, error) {
-	var acct *account.Account
-	err := s.client.Query(ctx, func(rows *sql.Rows) error {
-		if !rows.Next() {
-			return nil
-		}
-		var scanErr error
-		acct, scanErr = scanAccountFields(rows)
-		return scanErr
-	}, queryGetAccount, id)
+	var (
+		acct             account.Account
+		credentialJSON   []byte
+		statusInt        int
+		tagsJSON         sql.NullString
+		metadataJSON     sql.NullString
+		usageRulesJSON   sql.NullString
+		cooldownUntil    sql.NullTime
+		circuitOpenUntil sql.NullTime
+	)
+
+	dest := []any{
+		&acct.ID, &acct.ProviderType, &acct.ProviderName,
+		&credentialJSON, &statusInt, &acct.Priority,
+		&tagsJSON, &metadataJSON, &usageRulesJSON,
+		&cooldownUntil, &circuitOpenUntil,
+		&acct.CreatedAt, &acct.UpdatedAt, &acct.Version,
+	}
+
+	err := s.client.QueryRow(ctx, dest, queryGetAccount, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, storage.ErrNotFound
+		}
 		return nil, fmt.Errorf("accountstore: failed to get account: %w", err)
 	}
-	if acct == nil {
-		return nil, storage.ErrNotFound
+
+	result, err := buildAccountInfo(&acct, credentialJSON, statusInt, tagsJSON, metadataJSON, usageRulesJSON, cooldownUntil, circuitOpenUntil)
+	if err != nil {
+		return nil, fmt.Errorf("accountstore: failed to build account info: %w", err)
 	}
-	return acct, nil
+	return result, nil
 }
 
 func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
@@ -97,13 +113,11 @@ func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*ac
 
 	var result []*account.Account
 	err = s.client.Query(ctx, func(rows *sql.Rows) error {
-		for rows.Next() {
-			acct, scanErr := scanAccountFields(rows)
-			if scanErr != nil {
-				return fmt.Errorf("accountstore: failed to scan account: %w", scanErr)
-			}
-			result = append(result, acct)
+		acct, scanErr := scanAccountFields(rows)
+		if scanErr != nil {
+			return fmt.Errorf("accountstore: failed to scan account: %w", scanErr)
 		}
+		result = append(result, acct)
 		return nil
 	}, query, args...)
 	if err != nil {

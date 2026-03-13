@@ -112,13 +112,11 @@ func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*ac
 
 	var result []*account.ProviderInfo
 	err = s.client.Query(ctx, func(rows *sql.Rows) error {
-		for rows.Next() {
-			info, scanErr := scanProviderFields(rows)
-			if scanErr != nil {
-				return fmt.Errorf("providerstore: failed to scan provider: %w", scanErr)
-			}
-			result = append(result, info)
+		info, scanErr := scanProviderFields(rows)
+		if scanErr != nil {
+			return fmt.Errorf("providerstore: failed to scan provider: %w", scanErr)
 		}
+		result = append(result, info)
 		return nil
 	}, query, args...)
 	if err != nil {

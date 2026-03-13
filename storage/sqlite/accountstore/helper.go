@@ -70,6 +70,11 @@ func scanAccountFields(s storeSqlite.Scanner) (*account.Account, error) {
 		return nil, err
 	}
 
+	return buildAccountInfo(&acct, credentialJSON, statusInt, tagsJSON, metadataJSON, usageRulesJSON, cooldownUntil, circuitOpenUntil)
+}
+
+// buildAccountInfo 根据 QueryRow 扫描的原始字段值，构建完整的 Account 对象。
+func buildAccountInfo(acct *account.Account, credentialJSON []byte, statusInt int, tagsJSON, metadataJSON, usageRulesJSON, cooldownUntil, circuitOpenUntil sql.NullString) (*account.Account, error) {
 	acct.Status = account.Status(statusInt)
 
 	// 解析 credential
@@ -116,7 +121,7 @@ func scanAccountFields(s storeSqlite.Scanner) (*account.Account, error) {
 		}
 	}
 
-	return &acct, nil
+	return acct, nil
 }
 
 // unmarshalCredential 根据 providerType 获取对应的凭证工厂方法，从 JSON 反序列化 Credential。
