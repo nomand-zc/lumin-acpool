@@ -72,6 +72,11 @@ func scanProviderFields(s storeSqlite.Scanner) (*account.ProviderInfo, error) {
 		return nil, err
 	}
 
+	return buildProviderInfo(&info, statusInt, tagsJSON, modelsJSON, usageRulesJSON, metadataJSON, createdAtStr, updatedAtStr)
+}
+
+// buildProviderInfo 根据 QueryRow 扫描的原始字段值，构建完整的 ProviderInfo 对象。
+func buildProviderInfo(info *account.ProviderInfo, statusInt int, tagsJSON, modelsJSON, usageRulesJSON, metadataJSON sql.NullString, createdAtStr, updatedAtStr string) (*account.ProviderInfo, error) {
 	info.Status = account.ProviderStatus(statusInt)
 
 	// 解析时间
@@ -106,11 +111,7 @@ func scanProviderFields(s storeSqlite.Scanner) (*account.ProviderInfo, error) {
 		}
 	}
 
-	return &info, nil
-}
-
-func scanProviderFromRows(rows *sql.Rows) (*account.ProviderInfo, error) {
-	return scanProviderFields(rows)
+	return info, nil
 }
 
 // parseTime 解析 SQLite 中存储的时间字符串。

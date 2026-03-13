@@ -69,6 +69,11 @@ func scanProviderFields(s storeMysql.Scanner) (*account.ProviderInfo, error) {
 		return nil, err
 	}
 
+	return buildProviderInfo(&info, statusInt, tagsJSON, modelsJSON, usageRulesJSON, metadataJSON)
+}
+
+// buildProviderInfo 根据 QueryRow 扫描的原始字段值，构建完整的 ProviderInfo 对象。
+func buildProviderInfo(info *account.ProviderInfo, statusInt int, tagsJSON, modelsJSON, usageRulesJSON, metadataJSON sql.NullString) (*account.ProviderInfo, error) {
 	info.Status = account.ProviderStatus(statusInt)
 
 	// 解析 tags
@@ -99,14 +104,8 @@ func scanProviderFields(s storeMysql.Scanner) (*account.ProviderInfo, error) {
 		}
 	}
 
-	return &info, nil
+	return info, nil
 }
-
-func scanProviderFromRows(rows *sql.Rows) (*account.ProviderInfo, error) {
-	return scanProviderFields(rows)
-}
-
-
 
 // 以下用于消除未使用的导入警告。
 var _ = (*usagerule.UsageRule)(nil)

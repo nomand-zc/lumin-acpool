@@ -45,7 +45,7 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&configFile, "config", "acpool.yaml", "配置文件路径")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "acpool.yaml", "配置文件路径")
 
 	// 注册命令组
 	rootCmd.AddCommand(provider.CMD())

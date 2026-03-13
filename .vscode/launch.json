@@ -2,55 +2,34 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Token Refresh",
+            "name": "Debug Add Provider",
             "type": "go",
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cli/main.go",
             "args": [
-                "token",
-                "refresh",
+                "provider",
+                "add",
                 "--file",
-                "${workspaceFolder}/cli/testdata/kiro/creds-src/8.json",
-                "--provider",
-                "kiro"
+                "${workspaceFolder}/cli/testdata/kiro/provider.json"
             ],
             "env": {},
             "showLog": true,
             "console": "integratedTerminal"
         },
         {
-            "name": "Debug Usage CMD",
+            "name": "Debug Get Provider",
             "type": "go",
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cli/main.go",
             "args": [
-                "usage",
-                "view",
-                "--file",
-                "${workspaceFolder}/cli/testdata/kiro/creds-src/52.json",
-                "--provider",
-                "kiro"
-            ],
-            "env": {},
-            "showLog": true,
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Debug Stream CMD",
-            "type": "go",
-            "request": "launch",
-            "mode": "debug",
-            "program": "${workspaceFolder}/cli/main.go",
-            "args": [
-                "stream",
-                "--creds",
-                "${workspaceFolder}/cli/testdata/kiro/creds-src/8.json",
-                "--data",
-                "${workspaceFolder}/cli/testdata/kiro/data.json",
-                "--provider",
-                "kiro"
+                "provider",
+                "get",
+                "--type",
+                "kiro",
+                "--name",
+                "kiro-team-a"
             ],
             "env": {},
             "showLog": true,

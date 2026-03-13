@@ -63,22 +63,36 @@ func (s *Store) initDB() error {
 }
 
 func (s *Store) Get(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
-	var info *account.ProviderInfo
-	err := s.client.Query(ctx, func(rows *sql.Rows) error {
-		if !rows.Next() {
-			return nil
-		}
-		var scanErr error
-		info, scanErr = scanProviderFromRows(rows)
-		return scanErr
-	}, queryGetProvider, key.Type, key.Name)
+	var (
+		info           account.ProviderInfo
+		statusInt      int
+		tagsJSON       sql.NullString
+		modelsJSON     sql.NullString
+		usageRulesJSON sql.NullString
+		metadataJSON   sql.NullString
+	)
+
+	dest := []any{
+		&info.ProviderType, &info.ProviderName,
+		&statusInt, &info.Priority, &info.Weight,
+		&tagsJSON, &modelsJSON, &usageRulesJSON, &metadataJSON,
+		&info.AccountCount, &info.AvailableAccountCount,
+		&info.CreatedAt, &info.UpdatedAt,
+	}
+
+	err := s.client.QueryRow(ctx, dest, queryGetProvider, key.Type, key.Name)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, storage.ErrNotFound
+		}
 		return nil, fmt.Errorf("providerstore: failed to get provider: %w", err)
 	}
-	if info == nil {
-		return nil, storage.ErrNotFound
+
+	result, err := buildProviderInfo(&info, statusInt, tagsJSON, modelsJSON, usageRulesJSON, metadataJSON)
+	if err != nil {
+		return nil, fmt.Errorf("providerstore: failed to build provider info: %w", err)
 	}
-	return info, nil
+	return result, nil
 }
 
 func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
@@ -97,7 +111,7 @@ func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*ac
 	var result []*account.ProviderInfo
 	err = s.client.Query(ctx, func(rows *sql.Rows) error {
 		for rows.Next() {
-			info, scanErr := scanProviderFromRows(rows)
+			info, scanErr := scanProviderFields(rows)
 			if scanErr != nil {
 				return fmt.Errorf("providerstore: failed to scan provider: %w", scanErr)
 			}

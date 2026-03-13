@@ -1,0 +1,10 @@
+{
+    "ProviderType": "kiro",
+    "ProviderName": "kiro-team-a",
+    "Status": 1,
+    "Priority": 10,
+    "Weight": 5,
+    "Tags": {
+        "team": "backend"
+    }
+}
