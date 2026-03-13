@@ -37,7 +37,7 @@ type addAccountOptions struct {
 //  4. 健康检查（如果 Status 为零值）
 //  5. 继承/回退用量规则和模型列表
 //  6. 存储 Account + 初始化 TrackedUsages
-func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) error {
+func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) (acct.Status, error) {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 
 	// 验证所属 Provider 是否存在
@@ -45,15 +45,15 @@ func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) error {
 	providerInfo, err := deps.ProviderStorage.Get(cmd.Context(), providerKey)
 	if err != nil {
 		if err == storage.ErrNotFound {
-			return fmt.Errorf("Provider %s 不存在，请先添加 Provider", providerKey)
+			return 0, fmt.Errorf("Provider %s 不存在，请先添加 Provider", providerKey)
 		}
-		return fmt.Errorf("查询 Provider 失败: %w", err)
+		return 0, fmt.Errorf("查询 Provider 失败: %w", err)
 	}
 
 	// 解析凭证
 	cred, err := parseCredential(opts.ProviderType, opts.Credential)
 	if err != nil {
-		return fmt.Errorf("解析凭证失败: %w", err)
+		return 0, fmt.Errorf("解析凭证失败: %w", err)
 	}
 
 	// 构建 Account 对象
@@ -88,7 +88,7 @@ func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) error {
 	}
 
 	if err := deps.AccountStorage.Add(cmd.Context(), account); err != nil {
-		return handleStorageError("Account", err)
+		return 0, handleStorageError("Account", err)
 	}
 
 	// 账号添加成功后，如果健康检查获取到了真实用量数据，初始化 TrackedUsages
@@ -97,7 +97,18 @@ func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) error {
 	}
 
 	fmt.Printf("Account %s 添加成功（Provider: %s, 状态: %s）\n", account.ID, providerKey, account.Status)
-	return nil
+	return account.Status, nil
+}
+
+// printStatusSummary 打印批量操作后各状态的账号数量统计。
+func printStatusSummary(statusCounts map[acct.Status]int64) {
+	if len(statusCounts) == 0 {
+		return
+	}
+	fmt.Println("状态分布:")
+	for status, count := range statusCounts {
+		fmt.Printf("  %s: %d\n", status, count)
+	}
 }
 
 // runHealthCheck 使用 HealthChecker 对账号进行完整的健康检查，并根据检查结果设置账号状态。

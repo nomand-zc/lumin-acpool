@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	acct "github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/cli/internal/ioutil"
 	"github.com/nomand-zc/lumin-client/pool/taskpool"
 )
@@ -75,15 +76,16 @@ func (c *importCmd) run(cmd *cobra.Command) error {
 	if fi.IsDir() {
 		return c.runBatch(cmd)
 	}
-	return c.runSingle(cmd, c.filePath)
+	_, err = c.runSingle(cmd, c.filePath)
+	return err
 }
 
-// runSingle 从单个凭证文件导入一个 Account。
-func (c *importCmd) runSingle(cmd *cobra.Command, filePath string) error {
+// runSingle 从单个凭证文件导入一个 Account，返回最终状态。
+func (c *importCmd) runSingle(cmd *cobra.Command, filePath string) (acct.Status, error) {
 	// 直接加载凭证 JSON 原始数据
 	credRaw, err := ioutil.LoadJSONFile[json.RawMessage](filePath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// 自动生成 UUID 作为 Account ID
@@ -106,6 +108,7 @@ func (c *importCmd) runBatch(cmd *cobra.Command) error {
 		mu           sync.Mutex
 		wg           sync.WaitGroup
 		errs         []string
+		statusCounts = make(map[acct.Status]int64)
 	)
 
 	err := filepath.Walk(c.filePath, func(path string, info os.FileInfo, err error) error {
@@ -118,7 +121,8 @@ func (c *importCmd) runBatch(cmd *cobra.Command) error {
 		if submitErr := taskpool.DefaultPool.Submit(func() {
 			defer wg.Done()
 
-			if addErr := c.runSingle(cmd, path); addErr != nil {
+			status, addErr := c.runSingle(cmd, path)
+			if addErr != nil {
 				failCount.Add(1)
 				mu.Lock()
 				errs = append(errs, fmt.Sprintf("  %s: %v", path, addErr))
@@ -126,6 +130,9 @@ func (c *importCmd) runBatch(cmd *cobra.Command) error {
 				return
 			}
 			successCount.Add(1)
+			mu.Lock()
+			statusCounts[status]++
+			mu.Unlock()
 		}); submitErr != nil {
 			wg.Done()
 			failCount.Add(1)
@@ -147,6 +154,8 @@ func (c *importCmd) runBatch(cmd *cobra.Command) error {
 	total := successCount.Load() + failCount.Load()
 	fmt.Printf("批量导入完成！总计: %d, 成功: %d, 失败: %d\n",
 		total, successCount.Load(), failCount.Load())
+
+	printStatusSummary(statusCounts)
 
 	if len(errs) > 0 {
 		fmt.Printf("失败详情:\n%s\n", strings.Join(errs, "\n"))

@@ -79,7 +79,8 @@ func (c *addCmd) run(cmd *cobra.Command) error {
 	if fi.IsDir() {
 		return c.runBatch(cmd)
 	}
-	return c.runSingle(cmd, c.filePath)
+	_, err = c.runSingle(cmd, c.filePath)
+	return err
 }
 
 // accountJSON 是 Account 的 JSON 反序列化中间结构，
@@ -95,11 +96,11 @@ type accountJSON struct {
 	Metadata     map[string]any    `json:"Metadata"`
 }
 
-// runSingle 添加单个 Account。
-func (c *addCmd) runSingle(cmd *cobra.Command, filePath string) error {
+// runSingle 添加单个 Account，返回最终状态。
+func (c *addCmd) runSingle(cmd *cobra.Command, filePath string) (acct.Status, error) {
 	raw, err := ioutil.LoadJSONFile[accountJSON](filePath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// 命令行参数覆盖 JSON 中的空值
@@ -125,6 +126,7 @@ func (c *addCmd) runBatch(cmd *cobra.Command) error {
 		mu           sync.Mutex
 		wg           sync.WaitGroup
 		errs         []string
+		statusCounts = make(map[acct.Status]int64)
 	)
 
 	err := filepath.Walk(c.filePath, func(path string, info os.FileInfo, err error) error {
@@ -137,7 +139,8 @@ func (c *addCmd) runBatch(cmd *cobra.Command) error {
 		if submitErr := taskpool.DefaultPool.Submit(func() {
 			defer wg.Done()
 
-			if addErr := c.runSingle(cmd, path); addErr != nil {
+			status, addErr := c.runSingle(cmd, path)
+			if addErr != nil {
 				failCount.Add(1)
 				mu.Lock()
 				errs = append(errs, fmt.Sprintf("  %s: %v", path, addErr))
@@ -145,6 +148,9 @@ func (c *addCmd) runBatch(cmd *cobra.Command) error {
 				return
 			}
 			successCount.Add(1)
+			mu.Lock()
+			statusCounts[status]++
+			mu.Unlock()
 		}); submitErr != nil {
 			wg.Done()
 			failCount.Add(1)
@@ -166,6 +172,8 @@ func (c *addCmd) runBatch(cmd *cobra.Command) error {
 	total := successCount.Load() + failCount.Load()
 	fmt.Printf("批量添加完成！总计: %d, 成功: %d, 失败: %d\n",
 		total, successCount.Load(), failCount.Load())
+
+	printStatusSummary(statusCounts)
 
 	if len(errs) > 0 {
 		fmt.Printf("失败详情:\n%s\n", strings.Join(errs, "\n"))
