@@ -145,7 +145,7 @@ var luaAddAccount = `
 		return 0
 	end
 	
-	for i = 2, #ARGV, 2 do
+	for i = 2, #ARGV - 1, 2 do
 		redis.call("HSET", key, ARGV[i], ARGV[i+1])
 	end
 	
@@ -154,12 +154,22 @@ var luaAddAccount = `
 	redis.call("SADD", KEYS[4], id)
 	redis.call("SADD", KEYS[5], id)
 	
+	-- 更新 Provider 计数
+	local availIncr = tonumber(ARGV[#ARGV])
+	if redis.call("EXISTS", KEYS[6]) == 1 then
+		redis.call("HINCRBY", KEYS[6], "account_count", 1)
+		if availIncr > 0 then
+			redis.call("HINCRBY", KEYS[6], "available_account_count", availIncr)
+		end
+	end
+	
 	return 1
 `
 
 func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 	key := acctDataKey(s.keyPrefix, acct.ID)
 	ik := acctAllIndexKeys(s.keyPrefix, acct.ProviderType, acct.ProviderName, int(acct.Status))
+	provKey := provRedisKey(s.keyPrefix, acct.ProviderType, acct.ProviderName)
 
 	now := time.Now()
 	if acct.CreatedAt.IsZero() {
@@ -173,13 +183,19 @@ func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 		return fmt.Errorf("redis store: %w", err)
 	}
 
+	availableIncr := 0
+	if acct.Status == account.StatusAvailable {
+		availableIncr = 1
+	}
+
 	args := []any{acct.ID}
 	for k, v := range fields {
 		args = append(args, k, fmt.Sprintf("%v", v))
 	}
+	args = append(args, availableIncr)
 
 	result, err := s.client.Eval(ctx, luaAddAccount,
-		[]string{key, ik.global, ik.typeIdx, ik.provider, ik.group}, args...)
+		[]string{key, ik.global, ik.typeIdx, ik.provider, ik.group, provKey}, args...)
 	if err != nil {
 		return fmt.Errorf("redis store: failed to add account: %w", err)
 	}
@@ -282,11 +298,24 @@ func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error 
 }
 
 var luaRemoveAccount = `
+	-- 删除账号数据和索引
 	redis.call("DEL", KEYS[1])
 	redis.call("SREM", KEYS[2], ARGV[1])
 	redis.call("SREM", KEYS[3], ARGV[1])
 	redis.call("SREM", KEYS[4], ARGV[1])
 	redis.call("SREM", KEYS[5], ARGV[1])
+	
+	-- 更新 Provider 计数
+	local availDecr = tonumber(ARGV[2])
+	if redis.call("EXISTS", KEYS[6]) == 1 then
+		local curCount = tonumber(redis.call("HGET", KEYS[6], "account_count")) or 0
+		local curAvail = tonumber(redis.call("HGET", KEYS[6], "available_account_count")) or 0
+		local newCount = math.max(curCount - 1, 0)
+		local newAvail = math.max(curAvail - availDecr, 0)
+		redis.call("HSET", KEYS[6], "account_count", newCount)
+		redis.call("HSET", KEYS[6], "available_account_count", newAvail)
+	end
+	
 	return 1
 `
 
@@ -301,11 +330,21 @@ func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 		return storage.ErrNotFound
 	}
 
-	ik := acctAllIndexKeys(s.keyPrefix,
-		data[acctFieldProviderType], data[acctFieldProviderName], ParseInt(data[acctFieldStatus]))
+	providerType := data[acctFieldProviderType]
+	providerName := data[acctFieldProviderName]
+	status := ParseInt(data[acctFieldStatus])
+
+	ik := acctAllIndexKeys(s.keyPrefix, providerType, providerName, status)
+	provKey := provRedisKey(s.keyPrefix, providerType, providerName)
+
+	availableDecr := 0
+	if account.Status(status) == account.StatusAvailable {
+		availableDecr = 1
+	}
 
 	_, err = s.client.Eval(ctx, luaRemoveAccount,
-		[]string{key, ik.global, ik.typeIdx, ik.provider, ik.group}, id)
+		[]string{key, ik.global, ik.typeIdx, ik.provider, ik.group, provKey},
+		id, availableDecr)
 	if err != nil {
 		return fmt.Errorf("redis store: failed to remove account: %w", err)
 	}

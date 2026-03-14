@@ -22,6 +22,18 @@ const (
 		version=version+1 
 		WHERE id=? AND version=?`
 	queryDeleteAccount = `DELETE FROM accounts WHERE id=?`
+
+	// queryIncrProviderAccountCount 增加供应商的账号计数。
+	// 参数: available_incr(0或1), updated_at, provider_type, provider_name
+	queryIncrProviderAccountCount = `UPDATE providers SET account_count = account_count + 1, 
+		available_account_count = available_account_count + ?, updated_at = ? 
+		WHERE provider_type = ? AND provider_name = ?`
+
+	// queryDecrProviderAccountCount 减少供应商的账号计数。
+	// 参数: available_decr(0或1), updated_at, provider_type, provider_name
+	queryDecrProviderAccountCount = `UPDATE providers SET account_count = MAX(account_count - 1, 0), 
+		available_account_count = MAX(available_account_count - ?, 0), updated_at = ? 
+		WHERE provider_type = ? AND provider_name = ?`
 )
 
 var accountFieldMapping = map[string]string{

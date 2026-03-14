@@ -80,6 +80,19 @@ func (s *Store) AddAccount(_ context.Context, acct *account.Account) error {
 
 	s.accounts[acct.ID] = stored
 	s.acctAddToIndex(stored)
+
+	// 事务性更新 Provider 计数
+	s.provMu.Lock()
+	key := stored.ProviderKey()
+	if prov, ok := s.providers[key]; ok {
+		prov.AccountCount++
+		if stored.Status == account.StatusAvailable {
+			prov.AvailableAccountCount++
+		}
+		prov.UpdatedAt = now
+	}
+	s.provMu.Unlock()
+
 	return nil
 }
 
@@ -121,6 +134,21 @@ func (s *Store) RemoveAccount(_ context.Context, id string) error {
 
 	s.acctRemoveFromIndex(acct)
 	delete(s.accounts, id)
+
+	// 事务性更新 Provider 计数
+	s.provMu.Lock()
+	key := acct.ProviderKey()
+	if prov, ok := s.providers[key]; ok {
+		if prov.AccountCount > 0 {
+			prov.AccountCount--
+		}
+		if acct.Status == account.StatusAvailable && prov.AvailableAccountCount > 0 {
+			prov.AvailableAccountCount--
+		}
+		prov.UpdatedAt = time.Now()
+	}
+	s.provMu.Unlock()
+
 	return nil
 }
 

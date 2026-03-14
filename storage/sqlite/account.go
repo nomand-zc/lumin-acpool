@@ -150,29 +150,45 @@ func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 	// SQLite 时间存储为 TEXT 格式。
 	var cooldownUntil, circuitOpenUntil *string
 	if acct.CooldownUntil != nil {
-		s := acct.CooldownUntil.Format("2006-01-02 15:04:05.000")
-		cooldownUntil = &s
+		str := acct.CooldownUntil.Format("2006-01-02 15:04:05.000")
+		cooldownUntil = &str
 	}
 	if acct.CircuitOpenUntil != nil {
-		s := acct.CircuitOpenUntil.Format("2006-01-02 15:04:05.000")
-		circuitOpenUntil = &s
+		str := acct.CircuitOpenUntil.Format("2006-01-02 15:04:05.000")
+		circuitOpenUntil = &str
 	}
 
-	_, err = s.client.Exec(ctx, queryInsertAccount,
-		acct.ID, acct.ProviderType, acct.ProviderName,
-		credentialJSON, int(acct.Status), acct.Priority,
-		tagsJSON, metadataJSON, usageRulesJSON,
-		cooldownUntil, circuitOpenUntil,
-		createdAt.Format("2006-01-02 15:04:05.000"),
-		now.Format("2006-01-02 15:04:05.000"), 1,
-	)
-	if err != nil {
-		if IsDuplicateEntry(err) {
-			return storage.ErrAlreadyExists
-		}
-		return fmt.Errorf("sqlite store: failed to add account: %w", err)
+	availableIncr := 0
+	if acct.Status == account.StatusAvailable {
+		availableIncr = 1
 	}
-	return nil
+
+	nowStr := now.Format("2006-01-02 15:04:05.000")
+
+	return s.client.Transaction(ctx, func(tx *sql.Tx) error {
+		_, txErr := tx.ExecContext(ctx, queryInsertAccount,
+			acct.ID, acct.ProviderType, acct.ProviderName,
+			credentialJSON, int(acct.Status), acct.Priority,
+			tagsJSON, metadataJSON, usageRulesJSON,
+			cooldownUntil, circuitOpenUntil,
+			createdAt.Format("2006-01-02 15:04:05.000"),
+			nowStr, 1,
+		)
+		if txErr != nil {
+			if IsDuplicateEntry(txErr) {
+				return storage.ErrAlreadyExists
+			}
+			return fmt.Errorf("sqlite store: failed to add account: %w", txErr)
+		}
+
+		_, txErr = tx.ExecContext(ctx, queryIncrProviderAccountCount,
+			availableIncr, nowStr, acct.ProviderType, acct.ProviderName)
+		if txErr != nil {
+			return fmt.Errorf("sqlite store: failed to incr provider account count: %w", txErr)
+		}
+
+		return nil
+	})
 }
 
 func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error {
@@ -227,19 +243,37 @@ func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error 
 }
 
 func (s *Store) RemoveAccount(ctx context.Context, id string) error {
-	result, err := s.client.Exec(ctx, queryDeleteAccount, id)
-	if err != nil {
-		return fmt.Errorf("sqlite store: failed to remove account: %w", err)
-	}
+	return s.client.Transaction(ctx, func(tx *sql.Tx) error {
+		// 在事务内查询账号信息，保证读取和删除的原子性
+		var providerType, providerName string
+		var statusInt int
+		row := tx.QueryRowContext(ctx, `SELECT provider_type, provider_name, status FROM accounts WHERE id=?`, id)
+		if txErr := row.Scan(&providerType, &providerName, &statusInt); txErr != nil {
+			if txErr == sql.ErrNoRows {
+				return storage.ErrNotFound
+			}
+			return fmt.Errorf("sqlite store: failed to get account for removal: %w", txErr)
+		}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("sqlite store: failed to get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return storage.ErrNotFound
-	}
-	return nil
+		availableDecr := 0
+		if account.Status(statusInt) == account.StatusAvailable {
+			availableDecr = 1
+		}
+
+		_, txErr := tx.ExecContext(ctx, queryDeleteAccount, id)
+		if txErr != nil {
+			return fmt.Errorf("sqlite store: failed to remove account: %w", txErr)
+		}
+
+		_, txErr = tx.ExecContext(ctx, queryDecrProviderAccountCount,
+			availableDecr, time.Now().Format("2006-01-02 15:04:05.000"),
+			providerType, providerName)
+		if txErr != nil {
+			return fmt.Errorf("sqlite store: failed to decr provider account count: %w", txErr)
+		}
+
+		return nil
+	})
 }
 
 func (s *Store) RemoveAccounts(ctx context.Context, filter *storage.SearchFilter) error {

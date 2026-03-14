@@ -137,20 +137,34 @@ func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 		return fmt.Errorf("mysql store: failed to marshal usage_rules: %w", err)
 	}
 
-	_, err = s.client.Exec(ctx, queryInsertAccount,
-		acct.ID, acct.ProviderType, acct.ProviderName,
-		credentialJSON, int(acct.Status), acct.Priority,
-		tagsJSON, metadataJSON, usageRulesJSON,
-		acct.CooldownUntil, acct.CircuitOpenUntil,
-		createdAt, now, 1,
-	)
-	if err != nil {
-		if IsDuplicateEntry(err) {
-			return storage.ErrAlreadyExists
-		}
-		return fmt.Errorf("mysql store: failed to add account: %w", err)
+	availableIncr := 0
+	if acct.Status == account.StatusAvailable {
+		availableIncr = 1
 	}
-	return nil
+
+	return s.client.Transaction(ctx, func(tx *sql.Tx) error {
+		_, txErr := tx.ExecContext(ctx, queryInsertAccount,
+			acct.ID, acct.ProviderType, acct.ProviderName,
+			credentialJSON, int(acct.Status), acct.Priority,
+			tagsJSON, metadataJSON, usageRulesJSON,
+			acct.CooldownUntil, acct.CircuitOpenUntil,
+			createdAt, now, 1,
+		)
+		if txErr != nil {
+			if IsDuplicateEntry(txErr) {
+				return storage.ErrAlreadyExists
+			}
+			return fmt.Errorf("mysql store: failed to add account: %w", txErr)
+		}
+
+		_, txErr = tx.ExecContext(ctx, queryIncrProviderAccountCount,
+			availableIncr, acct.ProviderType, acct.ProviderName)
+		if txErr != nil {
+			return fmt.Errorf("mysql store: failed to incr provider account count: %w", txErr)
+		}
+
+		return nil
+	})
 }
 
 func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error {
@@ -194,19 +208,36 @@ func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error 
 }
 
 func (s *Store) RemoveAccount(ctx context.Context, id string) error {
-	result, err := s.client.Exec(ctx, queryDeleteAccount, id)
-	if err != nil {
-		return fmt.Errorf("mysql store: failed to remove account: %w", err)
-	}
+	return s.client.Transaction(ctx, func(tx *sql.Tx) error {
+		// 在事务内查询账号信息，保证读取和删除的原子性
+		var providerType, providerName string
+		var statusInt int
+		row := tx.QueryRowContext(ctx, `SELECT provider_type, provider_name, status FROM accounts WHERE id=?`, id)
+		if txErr := row.Scan(&providerType, &providerName, &statusInt); txErr != nil {
+			if txErr == sql.ErrNoRows {
+				return storage.ErrNotFound
+			}
+			return fmt.Errorf("mysql store: failed to get account for removal: %w", txErr)
+		}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("mysql store: failed to get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return storage.ErrNotFound
-	}
-	return nil
+		availableDecr := 0
+		if account.Status(statusInt) == account.StatusAvailable {
+			availableDecr = 1
+		}
+
+		_, txErr := tx.ExecContext(ctx, queryDeleteAccount, id)
+		if txErr != nil {
+			return fmt.Errorf("mysql store: failed to remove account: %w", txErr)
+		}
+
+		_, txErr = tx.ExecContext(ctx, queryDecrProviderAccountCount,
+			availableDecr, providerType, providerName)
+		if txErr != nil {
+			return fmt.Errorf("mysql store: failed to decr provider account count: %w", txErr)
+		}
+
+		return nil
+	})
 }
 
 func (s *Store) RemoveAccounts(ctx context.Context, filter *storage.SearchFilter) error {
