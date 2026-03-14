@@ -97,7 +97,7 @@ func (c *addCmd) runSingle(cmd *cobra.Command, filePath string) error {
 		return fmt.Errorf("获取 Provider 默认配置失败: %w", err)
 	}
 
-	if err := deps.ProviderStorage.AddProvider(cmd.Context(), info); err != nil {
+	if err := deps.Storage.AddProvider(cmd.Context(), info); err != nil {
 		return handleStorageError("Provider", err)
 	}
 

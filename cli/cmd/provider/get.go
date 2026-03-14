@@ -44,7 +44,7 @@ func (c *getCmd) run(cmd *cobra.Command) error {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 	key := account.BuildProviderKey(c.providerType, c.providerName)
 
-	info, err := deps.ProviderStorage.GetProvider(cmd.Context(), key)
+	info, err := deps.Storage.GetProvider(cmd.Context(), key)
 	if err != nil {
 		return handleStorageError("Provider", err)
 	}

@@ -59,18 +59,18 @@ func (c *removeCmd) runSingleRemove(cmd *cobra.Command) error {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 
 	// 删除账号
-	if err := deps.AccountStorage.RemoveAccount(cmd.Context(), c.accountID); err != nil {
+if err := deps.Storage.RemoveAccount(cmd.Context(), c.accountID); err != nil {
 		return handleStorageError("Account", err)
 	}
 
 	// 清理关联的统计数据
-	if err := deps.StatsStore.RemoveStats(cmd.Context(), c.accountID); err != nil {
+if err := deps.Storage.RemoveStats(cmd.Context(), c.accountID); err != nil {
 		// 统计数据清理失败不阻塞主流程，仅打印警告
 		fmt.Printf("警告: 清理统计数据失败: %v\n", err)
 	}
 
 	// 清理关联的用量追踪数据
-	if err := deps.UsageStore.RemoveUsages(cmd.Context(), c.accountID); err != nil {
+if err := deps.Storage.RemoveUsages(cmd.Context(), c.accountID); err != nil {
 		// 用量追踪数据清理失败不阻塞主流程，仅打印警告
 		fmt.Printf("警告: 清理用量追踪数据失败: %v\n", err)
 	}
@@ -90,7 +90,7 @@ func (c *removeCmd) runBatchRemove(cmd *cobra.Command) error {
 
 	// 先查询该 Provider 下所有账号，用于后续清理关联数据
 	filter := buildAccountFilter(c.providerType, c.providerName, 0)
-	accounts, err := deps.AccountStorage.SearchAccounts(cmd.Context(), filter)
+accounts, err := deps.Storage.SearchAccounts(cmd.Context(), filter)
 	if err != nil {
 		return fmt.Errorf("查询 Account 失败: %w", err)
 	}
@@ -101,17 +101,17 @@ func (c *removeCmd) runBatchRemove(cmd *cobra.Command) error {
 	}
 
 	// 批量删除账号
-	if err := deps.AccountStorage.RemoveAccounts(cmd.Context(), filter); err != nil {
+if err := deps.Storage.RemoveAccounts(cmd.Context(), filter); err != nil {
 		return fmt.Errorf("批量删除 Account 失败: %w", err)
 	}
 
 	// 清理所有被删除账号的关联数据
 	var cleanupErrs int
 	for _, a := range accounts {
-		if err := deps.StatsStore.RemoveStats(cmd.Context(), a.ID); err != nil {
+if err := deps.Storage.RemoveStats(cmd.Context(), a.ID); err != nil {
 			cleanupErrs++
 		}
-		if err := deps.UsageStore.RemoveUsages(cmd.Context(), a.ID); err != nil {
+		if err := deps.Storage.RemoveUsages(cmd.Context(), a.ID); err != nil {
 			cleanupErrs++
 		}
 	}

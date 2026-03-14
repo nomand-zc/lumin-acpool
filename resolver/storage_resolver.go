@@ -57,8 +57,8 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 	filter := &storage.SearchFilter{
 		ProviderType:   providerType,
 		SupportedModel: model,
-		Status:         int(account.ProviderStatusActive),
-		// ExtraCond:      filtercond.GreaterThan(storage.ProviderFieldAvailableAccountCount, 0),
+		// 不在 filter 层限制 Status，因为 Active 和 Degraded 都视为可用，
+		// 由下方 IsActive() 统一判断。
 	}
 
 	candidate, err := r.providerStorage.SearchProviders(ctx, filter)
@@ -66,10 +66,11 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 		return nil, fmt.Errorf("resolver: search providers: %w", err)
 	}
 
-	// TODO: 过滤掉 AccountCount <= 0 或 AvailableAccountCount <= 0 的提供者
-	// 前提是需要正确维护 AvailableAccountCount、AccountCount的值
 	var active []*account.ProviderInfo
 	for _, provInfo := range candidate {
+		if !provInfo.IsActive() {
+			continue
+		}
 		r.fillAccountCounts(ctx, provInfo)
 		if provInfo.AccountCount > 0 && provInfo.AvailableAccountCount > 0 {
 			active = append(active, provInfo)

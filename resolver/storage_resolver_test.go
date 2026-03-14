@@ -37,9 +37,10 @@ func addAccount(ctx context.Context, as *storememory.Store, id, provType, provNa
 
 func TestResolveProvider_Success(t *testing.T) {
 	ctx := context.Background()
-	r, ps, _ := setupResolver()
+	r, ps, as := setupResolver()
 
 	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4", "gpt-3.5"})
+	addAccount(ctx, as, "acc-1", "kiro", "team-a", account.StatusAvailable, 5, nil)
 
 	prov, err := r.ResolveProvider(ctx, account.BuildProviderKey("kiro", "team-a"), "gpt-4")
 	if err != nil {
@@ -105,11 +106,14 @@ func TestResolveProvider_FillsAccountCounts(t *testing.T) {
 
 func TestResolveProviders_ByModel(t *testing.T) {
 	ctx := context.Background()
-	r, ps, _ := setupResolver()
+	r, ps, as := setupResolver()
 
 	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4"})
 	addProvider(ctx, ps, "kiro", "team-b", account.ProviderStatusActive, 3, []string{"gpt-3.5"})
 	addProvider(ctx, ps, "openai", "default", account.ProviderStatusActive, 8, []string{"gpt-4", "gpt-3.5"})
+	// 为支持 gpt-4 的两个 provider 添加可用账号
+	addAccount(ctx, as, "acc-1", "kiro", "team-a", account.StatusAvailable, 5, nil)
+	addAccount(ctx, as, "acc-2", "openai", "default", account.StatusAvailable, 5, nil)
 
 	providers, err := r.ResolveProviders(ctx, "gpt-4", "")
 	if err != nil {
@@ -122,11 +126,15 @@ func TestResolveProviders_ByModel(t *testing.T) {
 
 func TestResolveProviders_ByTypeAndModel(t *testing.T) {
 	ctx := context.Background()
-	r, ps, _ := setupResolver()
+	r, ps, as := setupResolver()
 
 	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4"})
 	addProvider(ctx, ps, "kiro", "team-b", account.ProviderStatusActive, 3, []string{"gpt-4"})
 	addProvider(ctx, ps, "openai", "default", account.ProviderStatusActive, 8, []string{"gpt-4"})
+	// 为所有 provider 添加可用账号
+	addAccount(ctx, as, "acc-1", "kiro", "team-a", account.StatusAvailable, 5, nil)
+	addAccount(ctx, as, "acc-2", "kiro", "team-b", account.StatusAvailable, 5, nil)
+	addAccount(ctx, as, "acc-3", "openai", "default", account.StatusAvailable, 5, nil)
 
 	providers, err := r.ResolveProviders(ctx, "gpt-4", "kiro")
 	if err != nil {
@@ -139,10 +147,12 @@ func TestResolveProviders_ByTypeAndModel(t *testing.T) {
 
 func TestResolveProviders_ExcludesDisabled(t *testing.T) {
 	ctx := context.Background()
-	r, ps, _ := setupResolver()
+	r, ps, as := setupResolver()
 
 	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4"})
 	addProvider(ctx, ps, "kiro", "team-b", account.ProviderStatusDisabled, 3, []string{"gpt-4"})
+	// 只需为 active 的 provider 添加可用账号
+	addAccount(ctx, as, "acc-1", "kiro", "team-a", account.StatusAvailable, 5, nil)
 
 	providers, _ := r.ResolveProviders(ctx, "gpt-4", "")
 	if len(providers) != 1 {
@@ -152,10 +162,13 @@ func TestResolveProviders_ExcludesDisabled(t *testing.T) {
 
 func TestResolveProviders_IncludesDegraded(t *testing.T) {
 	ctx := context.Background()
-	r, ps, _ := setupResolver()
+	r, ps, as := setupResolver()
 
 	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4"})
 	addProvider(ctx, ps, "kiro", "team-b", account.ProviderStatusDegraded, 3, []string{"gpt-4"})
+	// 为两个 provider 都添加可用账号
+	addAccount(ctx, as, "acc-1", "kiro", "team-a", account.StatusAvailable, 5, nil)
+	addAccount(ctx, as, "acc-2", "kiro", "team-b", account.StatusAvailable, 5, nil)
 
 	providers, _ := r.ResolveProviders(ctx, "gpt-4", "")
 	if len(providers) != 2 {

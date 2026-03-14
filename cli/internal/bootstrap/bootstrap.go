@@ -12,13 +12,8 @@ import (
 
 // Dependencies 持有 CLI 运行所需的全部依赖。
 type Dependencies struct {
-	// Storage 层
-	AccountStorage  storage.AccountStorage
-	ProviderStorage storage.ProviderStorage
-	StatsStore      storage.StatsStore
-	UsageStore      storage.UsageStore
-	OccupancyStore  storage.OccupancyStore
-	AffinityStore   storage.AffinityStore
+	// Storage 层（聚合接口，包含 AccountStorage、ProviderStorage 等全部子接口）
+	Storage storage.Storage
 
 	// 业务组件层
 	UsageTracker usagetracker.UsageTracker

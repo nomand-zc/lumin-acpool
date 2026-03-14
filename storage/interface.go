@@ -162,3 +162,16 @@ type OccupancyStore interface {
 	// 用于 FilterAvailable 操作：判断是否还有余量。
 	GetOccupancy(ctx context.Context, accountID string) (int64, error)
 }
+
+// Storage 是所有存储接口的聚合接口。
+// 当一个存储后端（如 MySQL、Redis）同时实现了全部子接口时，
+// 可用此类型统一传递，简化初始化逻辑。
+// 消费端仍应依赖具体的子接口（AccountStorage、StatsStore 等），遵循接口隔离原则。
+type Storage interface {
+	AccountStorage
+	ProviderStorage
+	StatsStore
+	UsageStore
+	OccupancyStore
+	AffinityStore
+}

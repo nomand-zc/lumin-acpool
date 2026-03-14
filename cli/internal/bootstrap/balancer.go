@@ -23,15 +23,15 @@ import (
 //  5. 组装 Balancer
 func initBalancer(cfg config.BalancerConfig, deps *Dependencies) error {
 	opts := []balancer.Option{
-		balancer.WithAccountStorage(deps.AccountStorage),
-		balancer.WithProviderStorage(deps.ProviderStorage),
+balancer.WithAccountStorage(deps.Storage),
+		balancer.WithProviderStorage(deps.Storage),
 		balancer.WithDefaultMaxRetries(cfg.DefaultMaxRetries),
 		balancer.WithDefaultFailover(cfg.DefaultEnableFailover),
 	}
 
 	// StatsStore
-	if deps.StatsStore != nil {
-		opts = append(opts, balancer.WithStatsStore(deps.StatsStore))
+if deps.Storage != nil {
+		opts = append(opts, balancer.WithStatsStore(deps.Storage))
 	}
 
 	// ---- Selector ----
@@ -106,7 +106,7 @@ func buildSelector(tc *config.TypedConfig[config.SelectorStrategy], deps *Depend
 		return accountStrategies.NewWeighted(), nil
 
 	case config.SelectorLeastUsed:
-		return accountStrategies.NewLeastUsed(deps.StatsStore), nil
+return accountStrategies.NewLeastUsed(deps.Storage), nil
 
 	case config.SelectorAffinity:
 		var cfg config.AffinityConfig
@@ -114,8 +114,8 @@ func buildSelector(tc *config.TypedConfig[config.SelectorStrategy], deps *Depend
 			return nil, fmt.Errorf("decode affinity config: %w", err)
 		}
 		var opts []accountStrategies.AffinityOption
-		if deps.AffinityStore != nil {
-			opts = append(opts, accountStrategies.AffinityWithStore(deps.AffinityStore))
+if deps.Storage != nil {
+			opts = append(opts, accountStrategies.AffinityWithStore(deps.Storage))
 		}
 		if cfg.Fallback != "" {
 			fb, err := buildSimpleSelector(cfg.Fallback, deps)
@@ -141,7 +141,7 @@ func buildSimpleSelector(strategy config.SelectorStrategy, deps *Dependencies) (
 	case config.SelectorWeighted:
 		return accountStrategies.NewWeighted(), nil
 	case config.SelectorLeastUsed:
-		return accountStrategies.NewLeastUsed(deps.StatsStore), nil
+return accountStrategies.NewLeastUsed(deps.Storage), nil
 	default:
 		return nil, fmt.Errorf("unknown selector strategy for fallback: %q", strategy)
 	}
@@ -174,8 +174,8 @@ func buildGroupSelector(tc *config.TypedConfig[config.GroupSelectorStrategy], de
 			return nil, fmt.Errorf("decode group_affinity config: %w", err)
 		}
 		var opts []groupStrategies.GroupAffinityOption
-		if deps.AffinityStore != nil {
-			opts = append(opts, groupStrategies.GroupAffinityWithStore(deps.AffinityStore))
+if deps.Storage != nil {
+			opts = append(opts, groupStrategies.GroupAffinityWithStore(deps.Storage))
 		}
 		if cfg.Fallback != "" {
 			fb, err := buildSimpleGroupSelector(cfg.Fallback)
@@ -228,8 +228,8 @@ func buildOccupancy(tc *config.TypedConfig[config.OccupancyStrategy], deps *Depe
 			return nil, fmt.Errorf("fixed occupancy: default_limit must be > 0")
 		}
 		var opts []occupancy.FixedLimitOption
-		if deps.OccupancyStore != nil {
-			opts = append(opts, occupancy.WithStore(deps.OccupancyStore))
+if deps.Storage != nil {
+			opts = append(opts, occupancy.WithStore(deps.Storage))
 		}
 		return occupancy.NewFixedLimit(cfg.DefaultLimit, opts...), nil
 
@@ -242,8 +242,8 @@ func buildOccupancy(tc *config.TypedConfig[config.OccupancyStrategy], deps *Depe
 			return nil, fmt.Errorf("adaptive occupancy requires usage_tracker to be configured")
 		}
 		var opts []occupancy.AdaptiveLimitOption
-		if deps.OccupancyStore != nil {
-			opts = append(opts, occupancy.WithAdaptiveStore(deps.OccupancyStore))
+if deps.Storage != nil {
+			opts = append(opts, occupancy.WithAdaptiveStore(deps.Storage))
 		}
 		if cfg.Factor > 0 {
 			opts = append(opts, occupancy.WithFactor(cfg.Factor))
@@ -269,8 +269,8 @@ func buildOccupancy(tc *config.TypedConfig[config.OccupancyStrategy], deps *Depe
 // buildUsageTracker 构建用量追踪器。
 func buildUsageTracker(cfg *config.UsageTrackerConfig, deps *Dependencies) usagetracker.UsageTracker {
 	var opts []usagetracker.Option
-	if deps.UsageStore != nil {
-		opts = append(opts, usagetracker.WithUsageStore(deps.UsageStore))
+if deps.Storage != nil {
+		opts = append(opts, usagetracker.WithUsageStore(deps.Storage))
 	}
 	if cfg.SafetyRatio > 0 {
 		opts = append(opts, usagetracker.WithSafetyRatio(cfg.SafetyRatio))
@@ -281,8 +281,8 @@ func buildUsageTracker(cfg *config.UsageTrackerConfig, deps *Dependencies) usage
 // buildCircuitBreaker 构建熔断器。
 func buildCircuitBreaker(cfg *config.CircuitBreakerConfig, deps *Dependencies) (circuitbreaker.CircuitBreaker, error) {
 	var opts []circuitbreaker.Option
-	if deps.StatsStore != nil {
-		opts = append(opts, circuitbreaker.WithStatsStore(deps.StatsStore))
+if deps.Storage != nil {
+		opts = append(opts, circuitbreaker.WithStatsStore(deps.Storage))
 	}
 	if cfg.DefaultThreshold > 0 {
 		opts = append(opts, circuitbreaker.WithDefaultThreshold(cfg.DefaultThreshold))

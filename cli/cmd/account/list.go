@@ -57,13 +57,13 @@ func (c *listCmd) run(cmd *cobra.Command) error {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 	filter := buildAccountFilter(c.providerType, c.providerName, c.status)
 
-	accounts, err := deps.AccountStorage.SearchAccounts(cmd.Context(), filter)
+accounts, err := deps.Storage.SearchAccounts(cmd.Context(), filter)
 	if err != nil {
 		return fmt.Errorf("查询 Account 失败: %w", err)
 	}
 
 	// 聚合统计和用量追踪数据
-	adapter := &depsAdapter{statsStore: deps.StatsStore, usageStore: deps.UsageStore}
+adapter := &depsAdapter{statsStore: deps.Storage, usageStore: deps.Storage}
 	details := make([]*AccountDetail, 0, len(accounts))
 	for _, a := range accounts {
 		details = append(details, enrichAccountDetail(cmd.Context(), adapter, a))
