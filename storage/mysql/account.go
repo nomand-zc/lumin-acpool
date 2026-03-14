@@ -241,6 +241,8 @@ func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 	})
 }
 
+// RemoveAccounts 移除符合条件的账号
+// 注意：此接口会废弃掉，请使用 RemoveAccount
 func (s *Store) RemoveAccounts(ctx context.Context, filter *storage.SearchFilter) error {
 	var extraCond *filtercond.Filter
 	if filter != nil {

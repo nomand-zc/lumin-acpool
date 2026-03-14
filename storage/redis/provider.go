@@ -175,6 +175,8 @@ func (s *Store) UpdateProvider(ctx context.Context, info *account.ProviderInfo) 
 	return nil
 }
 
+// RemoveProvider 删除 Provider
+// 删除操作本事是一个低频操作， 暂不做优化
 func (s *Store) RemoveProvider(ctx context.Context, key account.ProviderKey) error {
 	redisKey := provRedisKey(s.keyPrefix, key.Type, key.Name)
 	indexKey := provIndexRedisKey(s.keyPrefix)
