@@ -236,6 +236,18 @@ func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 			return fmt.Errorf("mysql store: failed to decr provider account count: %w", txErr)
 		}
 
+		// 删除关联的统计数据
+		_, txErr = tx.ExecContext(ctx, queryDeleteStats, id)
+		if txErr != nil {
+			return fmt.Errorf("mysql store: failed to remove account stats: %w", txErr)
+		}
+
+		// 删除关联的用量追踪数据
+		_, txErr = tx.ExecContext(ctx, queryDeleteUsages, id)
+		if txErr != nil {
+			return fmt.Errorf("mysql store: failed to remove account usages: %w", txErr)
+		}
+
 		return nil
 	})
 }

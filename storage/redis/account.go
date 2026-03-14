@@ -348,6 +348,17 @@ func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("redis store: failed to remove account: %w", err)
 	}
+
+	// 删除关联的统计数据
+	if err := s.RemoveStats(ctx, id); err != nil {
+		return fmt.Errorf("redis store: failed to remove account stats: %w", err)
+	}
+
+	// 删除关联的用量追踪数据
+	if err := s.RemoveUsages(ctx, id); err != nil {
+		return fmt.Errorf("redis store: failed to remove account usages: %w", err)
+	}
+
 	return nil
 }
 

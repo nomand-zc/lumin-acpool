@@ -58,21 +58,9 @@ func (c *removeCmd) runSingleRemove(cmd *cobra.Command) error {
 
 	deps := bootstrap.DepsFromContext(cmd.Context())
 
-	// 删除账号
-if err := deps.Storage.RemoveAccount(cmd.Context(), c.accountID); err != nil {
+	// 删除账号（存储层会自动清理关联的统计数据和用量追踪数据）
+	if err := deps.Storage.RemoveAccount(cmd.Context(), c.accountID); err != nil {
 		return handleStorageError("Account", err)
-	}
-
-	// 清理关联的统计数据
-if err := deps.Storage.RemoveStats(cmd.Context(), c.accountID); err != nil {
-		// 统计数据清理失败不阻塞主流程，仅打印警告
-		fmt.Printf("警告: 清理统计数据失败: %v\n", err)
-	}
-
-	// 清理关联的用量追踪数据
-if err := deps.Storage.RemoveUsages(cmd.Context(), c.accountID); err != nil {
-		// 用量追踪数据清理失败不阻塞主流程，仅打印警告
-		fmt.Printf("警告: 清理用量追踪数据失败: %v\n", err)
 	}
 
 	fmt.Printf("Account %s 已删除\n", c.accountID)
@@ -100,25 +88,11 @@ accounts, err := deps.Storage.SearchAccounts(cmd.Context(), filter)
 		return nil
 	}
 
-	// 批量删除账号
+	// 批量删除账号（存储层会自动清理关联的统计数据和用量追踪数据）
 if err := deps.Storage.RemoveAccounts(cmd.Context(), filter); err != nil {
 		return fmt.Errorf("批量删除 Account 失败: %w", err)
 	}
 
-	// 清理所有被删除账号的关联数据
-	var cleanupErrs int
-	for _, a := range accounts {
-if err := deps.Storage.RemoveStats(cmd.Context(), a.ID); err != nil {
-			cleanupErrs++
-		}
-		if err := deps.Storage.RemoveUsages(cmd.Context(), a.ID); err != nil {
-			cleanupErrs++
-		}
-	}
-
 	fmt.Printf("已删除 Provider %s 下的 %d 个 Account\n", providerKey, len(accounts))
-	if cleanupErrs > 0 {
-		fmt.Printf("警告: %d 项关联数据清理失败\n", cleanupErrs)
-	}
 	return nil
 }

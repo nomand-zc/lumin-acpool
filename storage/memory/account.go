@@ -149,6 +149,16 @@ func (s *Store) RemoveAccount(_ context.Context, id string) error {
 	}
 	s.provMu.Unlock()
 
+	// 删除关联的统计数据
+	s.statsMu.Lock()
+	delete(s.statsStore, id)
+	s.statsMu.Unlock()
+
+	// 删除关联的用量追踪数据
+	s.usageMu.Lock()
+	delete(s.usageStore, id)
+	s.usageMu.Unlock()
+
 	return nil
 }
 
