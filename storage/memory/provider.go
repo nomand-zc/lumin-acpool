@@ -130,6 +130,26 @@ func (s *Store) RemoveProvider(_ context.Context, key account.ProviderKey) error
 		return storage.ErrNotFound
 	}
 
+	// 级联删除该 Provider 下的所有 Account 及关联数据
+	s.acctMu.Lock()
+	if ids, ok := s.acctProviderIndex[key]; ok {
+		for id := range ids {
+			if acct, acctExists := s.accounts[id]; acctExists {
+				s.acctRemoveFromIndex(acct)
+				delete(s.accounts, id)
+			}
+			// 删除关联的统计数据
+			s.statsMu.Lock()
+			delete(s.statsStore, id)
+			s.statsMu.Unlock()
+			// 删除关联的用量追踪数据
+			s.usageMu.Lock()
+			delete(s.usageStore, id)
+			s.usageMu.Unlock()
+		}
+	}
+	s.acctMu.Unlock()
+
 	s.provRemoveFromIndex(info)
 	delete(s.providers, key)
 	return nil

@@ -7,5 +7,7 @@ CREATE TABLE IF NOT EXISTS `account_stats` (
     `last_used_at`         DATETIME(3)           DEFAULT NULL COMMENT '最后使用时间',
     `last_error_at`        DATETIME(3)           DEFAULT NULL COMMENT '最后错误时间',
     `last_error_msg`       TEXT                  DEFAULT NULL COMMENT '最后错误消息',
-    PRIMARY KEY (`account_id`)
+    PRIMARY KEY (`account_id`),
+    CONSTRAINT `fk_account_stats_account` FOREIGN KEY (`account_id`)
+        REFERENCES `accounts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='账号运行时统计表';

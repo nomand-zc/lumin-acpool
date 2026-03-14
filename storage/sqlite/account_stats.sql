@@ -7,5 +7,7 @@ CREATE TABLE IF NOT EXISTS "account_stats" (
     "last_used_at"         TEXT             DEFAULT NULL,
     "last_error_at"        TEXT             DEFAULT NULL,
     "last_error_msg"       TEXT             DEFAULT NULL,
-    PRIMARY KEY ("account_id")
+    PRIMARY KEY ("account_id"),
+    FOREIGN KEY ("account_id")
+        REFERENCES "accounts" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );

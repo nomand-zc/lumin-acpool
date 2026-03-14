@@ -14,5 +14,7 @@ CREATE TABLE IF NOT EXISTS `tracked_usages` (
     `last_sync_at`   DATETIME(3)  NOT NULL COMMENT '上次同步时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_account_rule` (`account_id`, `rule_index`),
-    INDEX `idx_account_id` (`account_id`)
+    INDEX `idx_account_id` (`account_id`),
+    CONSTRAINT `fk_tracked_usages_account` FOREIGN KEY (`account_id`)
+        REFERENCES `accounts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用量追踪数据表';

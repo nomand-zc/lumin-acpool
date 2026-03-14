@@ -188,6 +188,22 @@ func (s *Store) RemoveProvider(ctx context.Context, key account.ProviderKey) err
 		return storage.ErrNotFound
 	}
 
+	// 级联删除该 Provider 下的所有 Account 及关联数据
+	filter := &storage.SearchFilter{
+		ProviderType: key.Type,
+		ProviderName: key.Name,
+	}
+	accounts, err := s.SearchAccounts(ctx, filter)
+	if err != nil {
+		return fmt.Errorf("redis store: failed to search accounts for cascade removal: %w", err)
+	}
+	for _, acct := range accounts {
+		if removeErr := s.RemoveAccount(ctx, acct.ID); removeErr != nil && removeErr != storage.ErrNotFound {
+			return fmt.Errorf("redis store: failed to cascade remove account %s: %w", acct.ID, removeErr)
+		}
+	}
+
+	// 删除 Provider 自身
 	_, err = s.client.Eval(ctx, scriptProviderRemove, []string{redisKey, indexKey}, member)
 	if err != nil {
 		return fmt.Errorf("redis store: failed to remove provider: %w", err)

@@ -196,6 +196,8 @@ func (s *Store) UpdateProvider(ctx context.Context, info *account.ProviderInfo) 
 }
 
 func (s *Store) RemoveProvider(ctx context.Context, key account.ProviderKey) error {
+	// 外键 ON DELETE CASCADE 会自动级联删除关联的 accounts、account_stats、tracked_usages、account_occupancy。
+	// SQLite 已在连接初始化时开启 PRAGMA foreign_keys=ON。
 	result, err := s.client.Exec(ctx, queryDeleteProvider, key.Type, key.Name)
 	if err != nil {
 		return fmt.Errorf("sqlite store: failed to remove provider: %w", err)

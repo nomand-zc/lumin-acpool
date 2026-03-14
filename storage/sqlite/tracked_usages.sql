@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS "tracked_usages" (
     "remote_remain"    REAL    NOT NULL DEFAULT 0,
     "window_start"     TEXT             DEFAULT NULL,
     "window_end"       TEXT             DEFAULT NULL,
-    "last_sync_at"     TEXT    NOT NULL
+    "last_sync_at"     TEXT    NOT NULL,
+    FOREIGN KEY ("account_id")
+        REFERENCES "accounts" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "uk_tracked_usages_account_rule" ON "tracked_usages" ("account_id", "rule_index");

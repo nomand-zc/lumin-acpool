@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS "accounts" (
     "created_at"         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
     "updated_at"         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
     "version"            INTEGER NOT NULL DEFAULT 1,
-    PRIMARY KEY ("id")
+    PRIMARY KEY ("id"),
+    FOREIGN KEY ("provider_type", "provider_name")
+        REFERENCES "providers" ("provider_type", "provider_name") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "idx_accounts_provider" ON "accounts" ("provider_type", "provider_name");

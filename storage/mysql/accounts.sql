@@ -16,5 +16,7 @@ CREATE TABLE IF NOT EXISTS `accounts` (
     PRIMARY KEY (`id`),
     INDEX `idx_provider` (`provider_type`, `provider_name`),
     INDEX `idx_status` (`status`),
-    INDEX `idx_priority` (`priority`)
+    INDEX `idx_priority` (`priority`),
+    CONSTRAINT `fk_accounts_provider` FOREIGN KEY (`provider_type`, `provider_name`)
+        REFERENCES `providers` (`provider_type`, `provider_name`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='账号信息表';
