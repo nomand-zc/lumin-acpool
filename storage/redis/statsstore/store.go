@@ -43,7 +43,7 @@ func NewStore(opts ...Option) (*Store, error) {
 	}, nil
 }
 
-func (s *Store) Get(ctx context.Context, accountID string) (*account.AccountStats, error) {
+func (s *Store) GetStats(ctx context.Context, accountID string) (*account.AccountStats, error) {
 	key := statsKey(s.keyPrefix, accountID)
 	data, err := s.client.HGetAll(ctx, key)
 	if err != nil {
@@ -132,7 +132,7 @@ func (s *Store) ResetConsecutiveFailures(ctx context.Context, accountID string) 
 	return nil
 }
 
-func (s *Store) Remove(ctx context.Context, accountID string) error {
+func (s *Store) RemoveStats(ctx context.Context, accountID string) error {
 	key := statsKey(s.keyPrefix, accountID)
 	err := s.client.Del(ctx, key)
 	if err != nil {

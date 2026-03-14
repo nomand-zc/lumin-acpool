@@ -65,7 +65,7 @@ func TestAffinity_HitBoundAccount(t *testing.T) {
 	}
 
 	// 预先设置亲和绑定
-	store.Set("user-A:gpt-4", "acc-2")
+	store.SetAffinity("user-A:gpt-4", "acc-2")
 
 	req := &selector.SelectRequest{
 		UserID: "user-A",
@@ -103,7 +103,7 @@ func TestAffinity_MissFallbackAndUpdateBinding(t *testing.T) {
 	}
 
 	// 验证映射已更新
-	boundID, exists := store.Get("user-B:gpt-4")
+	boundID, exists := store.GetAffinity("user-B:gpt-4")
 	if !exists {
 		t.Fatal("expected binding to be created")
 	}
@@ -122,7 +122,7 @@ func TestAffinity_BoundAccountNotInCandidates_Reselect(t *testing.T) {
 	}
 
 	// 预先绑定到 acc-2，但 acc-2 不在候选列表中
-	store.Set("user-C:gpt-4", "acc-2")
+	store.SetAffinity("user-C:gpt-4", "acc-2")
 
 	req := &selector.SelectRequest{
 		UserID: "user-C",
@@ -138,7 +138,7 @@ func TestAffinity_BoundAccountNotInCandidates_Reselect(t *testing.T) {
 	}
 
 	// 验证映射已更新
-	boundID, _ := store.Get("user-C:gpt-4")
+	boundID, _ := store.GetAffinity("user-C:gpt-4")
 	if boundID != result.ID {
 		t.Fatalf("expected binding updated to %s, got %s", result.ID, boundID)
 	}

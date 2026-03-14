@@ -57,7 +57,7 @@ func (s *Store) initDB() error {
 	return nil
 }
 
-func (s *Store) GetAll(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
+func (s *Store) GetAllUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	var result []*account.TrackedUsage
 	err := s.client.Query(ctx, func(rows *sql.Rows) error {
 		var (
@@ -111,7 +111,7 @@ func (s *Store) GetAll(ctx context.Context, accountID string) ([]*account.Tracke
 	return result, nil
 }
 
-func (s *Store) Save(ctx context.Context, accountID string, usages []*account.TrackedUsage) error {
+func (s *Store) SaveUsages(ctx context.Context, accountID string, usages []*account.TrackedUsage) error {
 	return s.client.Transaction(ctx, func(tx *sql.Tx) error {
 		// 先删除该账号的所有追踪数据
 		_, err := tx.ExecContext(ctx, queryDeleteUsages, accountID)
@@ -175,7 +175,7 @@ func (s *Store) IncrLocalUsed(ctx context.Context, accountID string, ruleIndex i
 	return nil
 }
 
-func (s *Store) Remove(ctx context.Context, accountID string) error {
+func (s *Store) RemoveUsages(ctx context.Context, accountID string) error {
 	_, err := s.client.Exec(ctx, queryDeleteUsages, accountID)
 	if err != nil {
 		return fmt.Errorf("usagestore: failed to remove usages: %w", err)

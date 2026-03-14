@@ -58,7 +58,7 @@ func (c *listCmd) run(cmd *cobra.Command) error {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 	filter := buildProviderFilter(c.providerType, c.providerName, c.status)
 
-	providers, err := deps.ProviderStorage.Search(cmd.Context(), filter)
+	providers, err := deps.ProviderStorage.SearchProviders(cmd.Context(), filter)
 	if err != nil {
 		return fmt.Errorf("查询 Provider 失败: %w", err)
 	}

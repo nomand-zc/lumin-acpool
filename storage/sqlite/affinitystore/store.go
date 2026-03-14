@@ -55,7 +55,7 @@ func (s *Store) initDB() error {
 }
 
 // Get 获取亲和键对应的绑定目标 ID。
-func (s *Store) Get(affinityKey string) (string, bool) {
+func (s *Store) GetAffinity(affinityKey string) (string, bool) {
 	var targetID string
 	err := s.client.QueryRow(context.Background(), []any{&targetID},
 		queryGetAffinity, affinityKey)
@@ -67,7 +67,7 @@ func (s *Store) Get(affinityKey string) (string, bool) {
 
 // Set 设置亲和键到目标 ID 的绑定关系。
 // 使用 INSERT ... ON CONFLICT ... DO UPDATE 实现 upsert 语义。
-func (s *Store) Set(affinityKey string, targetID string) {
+func (s *Store) SetAffinity(affinityKey string, targetID string) {
 	_, err := s.client.Exec(context.Background(), queryUpsertAffinity, affinityKey, targetID, targetID)
 	if err != nil {
 		// AffinityStore 接口不返回 error，记录错误后静默处理

@@ -26,7 +26,7 @@ func NewStorageResolver(providerStorage storage.ProviderStorage, accountStorage 
 
 // ResolveProvider resolves the specified provider exactly.
 func (r *storageResolver) ResolveProvider(ctx context.Context, key account.ProviderKey, model string) (*account.ProviderInfo, error) {
-	provInfo, err := r.providerStorage.Get(ctx, key)
+	provInfo, err := r.providerStorage.GetProvider(ctx, key)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return nil, ErrProviderNotFound
@@ -61,7 +61,7 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 		// ExtraCond:      filtercond.GreaterThan(storage.ProviderFieldAvailableAccountCount, 0),
 	}
 
-	candidate, err := r.providerStorage.Search(ctx, filter)
+	candidate, err := r.providerStorage.SearchProviders(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("resolver: search providers: %w", err)
 	}
@@ -92,7 +92,7 @@ func (r *storageResolver) ResolveAccounts(ctx context.Context, req ResolveAccoun
 		Status:       int(account.StatusAvailable),
 	}
 
-	accounts, err := r.accountStorage.Search(ctx, filter)
+	accounts, err := r.accountStorage.SearchAccounts(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("resolver: search accounts: %w", err)
 	}
@@ -117,7 +117,7 @@ func (r *storageResolver) fillAccountCounts(ctx context.Context, info *account.P
 	key := info.ProviderKey()
 
 	// 查询总账号数
-	if total, err := r.accountStorage.Count(ctx, &storage.SearchFilter{
+	if total, err := r.accountStorage.CountAccounts(ctx, &storage.SearchFilter{
 		ProviderType: key.Type,
 		ProviderName: key.Name,
 	}); err == nil {
@@ -125,7 +125,7 @@ func (r *storageResolver) fillAccountCounts(ctx context.Context, info *account.P
 	}
 
 	// 查询可用账号数（Status == Available）
-	if available, err := r.accountStorage.Count(ctx, &storage.SearchFilter{
+	if available, err := r.accountStorage.CountAccounts(ctx, &storage.SearchFilter{
 		ProviderType: key.Type,
 		ProviderName: key.Name,
 		Status:       int(account.StatusAvailable),

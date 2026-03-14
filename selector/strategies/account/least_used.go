@@ -59,7 +59,7 @@ func (l *LeastUsed) Select(candidates []*account.Account, _ *selector.SelectRequ
 // getTotalCalls 从 StatsStore 获取账号的总调用次数。
 // 获取失败时返回 0，不影响选择流程。
 func (l *LeastUsed) getTotalCalls(ctx context.Context, accountID string) int64 {
-	stats, err := l.statsStore.Get(ctx, accountID)
+	stats, err := l.statsStore.GetStats(ctx, accountID)
 	if err != nil {
 		return 0
 	}

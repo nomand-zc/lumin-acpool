@@ -11,11 +11,11 @@ import (
 // UsageStore 用量追踪数据存储接口。
 // 支持内存（单机）和 Redis（集群）两种后端。
 type UsageStore interface {
-	// GetAll 获取指定账号所有规则的追踪数据。
-	GetAll(ctx context.Context, accountID string) ([]*account.TrackedUsage, error)
+	// GetAllUsages 获取指定账号所有规则的追踪数据。
+	GetAllUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error)
 
-	// Save 保存指定账号所有规则的追踪数据。
-	Save(ctx context.Context, accountID string, usages []*account.TrackedUsage) error
+	// SaveUsages 保存指定账号所有规则的追踪数据。
+	SaveUsages(ctx context.Context, accountID string, usages []*account.TrackedUsage) error
 
 	// IncrLocalUsed 原子递增指定规则的本地已用量。
 	// ruleIndex: 规则索引，amount: 增量。
@@ -26,8 +26,8 @@ type UsageStore interface {
 	// 避免 Save 全量替换导致并发 IncrLocalUsed 的增量丢失。
 	CalibrateRule(ctx context.Context, accountID string, ruleIndex int, usage *account.TrackedUsage) error
 
-	// Remove 删除指定账号的追踪数据。
-	Remove(ctx context.Context, accountID string) error
+	// RemoveUsages 删除指定账号的追踪数据。
+	RemoveUsages(ctx context.Context, accountID string) error
 }
 
 // SearchFilter 是通用查询过滤器，将高频索引字段提升为一级字段，
@@ -48,58 +48,58 @@ type SearchFilter struct {
 // ProviderStorage is the provider storage interface.
 // Responsible for CRUD operations on ProviderInfo metadata.
 type ProviderStorage interface {
-	// Get retrieves provider info by ProviderKey.
+	// GetProvider retrieves provider info by ProviderKey.
 	// Returns ErrNotFound if not found.
-	Get(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error)
+	GetProvider(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error)
 
-	// Search queries provider list.
+	// SearchProviders queries provider list.
 	// Returns all providers when filter is nil.
-	Search(ctx context.Context, filter *SearchFilter) ([]*account.ProviderInfo, error)
+	SearchProviders(ctx context.Context, filter *SearchFilter) ([]*account.ProviderInfo, error)
 
-	// Add adds a provider.
+	// AddProvider adds a provider.
 	// Returns ErrAlreadyExists if the ProviderKey already exists.
-	Add(ctx context.Context, info *account.ProviderInfo) error
+	AddProvider(ctx context.Context, info *account.ProviderInfo) error
 
-	// Update updates provider info (full replacement).
+	// UpdateProvider updates provider info (full replacement).
 	// Returns ErrNotFound if the ProviderKey does not exist.
-	Update(ctx context.Context, info *account.ProviderInfo) error
+	UpdateProvider(ctx context.Context, info *account.ProviderInfo) error
 
-	// Remove deletes a provider.
+	// RemoveProvider deletes a provider.
 	// Returns ErrNotFound if the ProviderKey does not exist.
-	Remove(ctx context.Context, key account.ProviderKey) error
+	RemoveProvider(ctx context.Context, key account.ProviderKey) error
 }
 
 // AccountStorage is the account storage interface.
 // Responsible for CRUD operations on Account aggregate roots, all queries support filtercond universal filter conditions.
 type AccountStorage interface {
-	// Get retrieves a single account by ID.
+	// GetAccount retrieves a single account by ID.
 	// Returns ErrNotFound if not found.
-	Get(ctx context.Context, id string) (*account.Account, error)
+	GetAccount(ctx context.Context, id string) (*account.Account, error)
 
-	// Search queries account list.
+	// SearchAccounts queries account list.
 	// Returns all accounts when filter is nil.
-	Search(ctx context.Context, filter *SearchFilter) ([]*account.Account, error)
+	SearchAccounts(ctx context.Context, filter *SearchFilter) ([]*account.Account, error)
 
-	// Add adds an account.
+	// AddAccount adds an account.
 	// Returns ErrAlreadyExists if the ID already exists.
-	Add(ctx context.Context, acct *account.Account) error
+	AddAccount(ctx context.Context, acct *account.Account) error
 
-	// Update updates account info (full replacement).
+	// UpdateAccount updates account info (full replacement).
 	// Returns ErrNotFound if the ID does not exist.
 	// Returns ErrVersionConflict if the version does not match (optimistic lock conflict).
-	Update(ctx context.Context, acct *account.Account) error
+	UpdateAccount(ctx context.Context, acct *account.Account) error
 
-	// Remove deletes an account.
+	// RemoveAccount deletes an account.
 	// Returns ErrNotFound if the ID does not exist.
-	Remove(ctx context.Context, id string) error
+	RemoveAccount(ctx context.Context, id string) error
 
-	// RemoveFilter batch deletes accounts by condition.
+	// RemoveAccounts batch deletes accounts by condition.
 	// Deletes all accounts when filter is nil.
-	RemoveFilter(ctx context.Context, filter *SearchFilter) error
+	RemoveAccounts(ctx context.Context, filter *SearchFilter) error
 
-	// Count returns the account count.
+	// CountAccounts returns the account count.
 	// Returns the total count when filter is nil.
-	Count(ctx context.Context, filter *SearchFilter) (int, error)
+	CountAccounts(ctx context.Context, filter *SearchFilter) (int, error)
 }
 
 // AffinityStore 是亲和绑定关系的存储接口。
@@ -109,20 +109,20 @@ type AccountStorage interface {
 // 在集群部署时，应注入基于 Redis/数据库等共享存储的实现，
 // 使多个实例能够共享绑定关系，充分发挥亲和策略的效果。
 type AffinityStore interface {
-	// Get 获取亲和键对应的绑定目标 ID。
+	// GetAffinity 获取亲和键对应的绑定目标 ID。
 	// 返回目标 ID 和是否存在。
-	Get(affinityKey string) (targetID string, exists bool)
+	GetAffinity(affinityKey string) (targetID string, exists bool)
 
-	// Set 设置亲和键到目标 ID 的绑定关系。
-	Set(affinityKey string, targetID string)
+	// SetAffinity 设置亲和键到目标 ID 的绑定关系。
+	SetAffinity(affinityKey string, targetID string)
 }
 
 // StatsStore 运行时统计存储接口。
 // 支持高频原子更新，避免与 AccountStorage 的全量覆盖竞争。
 type StatsStore interface {
-	// Get 获取指定账号的运行统计。
+	// GetStats 获取指定账号的运行统计。
 	// 如果账号不存在统计记录，返回零值的 AccountStats（不返回错误）。
-	Get(ctx context.Context, accountID string) (*account.AccountStats, error)
+	GetStats(ctx context.Context, accountID string) (*account.AccountStats, error)
 
 	// IncrSuccess 原子递增成功计数，重置连续失败计数，更新 LastUsedAt。
 	IncrSuccess(ctx context.Context, accountID string) error
@@ -140,8 +140,8 @@ type StatsStore interface {
 	// ResetConsecutiveFailures 重置连续失败次数（成功时调用）。
 	ResetConsecutiveFailures(ctx context.Context, accountID string) error
 
-	// Remove 删除统计数据（账号注销时调用）。
-	Remove(ctx context.Context, accountID string) error
+	// RemoveStats 删除统计数据（账号注销时调用）。
+	RemoveStats(ctx context.Context, accountID string) error
 }
 
 // OccupancyStore 占用计数存储接口。
@@ -150,15 +150,15 @@ type StatsStore interface {
 // 在集群部署时，应注入基于 Redis 等共享存储的实现，
 // 使多个实例能够共享占用状态，实现跨实例的并发控制。
 type OccupancyStore interface {
-	// Incr 原子递增指定账号的占用计数，并返回递增后的值。
+	// IncrOccupancy 原子递增指定账号的占用计数，并返回递增后的值。
 	// 用于 Acquire 操作：先递增，再判断是否超过上限。
-	Incr(ctx context.Context, accountID string) (int64, error)
+	IncrOccupancy(ctx context.Context, accountID string) (int64, error)
 
-	// Decr 原子递减指定账号的占用计数（不会低于 0）。
+	// DecrOccupancy 原子递减指定账号的占用计数（不会低于 0）。
 	// 用于 Release 操作。
-	Decr(ctx context.Context, accountID string) error
+	DecrOccupancy(ctx context.Context, accountID string) error
 
-	// Get 获取指定账号当前的占用计数。
+	// GetOccupancy 获取指定账号当前的占用计数。
 	// 用于 FilterAvailable 操作：判断是否还有余量。
-	Get(ctx context.Context, accountID string) (int64, error)
+	GetOccupancy(ctx context.Context, accountID string) (int64, error)
 }

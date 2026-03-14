@@ -36,7 +36,7 @@ func (s *MemoryStatsStore) getOrCreate(accountID string) *account.AccountStats {
 	return st
 }
 
-func (s *MemoryStatsStore) Get(_ context.Context, accountID string) (*account.AccountStats, error) {
+func (s *MemoryStatsStore) GetStats(_ context.Context, accountID string) (*account.AccountStats, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -107,7 +107,7 @@ func (s *MemoryStatsStore) ResetConsecutiveFailures(_ context.Context, accountID
 	return nil
 }
 
-func (s *MemoryStatsStore) Remove(_ context.Context, accountID string) error {
+func (s *MemoryStatsStore) RemoveStats(_ context.Context, accountID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

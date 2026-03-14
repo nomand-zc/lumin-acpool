@@ -61,7 +61,7 @@ func (s *Store) initDB() error {
 	return nil
 }
 
-func (s *Store) Incr(ctx context.Context, accountID string) (int64, error) {
+func (s *Store) IncrOccupancy(ctx context.Context, accountID string) (int64, error) {
 	// 使用 RETURNING 子句原子获取递增后的值。
 	var count int64
 	err := s.client.QueryRow(ctx, []any{&count}, queryIncr, accountID)
@@ -71,7 +71,7 @@ func (s *Store) Incr(ctx context.Context, accountID string) (int64, error) {
 	return count, nil
 }
 
-func (s *Store) Decr(ctx context.Context, accountID string) error {
+func (s *Store) DecrOccupancy(ctx context.Context, accountID string) error {
 	_, err := s.client.Exec(ctx, queryDecr, accountID)
 	if err != nil {
 		return fmt.Errorf("occupancystore: failed to decr: %w", err)
@@ -79,7 +79,7 @@ func (s *Store) Decr(ctx context.Context, accountID string) error {
 	return nil
 }
 
-func (s *Store) Get(ctx context.Context, accountID string) (int64, error) {
+func (s *Store) GetOccupancy(ctx context.Context, accountID string) (int64, error) {
 	var count int64
 	err := s.client.QueryRow(ctx, []any{&count}, queryGet, accountID)
 	if err != nil {

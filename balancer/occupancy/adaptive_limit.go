@@ -105,7 +105,7 @@ func (a *AdaptiveLimit) FilterAvailable(ctx context.Context, accounts []*account
 	result := make([]*account.Account, 0, len(accounts))
 	for _, acct := range accounts {
 		limit := a.calculateLimit(ctx, acct)
-		current, err := a.store.Get(ctx, acct.ID)
+		current, err := a.store.GetOccupancy(ctx, acct.ID)
 		if err != nil {
 			// 存储查询失败，保守策略：保留该账号
 			result = append(result, acct)
@@ -122,14 +122,14 @@ func (a *AdaptiveLimit) Acquire(ctx context.Context, acct *account.Account) bool
 	limit := a.calculateLimit(ctx, acct)
 
 	// 原子递增并判断是否超过上限
-	newVal, err := a.store.Incr(ctx, acct.ID)
+	newVal, err := a.store.IncrOccupancy(ctx, acct.ID)
 	if err != nil {
 		return false
 	}
 
 	if newVal > limit {
 		// 超过上限，回退计数
-		_ = a.store.Decr(ctx, acct.ID)
+		_ = a.store.DecrOccupancy(ctx, acct.ID)
 		return false
 	}
 
@@ -137,7 +137,7 @@ func (a *AdaptiveLimit) Acquire(ctx context.Context, acct *account.Account) bool
 }
 
 func (a *AdaptiveLimit) Release(ctx context.Context, accountID string) {
-	_ = a.store.Decr(ctx, accountID)
+	_ = a.store.DecrOccupancy(ctx, accountID)
 }
 
 // calculateLimit 基于当前配额和窗口信息动态计算并发上限。

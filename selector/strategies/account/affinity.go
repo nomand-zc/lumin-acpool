@@ -100,7 +100,7 @@ func (a *Affinity) Select(candidates []*account.Account, req *selector.SelectReq
 	affinityKey := buildAffinityKey(req.UserID, req.Model)
 
 	// 查找亲和记录
-	boundID, exists := a.store.Get(affinityKey)
+	boundID, exists := a.store.GetAffinity(affinityKey)
 
 	if exists {
 		// 在候选列表中查找绑定的账号
@@ -119,7 +119,7 @@ func (a *Affinity) Select(candidates []*account.Account, req *selector.SelectReq
 	}
 
 	// 更新映射
-	a.store.Set(affinityKey, chosen.ID)
+	a.store.SetAffinity(affinityKey, chosen.ID)
 
 	return chosen, nil
 }

@@ -38,7 +38,7 @@ func NewUsageTracker(opts ...Option) UsageTracker {
 }
 
 func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string, sourceType usagerule.SourceType, amount float64) error {
-	usages, err := t.store.GetAll(ctx, accountID)
+	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 	// 检测配额是否达到安全阈值，触发回调
 	if len(t.opts.OnQuotaExhausted) > 0 {
 		// 重新获取最新数据（IncrLocalUsed 后数据已变更）
-		usages, err = t.store.GetAll(ctx, accountID)
+		usages, err = t.store.GetAllUsages(ctx, accountID)
 		if err != nil {
 			return nil // 检测失败不影响主流程
 		}
@@ -84,7 +84,7 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 }
 
 func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID string) (bool, error) {
-	usages, err := t.store.GetAll(ctx, accountID)
+	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
 		return false, err
 	}
@@ -110,7 +110,7 @@ func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID st
 }
 
 func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, stats []*usagerule.UsageStats) error {
-	usages, err := t.store.GetAll(ctx, accountID)
+	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 				LastSyncAt:   time.Now(),
 			})
 		}
-		return t.store.Save(ctx, accountID, newUsages)
+		return t.store.SaveUsages(ctx, accountID, newUsages)
 	}
 
 	// 校准已有规则：逐条原子更新，避免全量 Save 覆盖并发 IncrLocalUsed 的增量
@@ -184,14 +184,14 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 
 	// 如果有新增规则，需要全量 Save（因为需要插入新行）
 	if hasNewRules {
-		return t.store.Save(ctx, accountID, usages)
+		return t.store.SaveUsages(ctx, accountID, usages)
 	}
 
 	return nil
 }
 
 func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, accountID string, sourceType usagerule.SourceType) error {
-	usages, err := t.store.GetAll(ctx, accountID)
+	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -205,15 +205,15 @@ func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, account
 			u.LocalUsed = u.RemoteRemain
 		}
 	}
-	return t.store.Save(ctx, accountID, usages)
+	return t.store.SaveUsages(ctx, accountID, usages)
 }
 
 func (t *defaultUsageTracker) GetTrackedUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
-	return t.store.GetAll(ctx, accountID)
+	return t.store.GetAllUsages(ctx, accountID)
 }
 
 func (t *defaultUsageTracker) MinRemainRatio(ctx context.Context, accountID string) (float64, error) {
-	usages, err := t.store.GetAll(ctx, accountID)
+	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
 		return 0, err
 	}
@@ -248,9 +248,9 @@ func (t *defaultUsageTracker) InitRules(ctx context.Context, accountID string, r
 			LastSyncAt:   time.Now(),
 		})
 	}
-	return t.store.Save(ctx, accountID, usages)
+	return t.store.SaveUsages(ctx, accountID, usages)
 }
 
 func (t *defaultUsageTracker) Remove(ctx context.Context, accountID string) error {
-	return t.store.Remove(ctx, accountID)
+	return t.store.RemoveUsages(ctx, accountID)
 }

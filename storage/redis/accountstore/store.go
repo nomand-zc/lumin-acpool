@@ -59,7 +59,7 @@ func NewStore(opts ...Option) (*Store, error) {
 // 读取
 // ============================
 
-func (s *Store) Get(ctx context.Context, id string) (*account.Account, error) {
+func (s *Store) GetAccount(ctx context.Context, id string) (*account.Account, error) {
 	key := accountKey(s.keyPrefix, id)
 	data, err := s.client.HGetAll(ctx, key)
 	if err != nil {
@@ -181,7 +181,7 @@ func (s *Store) fetchAndFilter(ctx context.Context, ids []string, residual *filt
 	return result, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
+func (s *Store) SearchAccounts(ctx context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
 	ids, residual, err := s.resolveIDs(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -219,7 +219,7 @@ var luaAddAccount = `
 	return 1
 `
 
-func (s *Store) Add(ctx context.Context, acct *account.Account) error {
+func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 	key := accountKey(s.keyPrefix, acct.ID)
 	ik := allIndexKeys(s.keyPrefix, acct.ProviderType, acct.ProviderName, int(acct.Status))
 
@@ -310,7 +310,7 @@ var luaUpdateAccount = `
 	return 1
 `
 
-func (s *Store) Update(ctx context.Context, acct *account.Account) error {
+func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error {
 	key := accountKey(s.keyPrefix, acct.ID)
 
 	// 获取旧的 provider_type, provider_name, status 用于索引迁移
@@ -377,7 +377,7 @@ var luaRemoveAccount = `
 	return 1
 `
 
-func (s *Store) Remove(ctx context.Context, id string) error {
+func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 	key := accountKey(s.keyPrefix, id)
 
 	// 先获取账号信息，以便删除所有层级的索引
@@ -400,14 +400,14 @@ func (s *Store) Remove(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Store) RemoveFilter(ctx context.Context, filter *storage.SearchFilter) error {
-	accounts, err := s.Search(ctx, filter)
+func (s *Store) RemoveAccounts(ctx context.Context, filter *storage.SearchFilter) error {
+	accounts, err := s.SearchAccounts(ctx, filter)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to search accounts for removal: %w", err)
 	}
 
 	for _, acct := range accounts {
-		if err := s.Remove(ctx, acct.ID); err != nil && err != storage.ErrNotFound {
+		if err := s.RemoveAccount(ctx, acct.ID); err != nil && err != storage.ErrNotFound {
 			return fmt.Errorf("accountstore: failed to remove account %s: %w", acct.ID, err)
 		}
 	}
@@ -418,7 +418,7 @@ func (s *Store) RemoveFilter(ctx context.Context, filter *storage.SearchFilter) 
 // 计数（优先使用 SCARD O(1)）
 // ============================
 
-func (s *Store) Count(ctx context.Context, filter *storage.SearchFilter) (int, error) {
+func (s *Store) CountAccounts(ctx context.Context, filter *storage.SearchFilter) (int, error) {
 	if filter == nil {
 		// 无过滤条件，SCARD 全局索引 O(1)
 		n, err := s.client.SCard(ctx, accountIndexKey(s.keyPrefix))
@@ -446,7 +446,7 @@ func (s *Store) Count(ctx context.Context, filter *storage.SearchFilter) (int, e
 	}
 
 	// 回退：索引缩小范围 + 内存过滤
-	accounts, err := s.Search(ctx, filter)
+	accounts, err := s.SearchAccounts(ctx, filter)
 	if err != nil {
 		return 0, err
 	}

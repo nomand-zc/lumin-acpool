@@ -24,7 +24,7 @@ func NewMemoryOccupancyStore() *MemoryOccupancyStore {
 	}
 }
 
-func (s *MemoryOccupancyStore) Incr(_ context.Context, accountID string) (int64, error) {
+func (s *MemoryOccupancyStore) IncrOccupancy(_ context.Context, accountID string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -32,7 +32,7 @@ func (s *MemoryOccupancyStore) Incr(_ context.Context, accountID string) (int64,
 	return s.store[accountID], nil
 }
 
-func (s *MemoryOccupancyStore) Decr(_ context.Context, accountID string) error {
+func (s *MemoryOccupancyStore) DecrOccupancy(_ context.Context, accountID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -46,7 +46,7 @@ func (s *MemoryOccupancyStore) Decr(_ context.Context, accountID string) error {
 	return nil
 }
 
-func (s *MemoryOccupancyStore) Get(_ context.Context, accountID string) (int64, error) {
+func (s *MemoryOccupancyStore) GetOccupancy(_ context.Context, accountID string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

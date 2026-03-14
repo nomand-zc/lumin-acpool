@@ -43,7 +43,7 @@ func NewStore(opts ...StoreOption) *Store {
 }
 
 // Get 获取亲和键对应的绑定目标 ID。
-func (s *Store) Get(affinityKey string) (string, bool) {
+func (s *Store) GetAffinity(affinityKey string) (string, bool) {
 	s.mu.RLock()
 	targetID, exists := s.bindings[affinityKey]
 	s.mu.RUnlock()
@@ -51,7 +51,7 @@ func (s *Store) Get(affinityKey string) (string, bool) {
 }
 
 // Set 设置亲和键到目标 ID 的绑定关系。
-func (s *Store) Set(affinityKey string, targetID string) {
+func (s *Store) SetAffinity(affinityKey string, targetID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// 检查容量，超过上限时清空重建

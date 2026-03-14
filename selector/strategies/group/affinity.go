@@ -100,7 +100,7 @@ func (a *GroupAffinity) Select(candidates []*account.ProviderInfo, req *selector
 	affinityKey := buildGroupAffinityKey(req.UserID, req.Model)
 
 	// 查找亲和记录
-	boundKeyStr, exists := a.store.Get(affinityKey)
+	boundKeyStr, exists := a.store.GetAffinity(affinityKey)
 
 	if exists {
 		// 在候选列表中查找绑定的供应商
@@ -119,7 +119,7 @@ func (a *GroupAffinity) Select(candidates []*account.ProviderInfo, req *selector
 	}
 
 	// 更新映射
-	a.store.Set(affinityKey, chosen.ProviderKey().String())
+	a.store.SetAffinity(affinityKey, chosen.ProviderKey().String())
 
 	return chosen, nil
 }

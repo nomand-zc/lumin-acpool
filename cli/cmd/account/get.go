@@ -42,7 +42,7 @@ func (c *getCmd) cmd() *cobra.Command {
 func (c *getCmd) run(cmd *cobra.Command) error {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 
-	acct, err := deps.AccountStorage.Get(cmd.Context(), c.accountID)
+	acct, err := deps.AccountStorage.GetAccount(cmd.Context(), c.accountID)
 	if err != nil {
 		return handleStorageError("Account", err)
 	}

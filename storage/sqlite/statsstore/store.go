@@ -56,7 +56,7 @@ func (s *Store) initDB() error {
 	return nil
 }
 
-func (s *Store) Get(ctx context.Context, accountID string) (*account.AccountStats, error) {
+func (s *Store) GetStats(ctx context.Context, accountID string) (*account.AccountStats, error) {
 	var (
 		stats       account.AccountStats
 		lastUsedAt  sql.NullString
@@ -154,7 +154,7 @@ func (s *Store) ResetConsecutiveFailures(ctx context.Context, accountID string) 
 	return nil
 }
 
-func (s *Store) Remove(ctx context.Context, accountID string) error {
+func (s *Store) RemoveStats(ctx context.Context, accountID string) error {
 	_, err := s.client.Exec(ctx, queryDeleteStats, accountID)
 	if err != nil {
 		return fmt.Errorf("statsstore: failed to remove stats: %w", err)

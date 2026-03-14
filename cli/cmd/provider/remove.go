@@ -47,7 +47,7 @@ func (c *removeCmd) run(cmd *cobra.Command) error {
 	removedCount, cleanupErrs := c.cascadeRemoveAccounts(cmd, deps)
 
 	// 2. 删除 Provider 自身
-	if err := deps.ProviderStorage.Remove(cmd.Context(), key); err != nil {
+	if err := deps.ProviderStorage.RemoveProvider(cmd.Context(), key); err != nil {
 		return handleStorageError("Provider", err)
 	}
 
@@ -71,7 +71,7 @@ func (c *removeCmd) cascadeRemoveAccounts(cmd *cobra.Command, deps *bootstrap.De
 	filter := buildCascadeFilter(c.providerType, c.providerName)
 
 	// 查询该 Provider 下所有账号（用于后续清理关联数据）
-	accounts, err := deps.AccountStorage.Search(ctx, filter)
+	accounts, err := deps.AccountStorage.SearchAccounts(ctx, filter)
 	if err != nil {
 		fmt.Printf("警告: 查询 Provider 下的 Account 失败: %v，跳过级联删除\n", err)
 		return 0, 0
@@ -81,17 +81,17 @@ func (c *removeCmd) cascadeRemoveAccounts(cmd *cobra.Command, deps *bootstrap.De
 	}
 
 	// 批量删除账号
-	if err := deps.AccountStorage.RemoveFilter(ctx, filter); err != nil {
+	if err := deps.AccountStorage.RemoveAccounts(ctx, filter); err != nil {
 		fmt.Printf("警告: 批量删除 Account 失败: %v\n", err)
 		return 0, 0
 	}
 
 	// 清理所有被删除账号的关联数据（统计数据 + 用量追踪数据）
 	for _, a := range accounts {
-		if err := deps.StatsStore.Remove(ctx, a.ID); err != nil {
+		if err := deps.StatsStore.RemoveStats(ctx, a.ID); err != nil {
 			cleanupErrs++
 		}
-		if err := deps.UsageStore.Remove(ctx, a.ID); err != nil {
+		if err := deps.UsageStore.RemoveUsages(ctx, a.ID); err != nil {
 			cleanupErrs++
 		}
 	}

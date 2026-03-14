@@ -28,17 +28,17 @@ func TestStore_AddAndGet(t *testing.T) {
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
 
 	// 正常添加
-	if err := store.Add(ctx, acct); err != nil {
+	if err := store.AddAccount(ctx, acct); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
 	// 重复添加应返回 ErrAlreadyExists
-	if err := store.Add(ctx, acct); err != storage.ErrAlreadyExists {
+	if err := store.AddAccount(ctx, acct); err != storage.ErrAlreadyExists {
 		t.Fatalf("expected ErrAlreadyExists, got: %v", err)
 	}
 
 	// 获取
-	got, err := store.Get(ctx, "acc-1")
+	got, err := store.GetAccount(ctx, "acc-1")
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -51,13 +51,13 @@ func TestStore_AddAndGet(t *testing.T) {
 
 	// 验证深拷贝：修改返回值不影响存储
 	got.Priority = 999
-	got2, _ := store.Get(ctx, "acc-1")
+	got2, _ := store.GetAccount(ctx, "acc-1")
 	if got2.Priority != 5 {
 		t.Fatalf("expected priority 5, got %d (deep copy failed)", got2.Priority)
 	}
 
 	// 获取不存在的
-	_, err = store.Get(ctx, "nonexistent")
+	_, err = store.GetAccount(ctx, "nonexistent")
 	if err != storage.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got: %v", err)
 	}
@@ -68,30 +68,30 @@ func TestStore_Update(t *testing.T) {
 	store := NewStore()
 
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
-	_ = store.Add(ctx, acct)
+	_ = store.AddAccount(ctx, acct)
 
 	// 先 Get 获取最新版本，再修改并 Update（乐观锁正确用法）
-	got, _ := store.Get(ctx, "acc-1")
+	got, _ := store.GetAccount(ctx, "acc-1")
 	got.Status = account.StatusCoolingDown
 	got.Priority = 10
-	if err := store.Update(ctx, got); err != nil {
+	if err := store.UpdateAccount(ctx, got); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	got2, _ := store.Get(ctx, "acc-1")
+	got2, _ := store.GetAccount(ctx, "acc-1")
 	if got2.Status != account.StatusCoolingDown || got2.Priority != 10 {
 		t.Fatalf("Update not persisted: %+v", got2)
 	}
 
 	// 使用旧版本号更新应返回 ErrVersionConflict
 	got.Priority = 20
-	if err := store.Update(ctx, got); err != storage.ErrVersionConflict {
+	if err := store.UpdateAccount(ctx, got); err != storage.ErrVersionConflict {
 		t.Fatalf("expected ErrVersionConflict, got: %v", err)
 	}
 
 	// 更新不存在的
 	notExist := newTestAccount("nonexistent", "kiro", "team-a", account.StatusAvailable, 0)
-	if err := store.Update(ctx, notExist); err != storage.ErrNotFound {
+	if err := store.UpdateAccount(ctx, notExist); err != storage.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got: %v", err)
 	}
 }
@@ -101,15 +101,15 @@ func TestStore_UpdateProviderKey(t *testing.T) {
 	store := NewStore()
 
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
-	_ = store.Add(ctx, acct)
+	_ = store.AddAccount(ctx, acct)
 
 	// 先 Get 获取最新版本，修改 ProviderName 后 Update
-	got, _ := store.Get(ctx, "acc-1")
+	got, _ := store.GetAccount(ctx, "acc-1")
 	got.ProviderName = "team-b"
-	_ = store.Update(ctx, got)
+	_ = store.UpdateAccount(ctx, got)
 
 	// team-a 下应该没有账号了
-	list, _ := store.Search(ctx, &storage.SearchFilter{
+	list, _ := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ProviderType: "kiro",
 		ProviderName: "team-a",
 	})
@@ -118,7 +118,7 @@ func TestStore_UpdateProviderKey(t *testing.T) {
 	}
 
 	// team-b 下应该有 1 个
-	list, _ = store.Search(ctx, &storage.SearchFilter{
+	list, _ = store.SearchAccounts(ctx, &storage.SearchFilter{
 		ProviderType: "kiro",
 		ProviderName: "team-b",
 	})
@@ -132,20 +132,20 @@ func TestStore_Remove(t *testing.T) {
 	store := NewStore()
 
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
-	_ = store.Add(ctx, acct)
+	_ = store.AddAccount(ctx, acct)
 
-	if err := store.Remove(ctx, "acc-1"); err != nil {
+	if err := store.RemoveAccount(ctx, "acc-1"); err != nil {
 		t.Fatalf("Remove failed: %v", err)
 	}
 
 	// 确认已删除
-	_, err := store.Get(ctx, "acc-1")
+	_, err := store.GetAccount(ctx, "acc-1")
 	if err != storage.ErrNotFound {
 		t.Fatalf("expected ErrNotFound after Remove, got: %v", err)
 	}
 
 	// 确认索引已清理
-	list, _ := store.Search(ctx, &storage.SearchFilter{
+	list, _ := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ProviderType: "kiro",
 		ProviderName: "team-a",
 	})
@@ -154,7 +154,7 @@ func TestStore_Remove(t *testing.T) {
 	}
 
 	// 删除不存在的
-	if err := store.Remove(ctx, "nonexistent"); err != storage.ErrNotFound {
+	if err := store.RemoveAccount(ctx, "nonexistent"); err != storage.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got: %v", err)
 	}
 }
@@ -163,13 +163,13 @@ func TestStore_List(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
-	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
-	_ = store.Add(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusAvailable, 8))
-	_ = store.Add(ctx, newTestAccount("acc-4", "openai", "default", account.StatusBanned, 1))
+	_ = store.AddAccount(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
+	_ = store.AddAccount(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
+	_ = store.AddAccount(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusAvailable, 8))
+	_ = store.AddAccount(ctx, newTestAccount("acc-4", "openai", "default", account.StatusBanned, 1))
 
 	// 全量查询
-	all, err := store.Search(ctx, nil)
+	all, err := store.SearchAccounts(ctx, nil)
 	if err != nil {
 		t.Fatalf("List(nil) failed: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 按状态过滤
-	available, err := store.Search(ctx, &storage.SearchFilter{
+	available, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		Status: int(account.StatusAvailable),
 	})
 	if err != nil {
@@ -189,7 +189,7 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 按优先级过滤
-	highPrio, err := store.Search(ctx, &storage.SearchFilter{
+	highPrio, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ExtraCond: filtercond.GreaterThanOrEqual("priority", 5),
 	})
 	if err != nil {
@@ -200,7 +200,7 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// 组合条件：可用 + 优先级 >= 5
-	combined, err := store.Search(ctx, &storage.SearchFilter{
+	combined, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		Status:    int(account.StatusAvailable),
 		ExtraCond: filtercond.GreaterThanOrEqual("priority", 5),
 	})
@@ -212,7 +212,7 @@ func TestStore_List(t *testing.T) {
 	}
 
 	// Or 条件
-	orResult, err := store.Search(ctx, &storage.SearchFilter{
+	orResult, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ExtraCond: filtercond.Or(
 			filtercond.Equal("provider_name", "team-b"),
 			filtercond.Equal("status", int(account.StatusBanned)),
@@ -230,12 +230,12 @@ func TestStore_Count(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
-	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
-	_ = store.Add(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusAvailable, 8))
+	_ = store.AddAccount(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
+	_ = store.AddAccount(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
+	_ = store.AddAccount(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusAvailable, 8))
 
 	// 全量计数
-	total, err := store.Count(ctx, nil)
+	total, err := store.CountAccounts(ctx, nil)
 	if err != nil {
 		t.Fatalf("Count(nil) failed: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestStore_Count(t *testing.T) {
 	}
 
 	// 按状态计数
-	availableCount, err := store.Count(ctx, &storage.SearchFilter{
+	availableCount, err := store.CountAccounts(ctx, &storage.SearchFilter{
 		Status: int(account.StatusAvailable),
 	})
 	if err != nil {
@@ -261,10 +261,10 @@ func TestStore_TimeAutoSet(t *testing.T) {
 
 	before := time.Now()
 	acct := newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5)
-	_ = store.Add(ctx, acct)
+	_ = store.AddAccount(ctx, acct)
 	after := time.Now()
 
-	got, _ := store.Get(ctx, "acc-1")
+	got, _ := store.GetAccount(ctx, "acc-1")
 	if got.CreatedAt.Before(before) || got.CreatedAt.After(after) {
 		t.Fatalf("CreatedAt not auto-set properly: %v", got.CreatedAt)
 	}
@@ -277,12 +277,12 @@ func TestStore_InOperator(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
-	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
-	_ = store.Add(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusBanned, 1))
+	_ = store.AddAccount(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 5))
+	_ = store.AddAccount(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusCoolingDown, 3))
+	_ = store.AddAccount(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusBanned, 1))
 
 	// In 操作符
-	result, err := store.Search(ctx, &storage.SearchFilter{
+	result, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ExtraCond: filtercond.In("status", int(account.StatusAvailable), int(account.StatusBanned)),
 	})
 	if err != nil {
@@ -297,12 +297,12 @@ func TestStore_BetweenOperator(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 1))
-	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusAvailable, 5))
-	_ = store.Add(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusAvailable, 10))
+	_ = store.AddAccount(ctx, newTestAccount("acc-1", "kiro", "team-a", account.StatusAvailable, 1))
+	_ = store.AddAccount(ctx, newTestAccount("acc-2", "kiro", "team-a", account.StatusAvailable, 5))
+	_ = store.AddAccount(ctx, newTestAccount("acc-3", "kiro", "team-b", account.StatusAvailable, 10))
 
 	// Between 操作符
-	result, err := store.Search(ctx, &storage.SearchFilter{
+	result, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ExtraCond: filtercond.Between("priority", 3, 8),
 	})
 	if err != nil {
@@ -320,12 +320,12 @@ func TestStore_LikeOperator(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_ = store.Add(ctx, newTestAccount("acc-1", "kiro", "team-alpha", account.StatusAvailable, 5))
-	_ = store.Add(ctx, newTestAccount("acc-2", "kiro", "team-beta", account.StatusAvailable, 3))
-	_ = store.Add(ctx, newTestAccount("acc-3", "openai", "default", account.StatusAvailable, 8))
+	_ = store.AddAccount(ctx, newTestAccount("acc-1", "kiro", "team-alpha", account.StatusAvailable, 5))
+	_ = store.AddAccount(ctx, newTestAccount("acc-2", "kiro", "team-beta", account.StatusAvailable, 3))
+	_ = store.AddAccount(ctx, newTestAccount("acc-3", "openai", "default", account.StatusAvailable, 8))
 
 	// Like 操作符
-	result, err := store.Search(ctx, &storage.SearchFilter{
+	result, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ExtraCond: filtercond.Like("provider_name", "team"),
 	})
 	if err != nil {
@@ -340,7 +340,7 @@ func TestStore_InvalidField(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	_, err := store.Search(ctx, &storage.SearchFilter{
+	_, err := store.SearchAccounts(ctx, &storage.SearchFilter{
 		ExtraCond: filtercond.Equal("nonexistent_field", "value"),
 	})
 	if err == nil {

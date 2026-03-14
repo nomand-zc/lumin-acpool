@@ -67,7 +67,7 @@ func (s *Store) initDB() error {
 	return nil
 }
 
-func (s *Store) Get(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
+func (s *Store) GetProvider(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
 	var (
 		info           account.ProviderInfo
 		statusInt      int
@@ -100,7 +100,7 @@ func (s *Store) Get(ctx context.Context, key account.ProviderKey) (*account.Prov
 	return result, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
+func (s *Store) SearchProviders(ctx context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
 	var extraCond *filtercond.Filter
 	if filter != nil {
 		extraCond = filter.ExtraCond
@@ -171,7 +171,7 @@ func buildProviderWhereArgs(filter *storage.SearchFilter, condResult *storeMysql
 	return args
 }
 
-func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
+func (s *Store) AddProvider(ctx context.Context, info *account.ProviderInfo) error {
 	now := time.Now()
 	createdAt := info.CreatedAt
 	if createdAt.IsZero() {
@@ -211,7 +211,7 @@ func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Update(ctx context.Context, info *account.ProviderInfo) error {
+func (s *Store) UpdateProvider(ctx context.Context, info *account.ProviderInfo) error {
 	tagsJSON, err := storeMysql.MarshalJSON(info.Tags)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to marshal tags: %w", err)
@@ -249,7 +249,7 @@ func (s *Store) Update(ctx context.Context, info *account.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Remove(ctx context.Context, key account.ProviderKey) error {
+func (s *Store) RemoveProvider(ctx context.Context, key account.ProviderKey) error {
 	result, err := s.client.Exec(ctx, queryDeleteProvider, key.Type, key.Name)
 	if err != nil {
 		return fmt.Errorf("providerstore: failed to remove provider: %w", err)

@@ -63,7 +63,7 @@ func (s *Store) initDB() error {
 	return nil
 }
 
-func (s *Store) Get(ctx context.Context, id string) (*account.Account, error) {
+func (s *Store) GetAccount(ctx context.Context, id string) (*account.Account, error) {
 	var (
 		acct             account.Account
 		credentialJSON   []byte
@@ -98,7 +98,7 @@ func (s *Store) Get(ctx context.Context, id string) (*account.Account, error) {
 	return result, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
+func (s *Store) SearchAccounts(ctx context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
 	var extraCond *filtercond.Filter
 	if filter != nil {
 		extraCond = filter.ExtraCond
@@ -162,7 +162,7 @@ func (s *Store) buildWhereArgs(filter *storage.SearchFilter, condResult *storeMy
 	return args
 }
 
-func (s *Store) Add(ctx context.Context, acct *account.Account) error {
+func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 	now := time.Now()
 	createdAt := acct.CreatedAt
 	if createdAt.IsZero() {
@@ -203,7 +203,7 @@ func (s *Store) Add(ctx context.Context, acct *account.Account) error {
 	return nil
 }
 
-func (s *Store) Update(ctx context.Context, acct *account.Account) error {
+func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error {
 	credentialBytes, err := json.Marshal(acct.Credential.ToMap())
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to marshal credential: %w", err)
@@ -243,7 +243,7 @@ func (s *Store) Update(ctx context.Context, acct *account.Account) error {
 	return nil
 }
 
-func (s *Store) Remove(ctx context.Context, id string) error {
+func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 	result, err := s.client.Exec(ctx, queryDeleteAccount, id)
 	if err != nil {
 		return fmt.Errorf("accountstore: failed to remove account: %w", err)
@@ -259,7 +259,7 @@ func (s *Store) Remove(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Store) RemoveFilter(ctx context.Context, filter *storage.SearchFilter) error {
+func (s *Store) RemoveAccounts(ctx context.Context, filter *storage.SearchFilter) error {
 	var extraCond *filtercond.Filter
 	if filter != nil {
 		extraCond = filter.ExtraCond
@@ -279,7 +279,7 @@ func (s *Store) RemoveFilter(ctx context.Context, filter *storage.SearchFilter) 
 	return nil
 }
 
-func (s *Store) Count(ctx context.Context, filter *storage.SearchFilter) (int, error) {
+func (s *Store) CountAccounts(ctx context.Context, filter *storage.SearchFilter) (int, error) {
 	var extraCond *filtercond.Filter
 	if filter != nil {
 		extraCond = filter.ExtraCond

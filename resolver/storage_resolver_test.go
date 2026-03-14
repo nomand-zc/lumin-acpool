@@ -17,7 +17,7 @@ func setupResolver() (Resolver, *providerstore.Store, *accountstore.Store) {
 }
 
 func addProvider(ctx context.Context, ps *providerstore.Store, provType, name string, status account.ProviderStatus, priority int, models []string) {
-	_ = ps.Add(ctx, &account.ProviderInfo{
+	_ = ps.AddProvider(ctx, &account.ProviderInfo{
 		ProviderType:    provType,
 		ProviderName:    name,
 		Status:          status,
@@ -27,7 +27,7 @@ func addProvider(ctx context.Context, ps *providerstore.Store, provType, name st
 }
 
 func addAccount(ctx context.Context, as *accountstore.Store, id, provType, provName string, status account.Status, priority int, tags map[string]string) {
-	_ = as.Add(ctx, &account.Account{
+	_ = as.AddAccount(ctx, &account.Account{
 		ID:           id,
 		ProviderType: provType,
 		ProviderName: provName,

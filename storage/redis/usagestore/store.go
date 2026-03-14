@@ -45,7 +45,7 @@ func NewStore(opts ...Option) (*Store, error) {
 	}, nil
 }
 
-func (s *Store) GetAll(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
+func (s *Store) GetAllUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	// 获取规则数量
 	countKey := usageCountKey(s.keyPrefix, accountID)
 	countStr, err := s.client.Get(ctx, countKey)
@@ -83,7 +83,7 @@ func (s *Store) GetAll(ctx context.Context, accountID string) ([]*account.Tracke
 	return result, nil
 }
 
-func (s *Store) Save(ctx context.Context, accountID string, usages []*account.TrackedUsage) error {
+func (s *Store) SaveUsages(ctx context.Context, accountID string, usages []*account.TrackedUsage) error {
 	// 使用 Lua 脚本原子执行：删除旧数据 + 写入新数据
 	// 构建 Lua 脚本参数
 	countKey := usageCountKey(s.keyPrefix, accountID)
@@ -143,7 +143,7 @@ func (s *Store) IncrLocalUsed(ctx context.Context, accountID string, ruleIndex i
 	return nil
 }
 
-func (s *Store) Remove(ctx context.Context, accountID string) error {
+func (s *Store) RemoveUsages(ctx context.Context, accountID string) error {
 	countKey := usageCountKey(s.keyPrefix, accountID)
 
 	// 获取规则数量

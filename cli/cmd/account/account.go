@@ -85,14 +85,14 @@ func (d *depsAdapter) GetStats(ctx context.Context, accountID string) (*account.
 	if d.statsStore == nil {
 		return nil, nil
 	}
-	return d.statsStore.Get(ctx, accountID)
+	return d.statsStore.GetStats(ctx, accountID)
 }
 
 func (d *depsAdapter) GetUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	if d.usageStore == nil {
 		return nil, nil
 	}
-	return d.usageStore.GetAll(ctx, accountID)
+	return d.usageStore.GetAllUsages(ctx, accountID)
 }
 
 // ===================== 公共辅助 =====================

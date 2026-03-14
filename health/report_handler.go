@@ -48,7 +48,7 @@ func NewDefaultReportCallback(deps ReportHandlerDeps) ReportCallback {
 			return
 		}
 
-		acct, err := deps.AccountStorage.Get(ctx, report.AccountID)
+		acct, err := deps.AccountStorage.GetAccount(ctx, report.AccountID)
 		if err != nil {
 			return // 获取失败静默忽略
 		}
@@ -84,7 +84,7 @@ func NewDefaultReportCallback(deps ReportHandlerDeps) ReportCallback {
 		// 3. 持久化变更
 		if needUpdate {
 			acct.UpdatedAt = time.Now()
-			_ = deps.AccountStorage.Update(ctx, acct)
+			_ = deps.AccountStorage.UpdateAccount(ctx, acct)
 		}
 	}
 }
@@ -185,14 +185,14 @@ func handleSupportedModels(ctx context.Context, providerStorage storage.Provider
 	}
 
 	// 获取当前 ProviderInfo 并更新 SupportedModels
-	provInfo, err := providerStorage.Get(ctx, providerKey)
+	provInfo, err := providerStorage.GetProvider(ctx, providerKey)
 	if err != nil {
 		return
 	}
 
 	provInfo.SupportedModels = models
 	provInfo.UpdatedAt = time.Now()
-	_ = providerStorage.Update(ctx, provInfo)
+	_ = providerStorage.UpdateProvider(ctx, provInfo)
 }
 
 // handleUsageRulesRefresh 处理用量规则刷新检查结果，更新 Account.UsageRules 并重新初始化 UsageTracker。

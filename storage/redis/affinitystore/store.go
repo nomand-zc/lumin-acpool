@@ -54,7 +54,7 @@ func (s *Store) affinityKey(key string) string {
 }
 
 // Get 获取亲和键对应的绑定目标 ID。
-func (s *Store) Get(affinityKey string) (string, bool) {
+func (s *Store) GetAffinity(affinityKey string) (string, bool) {
 	key := s.affinityKey(affinityKey)
 	val, err := s.client.Get(context.Background(), key)
 	if err != nil {
@@ -65,7 +65,7 @@ func (s *Store) Get(affinityKey string) (string, bool) {
 
 // Set 设置亲和键到目标 ID 的绑定关系。
 // 使用 SET 命令直接覆盖写入。
-func (s *Store) Set(affinityKey string, targetID string) {
+func (s *Store) SetAffinity(affinityKey string, targetID string) {
 	key := s.affinityKey(affinityKey)
 	err := s.client.Set(context.Background(), key, targetID, 0)
 	if err != nil {

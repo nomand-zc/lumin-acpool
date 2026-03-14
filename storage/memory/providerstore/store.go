@@ -37,7 +37,7 @@ func NewStore() *Store {
 	}
 }
 
-func (s *Store) Get(_ context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
+func (s *Store) GetProvider(_ context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -48,7 +48,7 @@ func (s *Store) Get(_ context.Context, key account.ProviderKey) (*account.Provid
 	return info.Clone(), nil
 }
 
-func (s *Store) Search(_ context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
+func (s *Store) SearchProviders(_ context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
 	var cond *filtercond.Filter
 	if filter != nil {
 		cond = filter.ExtraCond
@@ -106,7 +106,7 @@ func matchSearchFilter(info *account.ProviderInfo, filter *storage.SearchFilter)
 	return true
 }
 
-func (s *Store) Add(_ context.Context, info *account.ProviderInfo) error {
+func (s *Store) AddProvider(_ context.Context, info *account.ProviderInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -127,7 +127,7 @@ func (s *Store) Add(_ context.Context, info *account.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Update(_ context.Context, info *account.ProviderInfo) error {
+func (s *Store) UpdateProvider(_ context.Context, info *account.ProviderInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -149,7 +149,7 @@ func (s *Store) Update(_ context.Context, info *account.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Remove(_ context.Context, key account.ProviderKey) error {
+func (s *Store) RemoveProvider(_ context.Context, key account.ProviderKey) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

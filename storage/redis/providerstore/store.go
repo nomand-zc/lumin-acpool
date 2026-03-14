@@ -55,7 +55,7 @@ func NewStore(opts ...Option) (*Store, error) {
 	return store, nil
 }
 
-func (s *Store) Get(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
+func (s *Store) GetProvider(ctx context.Context, key account.ProviderKey) (*account.ProviderInfo, error) {
 	redisKey := providerRedisKey(s.keyPrefix, key.Type, key.Name)
 	data, err := s.client.HGetAll(ctx, redisKey)
 	if err != nil {
@@ -72,7 +72,7 @@ func (s *Store) Get(ctx context.Context, key account.ProviderKey) (*account.Prov
 	return info, nil
 }
 
-func (s *Store) Search(ctx context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
+func (s *Store) SearchProviders(ctx context.Context, filter *storage.SearchFilter) ([]*account.ProviderInfo, error) {
 	// 获取所有供应商索引
 	members, err := s.client.SMembers(ctx, providerIndexRedisKey(s.keyPrefix))
 	if err != nil {
@@ -147,7 +147,7 @@ func matchProviderSearchFilter(info *account.ProviderInfo, filter *storage.Searc
 	return true
 }
 
-func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
+func (s *Store) AddProvider(ctx context.Context, info *account.ProviderInfo) error {
 	redisKey := providerRedisKey(s.keyPrefix, info.ProviderType, info.ProviderName)
 	indexKey := providerIndexRedisKey(s.keyPrefix)
 	member := providerIndexMember(info.ProviderType, info.ProviderName)
@@ -188,7 +188,7 @@ func (s *Store) Add(ctx context.Context, info *account.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Update(ctx context.Context, info *account.ProviderInfo) error {
+func (s *Store) UpdateProvider(ctx context.Context, info *account.ProviderInfo) error {
 	redisKey := providerRedisKey(s.keyPrefix, info.ProviderType, info.ProviderName)
 
 	// 检查是否存在
@@ -220,7 +220,7 @@ func (s *Store) Update(ctx context.Context, info *account.ProviderInfo) error {
 	return nil
 }
 
-func (s *Store) Remove(ctx context.Context, key account.ProviderKey) error {
+func (s *Store) RemoveProvider(ctx context.Context, key account.ProviderKey) error {
 	redisKey := providerRedisKey(s.keyPrefix, key.Type, key.Name)
 	indexKey := providerIndexRedisKey(s.keyPrefix)
 	member := providerIndexMember(key.Type, key.Name)

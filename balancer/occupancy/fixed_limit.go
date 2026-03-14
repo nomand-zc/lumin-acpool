@@ -84,7 +84,7 @@ func (f *FixedLimit) FilterAvailable(ctx context.Context, accounts []*account.Ac
 	result := make([]*account.Account, 0, len(accounts))
 	for _, acct := range accounts {
 		limit := f.getLimit(acct)
-		current, err := f.store.Get(ctx, acct.ID)
+		current, err := f.store.GetOccupancy(ctx, acct.ID)
 		if err != nil {
 			// 存储查询失败，保守策略：保留该账号（不误排除）
 			result = append(result, acct)
@@ -101,7 +101,7 @@ func (f *FixedLimit) Acquire(ctx context.Context, acct *account.Account) bool {
 	limit := f.getLimit(acct)
 
 	// 原子递增并判断是否超过上限
-	newVal, err := f.store.Incr(ctx, acct.ID)
+	newVal, err := f.store.IncrOccupancy(ctx, acct.ID)
 	if err != nil {
 		// 存储操作失败，保守策略：拒绝获取
 		return false
@@ -109,7 +109,7 @@ func (f *FixedLimit) Acquire(ctx context.Context, acct *account.Account) bool {
 
 	if newVal > limit {
 		// 超过上限，回退计数
-		_ = f.store.Decr(ctx, acct.ID)
+		_ = f.store.DecrOccupancy(ctx, acct.ID)
 		return false
 	}
 
@@ -117,7 +117,7 @@ func (f *FixedLimit) Acquire(ctx context.Context, acct *account.Account) bool {
 }
 
 func (f *FixedLimit) Release(ctx context.Context, accountID string) {
-	_ = f.store.Decr(ctx, accountID)
+	_ = f.store.DecrOccupancy(ctx, accountID)
 }
 
 // getLimit 按照 Metadata > 账号ID > ProviderKey > ProviderType > 默认值 的优先级获取限额。

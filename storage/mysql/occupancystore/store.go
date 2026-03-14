@@ -61,7 +61,7 @@ func (s *Store) initDB() error {
 	return nil
 }
 
-func (s *Store) Incr(ctx context.Context, accountID string) (int64, error) {
+func (s *Store) IncrOccupancy(ctx context.Context, accountID string) (int64, error) {
 	result, err := s.client.Exec(ctx, queryIncr, accountID)
 	if err != nil {
 		return 0, fmt.Errorf("occupancystore: failed to incr: %w", err)
@@ -83,7 +83,7 @@ func (s *Store) Incr(ctx context.Context, accountID string) (int64, error) {
 	return lastID, nil
 }
 
-func (s *Store) Decr(ctx context.Context, accountID string) error {
+func (s *Store) DecrOccupancy(ctx context.Context, accountID string) error {
 	_, err := s.client.Exec(ctx, queryDecr, accountID)
 	if err != nil {
 		return fmt.Errorf("occupancystore: failed to decr: %w", err)
@@ -91,7 +91,7 @@ func (s *Store) Decr(ctx context.Context, accountID string) error {
 	return nil
 }
 
-func (s *Store) Get(ctx context.Context, accountID string) (int64, error) {
+func (s *Store) GetOccupancy(ctx context.Context, accountID string) (int64, error) {
 	var count int64
 	err := s.client.QueryRow(ctx, []any{&count}, queryGet, accountID)
 	if err != nil {

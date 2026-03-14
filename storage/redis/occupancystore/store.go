@@ -41,7 +41,7 @@ func NewStore(opts ...Option) (*Store, error) {
 	}, nil
 }
 
-func (s *Store) Incr(ctx context.Context, accountID string) (int64, error) {
+func (s *Store) IncrOccupancy(ctx context.Context, accountID string) (int64, error) {
 	key := occupancyKey(s.keyPrefix, accountID)
 	// 使用 Lua 脚本原子递增，Redis INCR 对不存在的 key 从 0 开始递增。
 	result, err := s.client.Eval(ctx, luaIncr, []string{key})
@@ -55,7 +55,7 @@ func (s *Store) Incr(ctx context.Context, accountID string) (int64, error) {
 	return newVal, nil
 }
 
-func (s *Store) Decr(ctx context.Context, accountID string) error {
+func (s *Store) DecrOccupancy(ctx context.Context, accountID string) error {
 	key := occupancyKey(s.keyPrefix, accountID)
 	// 使用 Lua 脚本保证原子递减且不低于 0，归零时自动清理 key。
 	_, err := s.client.Eval(ctx, luaDecr, []string{key})
@@ -65,7 +65,7 @@ func (s *Store) Decr(ctx context.Context, accountID string) error {
 	return nil
 }
 
-func (s *Store) Get(ctx context.Context, accountID string) (int64, error) {
+func (s *Store) GetOccupancy(ctx context.Context, accountID string) (int64, error) {
 	key := occupancyKey(s.keyPrefix, accountID)
 	// 使用 Lua 脚本获取当前计数，不存在返回 0。
 	result, err := s.client.Eval(ctx, luaGet, []string{key})

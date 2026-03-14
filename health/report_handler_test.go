@@ -24,7 +24,7 @@ func addTestAccount(ctx context.Context, store *accountstore.Store, id string, s
 		Status:       status,
 		Priority:     5,
 	}
-	_ = store.Add(ctx, acct)
+	_ = store.AddAccount(ctx, acct)
 	return acct
 }
 
@@ -55,7 +55,7 @@ func TestReportCallback_EmptyResults(t *testing.T) {
 	})
 
 	// 账号状态不应变化
-	acct, _ := as.Get(ctx, "acc-1")
+	acct, _ := as.GetAccount(ctx, "acc-1")
 	if acct.Status != account.StatusAvailable {
 		t.Fatalf("expected status Available, got %v", acct.Status)
 	}
@@ -95,7 +95,7 @@ func TestReportCallback_SuggestedStatus_RecoverToAvailable(t *testing.T) {
 		CircuitOpenUntil: &until,
 		CooldownUntil:    &until,
 	}
-	_ = as.Add(ctx, acct)
+	_ = as.AddAccount(ctx, acct)
 
 	cb := NewDefaultReportCallback(ReportHandlerDeps{
 		AccountStorage: as,
@@ -112,7 +112,7 @@ func TestReportCallback_SuggestedStatus_RecoverToAvailable(t *testing.T) {
 		},
 	})
 
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.Status != account.StatusAvailable {
 		t.Fatalf("expected status Available, got %v", updated.Status)
 	}
@@ -133,7 +133,7 @@ func TestReportCallback_SuggestedStatus_SameStatusNoUpdate(t *testing.T) {
 		AccountStorage: as,
 	})
 
-	original, _ := as.Get(ctx, "acc-1")
+	original, _ := as.GetAccount(ctx, "acc-1")
 	originalTime := original.UpdatedAt
 
 	cb(ctx, &HealthReport{
@@ -147,7 +147,7 @@ func TestReportCallback_SuggestedStatus_SameStatusNoUpdate(t *testing.T) {
 		},
 	})
 
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.UpdatedAt != originalTime {
 		t.Fatal("expected no update when suggested status equals current status")
 	}
@@ -177,7 +177,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_WithCooldownManager(t *testi
 		},
 	})
 
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.Status != account.StatusCoolingDown {
 		t.Fatalf("expected status CoolingDown, got %v", updated.Status)
 	}
@@ -214,7 +214,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_WithExplicitTime(t *testing.
 		},
 	})
 
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.Status != account.StatusCoolingDown {
 		t.Fatalf("expected status CoolingDown, got %v", updated.Status)
 	}
@@ -253,7 +253,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_NoCooldownManager(t *testing
 		},
 	})
 
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.Status != account.StatusCoolingDown {
 		t.Fatalf("expected status CoolingDown, got %v", updated.Status)
 	}
@@ -275,7 +275,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_SkipIfAlreadyCooling(t *test
 		Status:        account.StatusCoolingDown,
 		CooldownUntil: &until,
 	}
-	_ = as.Add(ctx, acct)
+	_ = as.AddAccount(ctx, acct)
 
 	cm := cooldown.NewCooldownManager()
 	cb := NewDefaultReportCallback(ReportHandlerDeps{
@@ -297,7 +297,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_SkipIfAlreadyCooling(t *test
 
 	// handleCooldown 中：只对 Available 和 CircuitOpen 状态触发冷却
 	// CoolingDown → CoolingDown 不会再次触发
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.Status != account.StatusCoolingDown {
 		t.Fatalf("expected status to remain CoolingDown, got %v", updated.Status)
 	}
@@ -324,7 +324,7 @@ func TestReportCallback_SuggestedStatus_Banned(t *testing.T) {
 		},
 	})
 
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.Status != account.StatusBanned {
 		t.Fatalf("expected status Banned, got %v", updated.Status)
 	}
@@ -462,7 +462,7 @@ func TestReportCallback_MultipleResults(t *testing.T) {
 		},
 	})
 
-	updated, _ := as.Get(ctx, "acc-1")
+	updated, _ := as.GetAccount(ctx, "acc-1")
 	if updated.Status != account.StatusCoolingDown {
 		t.Fatalf("expected status CoolingDown, got %v", updated.Status)
 	}

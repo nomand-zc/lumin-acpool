@@ -34,7 +34,7 @@ func NewStore() *Store {
 	}
 }
 
-func (s *Store) Get(_ context.Context, id string) (*account.Account, error) {
+func (s *Store) GetAccount(_ context.Context, id string) (*account.Account, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -45,7 +45,7 @@ func (s *Store) Get(_ context.Context, id string) (*account.Account, error) {
 	return acct.Clone(), nil
 }
 
-func (s *Store) Search(_ context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
+func (s *Store) SearchAccounts(_ context.Context, filter *storage.SearchFilter) ([]*account.Account, error) {
 	var cond *filtercond.Filter
 	if filter != nil {
 		cond = filter.ExtraCond
@@ -87,7 +87,7 @@ func matchSearchFilter(acct *account.Account, filter *storage.SearchFilter) bool
 	return true
 }
 
-func (s *Store) Add(_ context.Context, acct *account.Account) error {
+func (s *Store) AddAccount(_ context.Context, acct *account.Account) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -108,7 +108,7 @@ func (s *Store) Add(_ context.Context, acct *account.Account) error {
 	return nil
 }
 
-func (s *Store) Update(_ context.Context, acct *account.Account) error {
+func (s *Store) UpdateAccount(_ context.Context, acct *account.Account) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -135,7 +135,7 @@ func (s *Store) Update(_ context.Context, acct *account.Account) error {
 	return nil
 }
 
-func (s *Store) Remove(_ context.Context, id string) error {
+func (s *Store) RemoveAccount(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -149,7 +149,7 @@ func (s *Store) Remove(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *Store) RemoveFilter(_ context.Context, filter *storage.SearchFilter) error {
+func (s *Store) RemoveAccounts(_ context.Context, filter *storage.SearchFilter) error {
 	var cond *filtercond.Filter
 	if filter != nil {
 		cond = filter.ExtraCond
@@ -174,7 +174,7 @@ func (s *Store) RemoveFilter(_ context.Context, filter *storage.SearchFilter) er
 	return nil
 }
 
-func (s *Store) Count(_ context.Context, filter *storage.SearchFilter) (int, error) {
+func (s *Store) CountAccounts(_ context.Context, filter *storage.SearchFilter) (int, error) {
 	var cond *filtercond.Filter
 	if filter != nil {
 		cond = filter.ExtraCond

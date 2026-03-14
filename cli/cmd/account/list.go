@@ -57,7 +57,7 @@ func (c *listCmd) run(cmd *cobra.Command) error {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 	filter := buildAccountFilter(c.providerType, c.providerName, c.status)
 
-	accounts, err := deps.AccountStorage.Search(cmd.Context(), filter)
+	accounts, err := deps.AccountStorage.SearchAccounts(cmd.Context(), filter)
 	if err != nil {
 		return fmt.Errorf("查询 Account 失败: %w", err)
 	}

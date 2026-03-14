@@ -43,7 +43,7 @@ func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) (acct.St
 
 	// 验证所属 Provider 是否存在
 	providerKey := acct.BuildProviderKey(opts.ProviderType, opts.ProviderName)
-	providerInfo, err := deps.ProviderStorage.Get(cmd.Context(), providerKey)
+	providerInfo, err := deps.ProviderStorage.GetProvider(cmd.Context(), providerKey)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			return 0, fmt.Errorf("Provider %s 不存在，请先添加 Provider", providerKey)
@@ -83,12 +83,12 @@ func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) (acct.St
 	}
 
 	// 如果健康检查没有获取到模型列表，通过 Provider 默认模型列表兜底
-	latestProvInfo, _ := deps.ProviderStorage.Get(cmd.Context(), providerKey)
+	latestProvInfo, _ := deps.ProviderStorage.GetProvider(cmd.Context(), providerKey)
 	if latestProvInfo != nil && len(latestProvInfo.SupportedModels) == 0 {
 		fallbackProviderModels(cmd, deps, providerKey, account)
 	}
 
-	if err := deps.AccountStorage.Add(cmd.Context(), account); err != nil {
+	if err := deps.AccountStorage.AddAccount(cmd.Context(), account); err != nil {
 		return 0, handleStorageError("Account", err)
 	}
 
@@ -232,7 +232,7 @@ func applyReportToAccount(cmd *cobra.Command, deps *bootstrap.Dependencies, prov
 
 // updateProviderModels 将发现的模型列表更新到 ProviderInfo.SupportedModels。
 func updateProviderModels(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, models []string) {
-	provInfo, err := deps.ProviderStorage.Get(cmd.Context(), providerKey)
+	provInfo, err := deps.ProviderStorage.GetProvider(cmd.Context(), providerKey)
 	if err != nil {
 		fmt.Printf("  ⚠ 更新模型列表失败（获取 Provider 失败）: %v\n", err)
 		return
@@ -240,7 +240,7 @@ func updateProviderModels(cmd *cobra.Command, deps *bootstrap.Dependencies, prov
 
 	provInfo.SupportedModels = models
 	provInfo.UpdatedAt = time.Now()
-	if err := deps.ProviderStorage.Update(cmd.Context(), provInfo); err != nil {
+	if err := deps.ProviderStorage.UpdateProvider(cmd.Context(), provInfo); err != nil {
 		fmt.Printf("  ⚠ 更新模型列表失败（保存 Provider 失败）: %v\n", err)
 		return
 	}
@@ -360,7 +360,7 @@ func initTrackedUsages(cmd *cobra.Command, deps *bootstrap.Dependencies, account
 		return
 	}
 
-	if err := deps.UsageStore.Save(cmd.Context(), accountID, trackedUsages); err != nil {
+	if err := deps.UsageStore.SaveUsages(cmd.Context(), accountID, trackedUsages); err != nil {
 		fmt.Printf("  ⚠ 初始化用量追踪数据失败: %v\n", err)
 		return
 	}

@@ -27,7 +27,7 @@ func NewMemoryUsageStore() *MemoryUsageStore {
 	}
 }
 
-func (s *MemoryUsageStore) GetAll(_ context.Context, accountID string) ([]*account.TrackedUsage, error) {
+func (s *MemoryUsageStore) GetAllUsages(_ context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -45,7 +45,7 @@ func (s *MemoryUsageStore) GetAll(_ context.Context, accountID string) ([]*accou
 	return result, nil
 }
 
-func (s *MemoryUsageStore) Save(_ context.Context, accountID string, usages []*account.TrackedUsage) error {
+func (s *MemoryUsageStore) SaveUsages(_ context.Context, accountID string, usages []*account.TrackedUsage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -76,7 +76,7 @@ func (s *MemoryUsageStore) IncrLocalUsed(_ context.Context, accountID string, ru
 	return nil
 }
 
-func (s *MemoryUsageStore) Remove(_ context.Context, accountID string) error {
+func (s *MemoryUsageStore) RemoveUsages(_ context.Context, accountID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

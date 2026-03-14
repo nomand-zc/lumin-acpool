@@ -210,7 +210,7 @@ func TestGroupAffinity_HitBoundProvider(t *testing.T) {
 	}
 
 	// 预先绑定到 team-b
-	store.Set("user-A:gpt-4", "kiro/team-b")
+	store.SetAffinity("user-A:gpt-4", "kiro/team-b")
 
 	req := &selector.SelectRequest{
 		UserID: "user-A",
@@ -247,7 +247,7 @@ func TestGroupAffinity_MissFallbackAndUpdateBinding(t *testing.T) {
 	}
 
 	// 验证映射已更新
-	boundKey, exists := store.Get("user-B:gpt-4")
+	boundKey, exists := store.GetAffinity("user-B:gpt-4")
 	if !exists {
 		t.Fatal("expected binding to be created")
 	}
@@ -266,7 +266,7 @@ func TestGroupAffinity_BoundProviderNotInCandidates_Reselect(t *testing.T) {
 	}
 
 	// 预先绑定到 team-b，但 team-b 不在候选列表中
-	store.Set("user-C:gpt-4", "kiro/team-b")
+	store.SetAffinity("user-C:gpt-4", "kiro/team-b")
 
 	req := &selector.SelectRequest{
 		UserID: "user-C",
@@ -282,7 +282,7 @@ func TestGroupAffinity_BoundProviderNotInCandidates_Reselect(t *testing.T) {
 	}
 
 	// 验证映射已更新
-	boundKey, _ := store.Get("user-C:gpt-4")
+	boundKey, _ := store.GetAffinity("user-C:gpt-4")
 	if boundKey != result.ProviderKey().String() {
 		t.Fatalf("expected binding updated to %s, got %s", result.ProviderKey().String(), boundKey)
 	}

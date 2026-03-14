@@ -181,7 +181,7 @@ func (c *healthCmd) run(cmd *cobra.Command) error {
 // resolveAccounts 根据参数获取要检查的账号列表。
 func (c *healthCmd) resolveAccounts(cmd *cobra.Command, deps *bootstrap.Dependencies) ([]*acct.Account, error) {
 	if c.accountID != "" {
-		account, err := deps.AccountStorage.Get(cmd.Context(), c.accountID)
+		account, err := deps.AccountStorage.GetAccount(cmd.Context(), c.accountID)
 		if err != nil {
 			return nil, handleStorageError("Account", err)
 		}
@@ -189,7 +189,7 @@ func (c *healthCmd) resolveAccounts(cmd *cobra.Command, deps *bootstrap.Dependen
 	}
 
 	filter := buildAccountFilter(c.providerType, c.providerName, 0)
-	accounts, err := deps.AccountStorage.Search(cmd.Context(), filter)
+	accounts, err := deps.AccountStorage.SearchAccounts(cmd.Context(), filter)
 	if err != nil {
 		return nil, fmt.Errorf("查询 Account 失败: %w", err)
 	}
@@ -261,7 +261,7 @@ func (c *healthCmd) applyAndPersist(cmd *cobra.Command, account *acct.Account, r
 
 	// 更新账号信息到存储
 	account.UpdatedAt = time.Now()
-	if err := deps.AccountStorage.Update(cmd.Context(), account); err != nil {
+	if err := deps.AccountStorage.UpdateAccount(cmd.Context(), account); err != nil {
 		if err == storage.ErrVersionConflict {
 			fmt.Printf("  ⚠ 更新 Account %s 失败: 版本冲突（账号可能已被其他操作修改）\n", account.ID)
 		} else {
