@@ -5,18 +5,16 @@ import (
 	"testing"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	"github.com/nomand-zc/lumin-acpool/storage/memory/accountstore"
-	"github.com/nomand-zc/lumin-acpool/storage/memory/providerstore"
+	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
-func setupResolver() (Resolver, *providerstore.Store, *accountstore.Store) {
-	ps := providerstore.NewStore()
-	as := accountstore.NewStore()
-	r := NewStorageResolver(ps, as)
-	return r, ps, as
+func setupResolver() (Resolver, *storeMemory.Store, *storeMemory.Store) {
+	store := storeMemory.NewStore()
+	r := NewStorageResolver(store, store)
+	return r, store, store
 }
 
-func addProvider(ctx context.Context, ps *providerstore.Store, provType, name string, status account.ProviderStatus, priority int, models []string) {
+func addProvider(ctx context.Context, ps *storeMemory.Store, provType, name string, status account.ProviderStatus, priority int, models []string) {
 	_ = ps.AddProvider(ctx, &account.ProviderInfo{
 		ProviderType:    provType,
 		ProviderName:    name,
@@ -26,7 +24,7 @@ func addProvider(ctx context.Context, ps *providerstore.Store, provType, name st
 	})
 }
 
-func addAccount(ctx context.Context, as *accountstore.Store, id, provType, provName string, status account.Status, priority int, tags map[string]string) {
+func addAccount(ctx context.Context, as *storeMemory.Store, id, provType, provName string, status account.Status, priority int, tags map[string]string) {
 	_ = as.AddAccount(ctx, &account.Account{
 		ID:           id,
 		ProviderType: provType,

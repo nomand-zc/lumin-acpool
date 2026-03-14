@@ -4,7 +4,7 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	"github.com/nomand-zc/lumin-acpool/storage/memory/affinitystore"
+	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
 // Affinity 是账号级别的亲和选择策略。
@@ -67,7 +67,7 @@ func AffinityWithStore(store storage.AffinityStore) AffinityOption {
 //	s := NewAffinity(AffinityWithStore(redisAffinityStore))
 func NewAffinity(opts ...AffinityOption) *Affinity {
 	a := &Affinity{
-	store:    affinitystore.NewStore(),
+	store:    storeMemory.NewStore(),
 		fallback: NewRoundRobin(),
 	}
 	for _, opt := range opts {

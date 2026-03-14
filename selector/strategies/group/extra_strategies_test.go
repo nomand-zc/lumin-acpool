@@ -5,7 +5,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
-	"github.com/nomand-zc/lumin-acpool/storage/memory/affinitystore"
+	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
 // newTestProviderWithWeight 创建带 Weight 的测试 provider
@@ -200,7 +200,7 @@ func TestGroupAffinity_EmptyUserID_Fallback(t *testing.T) {
 }
 
 func TestGroupAffinity_HitBoundProvider(t *testing.T) {
-	store := affinitystore.NewStore()
+	store := storeMemory.NewStore()
 	a := NewGroupAffinity(GroupAffinityWithStore(store))
 
 	candidates := []*account.ProviderInfo{
@@ -226,7 +226,7 @@ func TestGroupAffinity_HitBoundProvider(t *testing.T) {
 }
 
 func TestGroupAffinity_MissFallbackAndUpdateBinding(t *testing.T) {
-	store := affinitystore.NewStore()
+	store := storeMemory.NewStore()
 	a := NewGroupAffinity(GroupAffinityWithStore(store))
 
 	candidates := []*account.ProviderInfo{
@@ -257,7 +257,7 @@ func TestGroupAffinity_MissFallbackAndUpdateBinding(t *testing.T) {
 }
 
 func TestGroupAffinity_BoundProviderNotInCandidates_Reselect(t *testing.T) {
-	store := affinitystore.NewStore()
+	store := storeMemory.NewStore()
 	a := NewGroupAffinity(GroupAffinityWithStore(store))
 
 	candidates := []*account.ProviderInfo{

@@ -5,7 +5,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
-	"github.com/nomand-zc/lumin-acpool/storage/memory/affinitystore"
+	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
 // --- Affinity 测试 ---
@@ -55,7 +55,7 @@ func TestAffinity_EmptyUserID_FallbackToRoundRobin(t *testing.T) {
 }
 
 func TestAffinity_HitBoundAccount(t *testing.T) {
-	store := affinitystore.NewStore()
+	store := storeMemory.NewStore()
 	a := NewAffinity(AffinityWithStore(store))
 
 	candidates := []*account.Account{
@@ -81,7 +81,7 @@ func TestAffinity_HitBoundAccount(t *testing.T) {
 }
 
 func TestAffinity_MissFallbackAndUpdateBinding(t *testing.T) {
-	store := affinitystore.NewStore()
+	store := storeMemory.NewStore()
 	a := NewAffinity(AffinityWithStore(store))
 
 	candidates := []*account.Account{
@@ -113,7 +113,7 @@ func TestAffinity_MissFallbackAndUpdateBinding(t *testing.T) {
 }
 
 func TestAffinity_BoundAccountNotInCandidates_Reselect(t *testing.T) {
-	store := affinitystore.NewStore()
+	store := storeMemory.NewStore()
 	a := NewAffinity(AffinityWithStore(store))
 
 	candidates := []*account.Account{

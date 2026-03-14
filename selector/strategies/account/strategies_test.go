@@ -6,7 +6,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
-	"github.com/nomand-zc/lumin-acpool/storage/memory/statsstore"
+	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
 func newTestAccount(id string, priority int) *account.Account {
@@ -194,7 +194,7 @@ func TestLeastUsed_NilStatsStore_FallbackToPriority(t *testing.T) {
 
 func TestLeastUsed_WithStatsStore_SelectsLeastCalls(t *testing.T) {
 	ctx := context.Background()
-	ss := statsstore.NewMemoryStatsStore()
+	ss := storeMemory.NewStore()
 
 	// acc-1: 10 次调用
 	for i := 0; i < 10; i++ {
@@ -226,7 +226,7 @@ func TestLeastUsed_WithStatsStore_SelectsLeastCalls(t *testing.T) {
 }
 
 func TestLeastUsed_SameCalls_SelectsHigherPriority(t *testing.T) {
-	ss := statsstore.NewMemoryStatsStore()
+	ss := storeMemory.NewStore()
 	// 所有账号都是 0 次调用
 
 	lu := NewLeastUsed(ss)

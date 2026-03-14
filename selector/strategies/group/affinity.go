@@ -4,7 +4,7 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/selector"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	"github.com/nomand-zc/lumin-acpool/storage/memory/affinitystore"
+	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
 // GroupAffinity 是供应商级别的亲和选择策略。
@@ -67,7 +67,7 @@ func GroupAffinityWithStore(store storage.AffinityStore) GroupAffinityOption {
 //	s := NewGroupAffinity(GroupAffinityWithStore(redisAffinityStore))
 func NewGroupAffinity(opts ...GroupAffinityOption) *GroupAffinity {
 	a := &GroupAffinity{
-		store:    affinitystore.NewStore(),
+		store:    storeMemory.NewStore(),
 		fallback: NewGroupPriority(),
 	}
 	for _, opt := range opts {
