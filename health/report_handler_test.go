@@ -7,7 +7,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/cooldown"
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 	"github.com/nomand-zc/lumin-acpool/usagetracker"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
@@ -16,7 +16,7 @@ func statusPtr(s account.Status) *account.Status {
 	return &s
 }
 
-func addTestAccount(ctx context.Context, store *storeMemory.Store, id string, status account.Status) *account.Account {
+func addTestAccount(ctx context.Context, store *storememory.Store, id string, status account.Status) *account.Account {
 	acct := &account.Account{
 		ID:           id,
 		ProviderType: "test",
@@ -31,7 +31,7 @@ func addTestAccount(ctx context.Context, store *storeMemory.Store, id string, st
 // --- 基础场景 ---
 
 func TestReportCallback_NilReport(t *testing.T) {
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	cb := NewDefaultReportCallback(ReportHandlerDeps{
 		AccountStorage: as,
 	})
@@ -42,7 +42,7 @@ func TestReportCallback_NilReport(t *testing.T) {
 
 func TestReportCallback_EmptyResults(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	cb := NewDefaultReportCallback(ReportHandlerDeps{
@@ -62,7 +62,7 @@ func TestReportCallback_EmptyResults(t *testing.T) {
 }
 
 func TestReportCallback_AccountNotFound(t *testing.T) {
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	cb := NewDefaultReportCallback(ReportHandlerDeps{
 		AccountStorage: as,
 	})
@@ -84,7 +84,7 @@ func TestReportCallback_AccountNotFound(t *testing.T) {
 
 func TestReportCallback_SuggestedStatus_RecoverToAvailable(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 
 	until := time.Now().Add(time.Hour)
 	acct := &account.Account{
@@ -126,7 +126,7 @@ func TestReportCallback_SuggestedStatus_RecoverToAvailable(t *testing.T) {
 
 func TestReportCallback_SuggestedStatus_SameStatusNoUpdate(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	cb := NewDefaultReportCallback(ReportHandlerDeps{
@@ -155,7 +155,7 @@ func TestReportCallback_SuggestedStatus_SameStatusNoUpdate(t *testing.T) {
 
 func TestReportCallback_SuggestedStatus_CoolingDown_WithCooldownManager(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	cm := cooldown.NewCooldownManager(cooldown.WithDefaultDuration(60 * time.Second))
@@ -188,7 +188,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_WithCooldownManager(t *testi
 
 func TestReportCallback_SuggestedStatus_CoolingDown_WithExplicitTime(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	cm := cooldown.NewCooldownManager()
@@ -228,7 +228,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_WithExplicitTime(t *testing.
 
 func TestReportCallback_SuggestedStatus_CoolingDown_NoCooldownManager(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	until := time.Now().Add(5 * time.Minute)
@@ -264,7 +264,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_NoCooldownManager(t *testing
 
 func TestReportCallback_SuggestedStatus_CoolingDown_SkipIfAlreadyCooling(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 
 	// 账号已经在 CoolingDown 状态
 	until := time.Now().Add(10 * time.Minute)
@@ -305,7 +305,7 @@ func TestReportCallback_SuggestedStatus_CoolingDown_SkipIfAlreadyCooling(t *test
 
 func TestReportCallback_SuggestedStatus_Banned(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	cb := NewDefaultReportCallback(ReportHandlerDeps{
@@ -334,7 +334,7 @@ func TestReportCallback_SuggestedStatus_Banned(t *testing.T) {
 
 func TestReportCallback_UsageStats_Calibrate(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	ut := usagetracker.NewUsageTracker()
@@ -401,7 +401,7 @@ func TestReportCallback_UsageStats_Calibrate(t *testing.T) {
 
 func TestReportCallback_MultipleResults(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	ut := usagetracker.NewUsageTracker()
@@ -473,7 +473,7 @@ func TestReportCallback_MultipleResults(t *testing.T) {
 
 func TestReportCallback_NilResultInSlice(t *testing.T) {
 	ctx := context.Background()
-	as := storeMemory.NewStore()
+	as := storememory.NewStore()
 	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
 
 	cb := NewDefaultReportCallback(ReportHandlerDeps{

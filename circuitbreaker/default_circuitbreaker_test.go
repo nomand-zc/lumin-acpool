@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
@@ -27,7 +27,7 @@ func TestNewCircuitBreaker_RequiresStatsStore(t *testing.T) {
 }
 
 func TestNewCircuitBreaker_Success(t *testing.T) {
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 	cb, err := NewCircuitBreaker(WithStatsStore(ss))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -39,7 +39,7 @@ func TestNewCircuitBreaker_Success(t *testing.T) {
 
 func TestRecordSuccess_ResetsConsecutiveFailures(t *testing.T) {
 	ctx := context.Background()
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 
 	// 先注入一些失败
 	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
@@ -68,7 +68,7 @@ func TestRecordSuccess_ResetsConsecutiveFailures(t *testing.T) {
 
 func TestRecordFailure_BelowThreshold(t *testing.T) {
 	ctx := context.Background()
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 
 	// 注入 2 次失败（默认阈值 5）
 	_, _ = ss.IncrFailure(ctx, "acc-1", "err")
@@ -91,7 +91,7 @@ func TestRecordFailure_BelowThreshold(t *testing.T) {
 
 func TestRecordFailure_ReachesThreshold(t *testing.T) {
 	ctx := context.Background()
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 
 	// 注入 5 次失败（= 默认阈值 5）
 	for i := 0; i < 5; i++ {
@@ -118,7 +118,7 @@ func TestRecordFailure_ReachesThreshold(t *testing.T) {
 
 func TestRecordFailure_CustomThreshold(t *testing.T) {
 	ctx := context.Background()
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 
 	// 自定义阈值为 2
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss), WithDefaultThreshold(2))
@@ -134,7 +134,7 @@ func TestRecordFailure_CustomThreshold(t *testing.T) {
 }
 
 func TestShouldAllow_NotExpired(t *testing.T) {
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss))
 
 	acct := newTestAccount("acc-1")
@@ -147,7 +147,7 @@ func TestShouldAllow_NotExpired(t *testing.T) {
 }
 
 func TestShouldAllow_Expired(t *testing.T) {
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss))
 
 	acct := newTestAccount("acc-1")
@@ -160,7 +160,7 @@ func TestShouldAllow_Expired(t *testing.T) {
 }
 
 func TestShouldAllow_NilCircuitOpenUntil(t *testing.T) {
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 	cb, _ := NewCircuitBreaker(WithStatsStore(ss))
 
 	acct := newTestAccount("acc-1")
@@ -171,7 +171,7 @@ func TestShouldAllow_NilCircuitOpenUntil(t *testing.T) {
 
 func TestDynamicThreshold_WithUsageRules(t *testing.T) {
 	ctx := context.Background()
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 
 	// 设置 ThresholdRatio = 0.5, MinThreshold = 3
 	cb, _ := NewCircuitBreaker(
@@ -198,7 +198,7 @@ func TestDynamicThreshold_WithUsageRules(t *testing.T) {
 
 func TestDynamicThreshold_MinThresholdFloor(t *testing.T) {
 	ctx := context.Background()
-	ss := storeMemory.NewStore()
+	ss := storememory.NewStore()
 
 	// 设置 ThresholdRatio = 0.5, MinThreshold = 3
 	// Total = 4 → 4 * 0.5 = 2 → 应提升到 MinThreshold = 3

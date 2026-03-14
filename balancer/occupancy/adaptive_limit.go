@@ -7,7 +7,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 	"github.com/nomand-zc/lumin-acpool/usagetracker"
 )
 
@@ -64,7 +64,7 @@ func NewAdaptiveLimit(tracker usagetracker.UsageTracker, opts ...AdaptiveLimitOp
 		minLimit:      1,
 		maxLimit:      0,
 		fallbackLimit: 1,
-		store:         storeMemory.NewStore(),
+		store:         storememory.NewStore(),
 	}
 	for _, opt := range opts {
 		opt(a)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
 // 编译期接口合规性检查。
@@ -45,7 +45,7 @@ func NewFixedLimit(defaultLimit int64, opts ...FixedLimitOption) *FixedLimit {
 		opt(f)
 	}
 	if f.store == nil {
-		f.store = storeMemory.NewStore()
+		f.store = storememory.NewStore()
 	}
 	return f
 }

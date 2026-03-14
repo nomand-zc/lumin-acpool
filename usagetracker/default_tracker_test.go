@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
@@ -47,7 +47,7 @@ func TestInitRules(t *testing.T) {
 
 func TestRecordUsage_IncrLocalUsed(t *testing.T) {
 	ctx := context.Background()
-	store := storeMemory.NewStore()
+	store := storememory.NewStore()
 	ut := NewUsageTracker(WithUsageStore(store))
 
 	rules := []*usagerule.UsageRule{

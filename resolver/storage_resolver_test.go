@@ -5,16 +5,16 @@ import (
 	"testing"
 
 	"github.com/nomand-zc/lumin-acpool/account"
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
-func setupResolver() (Resolver, *storeMemory.Store, *storeMemory.Store) {
-	store := storeMemory.NewStore()
+func setupResolver() (Resolver, *storememory.Store, *storememory.Store) {
+	store := storememory.NewStore()
 	r := NewStorageResolver(store, store)
 	return r, store, store
 }
 
-func addProvider(ctx context.Context, ps *storeMemory.Store, provType, name string, status account.ProviderStatus, priority int, models []string) {
+func addProvider(ctx context.Context, ps *storememory.Store, provType, name string, status account.ProviderStatus, priority int, models []string) {
 	_ = ps.AddProvider(ctx, &account.ProviderInfo{
 		ProviderType:    provType,
 		ProviderName:    name,
@@ -24,7 +24,7 @@ func addProvider(ctx context.Context, ps *storeMemory.Store, provType, name stri
 	})
 }
 
-func addAccount(ctx context.Context, as *storeMemory.Store, id, provType, provName string, status account.Status, priority int, tags map[string]string) {
+func addAccount(ctx context.Context, as *storememory.Store, id, provType, provName string, status account.Status, priority int, tags map[string]string) {
 	_ = as.AddAccount(ctx, &account.Account{
 		ID:           id,
 		ProviderType: provType,

@@ -6,16 +6,16 @@ import (
 	"github.com/nomand-zc/lumin-acpool/cli/internal/config"
 
 	// Memory store
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 
 	// MySQL store
-	storeMysql "github.com/nomand-zc/lumin-acpool/storage/mysql"
+	storemysql "github.com/nomand-zc/lumin-acpool/storage/mysql"
 
 	// Redis store
-	storeRedis "github.com/nomand-zc/lumin-acpool/storage/redis"
+	storeredis "github.com/nomand-zc/lumin-acpool/storage/redis"
 
 	// SQLite store
-	storeSqlite "github.com/nomand-zc/lumin-acpool/storage/sqlite"
+	storesqlite "github.com/nomand-zc/lumin-acpool/storage/sqlite"
 )
 
 const defaultInstanceName = "default"
@@ -39,7 +39,7 @@ func initStorage(cfg config.StorageConfig, deps *Dependencies) error {
 // initMemoryStorage 初始化统一的内存存储。
 // 所有接口共享同一个 Store 实例。
 func initMemoryStorage(deps *Dependencies) error {
-	store := storeMemory.NewStore()
+	store := storememory.NewStore()
 
 	deps.AccountStorage = store
 	deps.ProviderStorage = store
@@ -54,9 +54,9 @@ func initMemoryStorage(deps *Dependencies) error {
 // initMySQLStorage 注册 MySQL 实例并初始化统一的 store。
 // 所有接口共享同一个 Store 实例和数据库连接。
 func initMySQLStorage(dsn string, deps *Dependencies) error {
-	storeMysql.RegisterInstance(defaultInstanceName, storeMysql.WithClientBuilderDSN(dsn))
+	storemysql.RegisterInstance(defaultInstanceName, storemysql.WithClientBuilderDSN(dsn))
 
-	store, err := storeMysql.NewStore(storeMysql.WithInstanceName(defaultInstanceName))
+	store, err := storemysql.NewStore(storemysql.WithInstanceName(defaultInstanceName))
 	if err != nil {
 		return fmt.Errorf("mysql store: %w", err)
 	}
@@ -74,9 +74,9 @@ func initMySQLStorage(dsn string, deps *Dependencies) error {
 // initRedisStorage 注册 Redis 实例并初始化统一的 store。
 // 所有接口共享同一个 Store 实例和 Redis 连接。
 func initRedisStorage(dsn string, deps *Dependencies) error {
-	storeRedis.RegisterInstance(defaultInstanceName, storeRedis.WithClientBuilderDSN(dsn))
+	storeredis.RegisterInstance(defaultInstanceName, storeredis.WithClientBuilderDSN(dsn))
 
-	store, err := storeRedis.NewStore(storeRedis.WithInstanceName(defaultInstanceName))
+	store, err := storeredis.NewStore(storeredis.WithInstanceName(defaultInstanceName))
 	if err != nil {
 		return fmt.Errorf("redis store: %w", err)
 	}
@@ -94,9 +94,9 @@ func initRedisStorage(dsn string, deps *Dependencies) error {
 // initSQLiteStorage 注册 SQLite 实例并初始化统一的 store。
 // 所有接口共享同一个 Store 实例和数据库连接。
 func initSQLiteStorage(dsn string, deps *Dependencies) error {
-	storeSqlite.RegisterInstance(defaultInstanceName, storeSqlite.WithClientBuilderDSN(dsn))
+	storesqlite.RegisterInstance(defaultInstanceName, storesqlite.WithClientBuilderDSN(dsn))
 
-	store, err := storeSqlite.NewStore(storeSqlite.WithInstanceName(defaultInstanceName))
+	store, err := storesqlite.NewStore(storesqlite.WithInstanceName(defaultInstanceName))
 	if err != nil {
 		return fmt.Errorf("sqlite store: %w", err)
 	}

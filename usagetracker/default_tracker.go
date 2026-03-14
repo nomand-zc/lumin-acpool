@@ -6,7 +6,7 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
-	storeMemory "github.com/nomand-zc/lumin-acpool/storage/memory"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
 
@@ -29,7 +29,7 @@ func NewUsageTracker(opts ...Option) UsageTracker {
 	}
 	store := o.Store
 	if store == nil {
-		store = storeMemory.NewStore()
+		store = storememory.NewStore()
 	}
 	return &defaultUsageTracker{
 		opts:  o,
