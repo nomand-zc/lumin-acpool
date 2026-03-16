@@ -44,7 +44,6 @@ func (r *storageResolver) ResolveProvider(ctx context.Context, key account.Provi
 		return nil, ErrModelNotSupported
 	}
 
-	r.fillAccountCounts(ctx, provInfo)
 	if provInfo.AccountCount <= 0 || provInfo.AvailableAccountCount <= 0 {
 		return nil, ErrNoAccount
 	}
@@ -71,7 +70,6 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 		if !provInfo.IsActive() {
 			continue
 		}
-		r.fillAccountCounts(ctx, provInfo)
 		if provInfo.AccountCount > 0 && provInfo.AvailableAccountCount > 0 {
 			active = append(active, provInfo)
 		}
@@ -109,30 +107,6 @@ func (r *storageResolver) ResolveAccounts(ctx context.Context, req ResolveAccoun
 	}
 
 	return accounts, nil
-}
-
-// fillAccountCounts 动态填充 ProviderInfo 的 AccountCount 和 AvailableAccountCount。
-// 通过 AccountStorage.Count 实时查询，确保 GroupSelector（如 MostAvailable）
-// 能获取到准确的可用账号数。
-func (r *storageResolver) fillAccountCounts(ctx context.Context, info *account.ProviderInfo) {
-	key := info.ProviderKey()
-
-	// 查询总账号数
-	if total, err := r.accountStorage.CountAccounts(ctx, &storage.SearchFilter{
-		ProviderType: key.Type,
-		ProviderName: key.Name,
-	}); err == nil {
-		info.AccountCount = total
-	}
-
-	// 查询可用账号数（Status == Available）
-	if available, err := r.accountStorage.CountAccounts(ctx, &storage.SearchFilter{
-		ProviderType: key.Type,
-		ProviderName: key.Name,
-		Status:       int(account.StatusAvailable),
-	}); err == nil {
-		info.AvailableAccountCount = available
-	}
 }
 
 // filterExcluded filters out accounts with specified IDs.
