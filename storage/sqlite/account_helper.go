@@ -17,10 +17,6 @@ const (
 
 	queryGetAccount    = `SELECT ` + accountSelectColumns + ` FROM accounts WHERE id = ?`
 	queryInsertAccount = `INSERT INTO accounts (` + accountSelectColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	queryUpdateAccount = `UPDATE accounts SET provider_type=?, provider_name=?, credential=?, status=?, priority=?, 
-		tags=?, metadata=?, usage_rules=?, cooldown_until=?, circuit_open_until=?, updated_at=?, 
-		version=version+1 
-		WHERE id=? AND version=?`
 	queryDeleteAccount = `DELETE FROM accounts WHERE id=?`
 
 	// queryIncrProviderAccountCount 增加供应商的账号计数。

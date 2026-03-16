@@ -81,10 +81,15 @@ func NewDefaultReportCallback(deps ReportHandlerDeps) ReportCallback {
 			}
 		}
 
-		// 3. 持久化变更
+	// 3. 持久化变更
 		if needUpdate {
 			acct.UpdatedAt = time.Now()
-			_ = deps.AccountStorage.UpdateAccount(ctx, acct)
+
+			// 根据实际变更的内容确定需要更新的字段
+			updateFields := storage.UpdateFieldStatus // 状态始终更新（handleSuggestedStatus）
+			updateFields |= storage.UpdateFieldUsageRules // UsageRules 刷新
+			updateFields |= storage.UpdateFieldCredential // 凭证刷新（Token 刷新后）
+			_ = deps.AccountStorage.UpdateAccount(ctx, acct, updateFields)
 		}
 	}
 }

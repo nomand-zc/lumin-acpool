@@ -277,7 +277,7 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 			acct.Status = account.StatusAvailable
 			acct.CircuitOpenUntil = nil
 			acct.UpdatedAt = time.Now()
-			if err := b.opts.AccountStorage.UpdateAccount(ctx, acct); err != nil {
+			if err := b.opts.AccountStorage.UpdateAccount(ctx, acct, storage.UpdateFieldStatus); err != nil {
 				if errors.Is(err, storage.ErrVersionConflict) {
 					// 版本冲突，已被其他实例更新，忽略（幂等）
 					return nil
@@ -353,7 +353,7 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 	// 5. 仅当状态变更时才持久化（使用乐观锁避免竞态覆盖）
 	if needUpdate {
 		acct.UpdatedAt = time.Now()
-		if err := b.opts.AccountStorage.UpdateAccount(ctx, acct); err != nil {
+		if err := b.opts.AccountStorage.UpdateAccount(ctx, acct, storage.UpdateFieldStatus); err != nil {
 			if errors.Is(err, storage.ErrVersionConflict) {
 				// 版本冲突，已被其他实例更新（如已被标记为 CoolingDown/CircuitOpen），忽略
 				return nil
@@ -470,7 +470,7 @@ func newUsageTrackerWithCooldown(
 			cooldownMgr.StartCooldown(acct, nil)
 			acct.Status = account.StatusCoolingDown
 			acct.UpdatedAt = time.Now()
-			_ = accountStorage.UpdateAccount(ctx, acct) // 乐观锁持久化，冲突静默忽略
+			_ = accountStorage.UpdateAccount(ctx, acct, storage.UpdateFieldStatus) // 乐观锁持久化，冲突静默忽略
 		}),
 	)
 }

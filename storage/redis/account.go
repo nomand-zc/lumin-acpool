@@ -2,12 +2,25 @@ package redis
 
 import (
 	"context"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
 	"github.com/nomand-zc/lumin-acpool/storage/filtercond"
+)
+
+var (
+	//go:embed scripts/account_add.lua
+	scriptAccountAdd string
+
+	//go:embed scripts/account_update.lua
+	scriptAccountUpdate string
+
+	//go:embed scripts/account_remove.lua
+	scriptAccountRemove string
 )
 
 // ============================
@@ -137,35 +150,6 @@ func (s *Store) SearchAccounts(ctx context.Context, filter *storage.SearchFilter
 // Account 写入（同步维护三层索引）
 // ============================
 
-var luaAddAccount = `
-	local key = KEYS[1]
-	local id = ARGV[1]
-	
-	if redis.call("EXISTS", key) == 1 then
-		return 0
-	end
-	
-	for i = 2, #ARGV - 1, 2 do
-		redis.call("HSET", key, ARGV[i], ARGV[i+1])
-	end
-	
-	redis.call("SADD", KEYS[2], id)
-	redis.call("SADD", KEYS[3], id)
-	redis.call("SADD", KEYS[4], id)
-	redis.call("SADD", KEYS[5], id)
-	
-	-- 更新 Provider 计数
-	local availIncr = tonumber(ARGV[#ARGV])
-	if redis.call("EXISTS", KEYS[6]) == 1 then
-		redis.call("HINCRBY", KEYS[6], "account_count", 1)
-		if availIncr > 0 then
-			redis.call("HINCRBY", KEYS[6], "available_account_count", availIncr)
-		end
-	end
-	
-	return 1
-`
-
 func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 	key := acctDataKey(s.keyPrefix, acct.ID)
 	ik := acctAllIndexKeys(s.keyPrefix, acct.ProviderType, acct.ProviderName, int(acct.Status))
@@ -194,7 +178,7 @@ func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 	}
 	args = append(args, availableIncr)
 
-	result, err := s.client.Eval(ctx, luaAddAccount,
+	result, err := s.client.Eval(ctx, scriptAccountAdd,
 		[]string{key, ik.global, ik.typeIdx, ik.provider, ik.group, provKey}, args...)
 	if err != nil {
 		return fmt.Errorf("redis store: failed to add account: %w", err)
@@ -207,44 +191,7 @@ func (s *Store) AddAccount(ctx context.Context, acct *account.Account) error {
 	return nil
 }
 
-var luaUpdateAccount = `
-	local key = KEYS[1]
-	local expectedVersion = ARGV[1]
-	
-	if redis.call("EXISTS", key) == 0 then
-		return -1
-	end
-	
-	local currentVersion = redis.call("HGET", key, "version")
-	if currentVersion ~= expectedVersion then
-		return -2
-	end
-	
-	local id = redis.call("HGET", key, "id")
-	
-	for i = 2, #ARGV, 2 do
-		redis.call("HSET", key, ARGV[i], ARGV[i+1])
-	end
-	
-	redis.call("HINCRBY", key, "version", 1)
-	
-	if KEYS[2] ~= KEYS[5] then
-		redis.call("SREM", KEYS[2], id)
-		redis.call("SADD", KEYS[5], id)
-	end
-	if KEYS[3] ~= KEYS[6] then
-		redis.call("SREM", KEYS[3], id)
-		redis.call("SADD", KEYS[6], id)
-	end
-	if KEYS[4] ~= KEYS[7] then
-		redis.call("SREM", KEYS[4], id)
-		redis.call("SADD", KEYS[7], id)
-	end
-	
-	return 1
-`
-
-func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error {
+func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account, fields storage.UpdateField) error {
 	key := acctDataKey(s.keyPrefix, acct.ID)
 
 	oldData, err := s.client.HGetAll(ctx, key)
@@ -255,32 +202,80 @@ func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error 
 		return storage.ErrNotFound
 	}
 
-	oldType := oldData[acctFieldProviderType]
-	oldName := oldData[acctFieldProviderName]
-	oldStatus := ParseInt(oldData[acctFieldStatus])
-
-	oldIK := acctAllIndexKeys(s.keyPrefix, oldType, oldName, oldStatus)
-	newIK := acctAllIndexKeys(s.keyPrefix, acct.ProviderType, acct.ProviderName, int(acct.Status))
-
 	acct.UpdatedAt = time.Now()
-	fields, err := marshalAccountToHash(acct)
-	if err != nil {
-		return fmt.Errorf("redis store: %w", err)
+
+	// 按 fields 选择性序列化需要更新的字段
+	hashFields := make(map[string]string)
+	hashFields[acctFieldUpdatedAt] = FormatTime(acct.UpdatedAt)
+
+	if fields.Has(storage.UpdateFieldCredential) {
+		credentialJSON, err := json.Marshal(acct.Credential.ToMap())
+		if err != nil {
+			return fmt.Errorf("redis store: failed to marshal credential: %w", err)
+		}
+		hashFields[acctFieldCredential] = string(credentialJSON)
+	}
+	if fields.Has(storage.UpdateFieldStatus) {
+		hashFields[acctFieldStatus] = acctFormatInt(int(acct.Status))
+		hashFields[acctFieldCooldownUntil] = FormatTimePtr(acct.CooldownUntil)
+		hashFields[acctFieldCircuitOpenUntil] = FormatTimePtr(acct.CircuitOpenUntil)
+	}
+	if fields.Has(storage.UpdateFieldPriority) {
+		hashFields[acctFieldPriority] = acctFormatInt(acct.Priority)
+	}
+	if fields.Has(storage.UpdateFieldTags) {
+		tagsJSON, err := MarshalJSON(acct.Tags)
+		if err != nil {
+			return fmt.Errorf("redis store: failed to marshal tags: %w", err)
+		}
+		hashFields[acctFieldTags] = tagsJSON
+	}
+	if fields.Has(storage.UpdateFieldMetadata) {
+		metadataJSON, err := MarshalJSON(acct.Metadata)
+		if err != nil {
+			return fmt.Errorf("redis store: failed to marshal metadata: %w", err)
+		}
+		hashFields[acctFieldMetadata] = metadataJSON
+	}
+	if fields.Has(storage.UpdateFieldUsageRules) {
+		usageRulesJSON, err := MarshalJSON(acct.UsageRules)
+		if err != nil {
+			return fmt.Errorf("redis store: failed to marshal usage_rules: %w", err)
+		}
+		hashFields[acctFieldUsageRules] = usageRulesJSON
 	}
 
-	delete(fields, acctFieldVersion)
+	// 构建 KEYS 和 ARGV
+	// 当包含状态更新时，需要传入索引 Key 和 Provider Key 来更新索引和计数
+	hasStatusUpdate := 0
+	var keys []string
+	if fields.Has(storage.UpdateFieldStatus) {
+		hasStatusUpdate = 1
+		oldType := oldData[acctFieldProviderType]
+		oldName := oldData[acctFieldProviderName]
+		oldStatus := ParseInt(oldData[acctFieldStatus])
 
-	args := []any{acctFormatInt(acct.Version)}
-	for k, v := range fields {
-		args = append(args, k, fmt.Sprintf("%v", v))
-	}
+		oldIK := acctAllIndexKeys(s.keyPrefix, oldType, oldName, oldStatus)
+		newIK := acctAllIndexKeys(s.keyPrefix, acct.ProviderType, acct.ProviderName, int(acct.Status))
+		provKey := provRedisKey(s.keyPrefix, acct.ProviderType, acct.ProviderName)
 
-	result, err := s.client.Eval(ctx, luaUpdateAccount,
-		[]string{
+		keys = []string{
 			key,
 			oldIK.typeIdx, oldIK.provider, oldIK.group,
 			newIK.typeIdx, newIK.provider, newIK.group,
-		}, args...)
+			provKey,
+		}
+	} else {
+		// 不更新状态时，索引 Key 使用占位符（Lua 脚本中 hasStatusUpdate=0 不会使用）
+		keys = []string{key, "", "", "", "", "", "", ""}
+	}
+
+	args := []any{acctFormatInt(acct.Version), hasStatusUpdate}
+	for k, v := range hashFields {
+		args = append(args, k, v)
+	}
+
+	result, err := s.client.Eval(ctx, scriptAccountUpdate, keys, args...)
 	if err != nil {
 		return fmt.Errorf("redis store: failed to update account: %w", err)
 	}
@@ -296,28 +291,6 @@ func (s *Store) UpdateAccount(ctx context.Context, acct *account.Account) error 
 		return fmt.Errorf("redis store: unexpected update result: %v", result)
 	}
 }
-
-var luaRemoveAccount = `
-	-- 删除账号数据和索引
-	redis.call("DEL", KEYS[1])
-	redis.call("SREM", KEYS[2], ARGV[1])
-	redis.call("SREM", KEYS[3], ARGV[1])
-	redis.call("SREM", KEYS[4], ARGV[1])
-	redis.call("SREM", KEYS[5], ARGV[1])
-	
-	-- 更新 Provider 计数
-	local availDecr = tonumber(ARGV[2])
-	if redis.call("EXISTS", KEYS[6]) == 1 then
-		local curCount = tonumber(redis.call("HGET", KEYS[6], "account_count")) or 0
-		local curAvail = tonumber(redis.call("HGET", KEYS[6], "available_account_count")) or 0
-		local newCount = math.max(curCount - 1, 0)
-		local newAvail = math.max(curAvail - availDecr, 0)
-		redis.call("HSET", KEYS[6], "account_count", newCount)
-		redis.call("HSET", KEYS[6], "available_account_count", newAvail)
-	end
-	
-	return 1
-`
 
 func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 	key := acctDataKey(s.keyPrefix, id)
@@ -342,7 +315,7 @@ func (s *Store) RemoveAccount(ctx context.Context, id string) error {
 		availableDecr = 1
 	}
 
-	_, err = s.client.Eval(ctx, luaRemoveAccount,
+	_, err = s.client.Eval(ctx, scriptAccountRemove,
 		[]string{key, ik.global, ik.typeIdx, ik.provider, ik.group, provKey},
 		id, availableDecr)
 	if err != nil {

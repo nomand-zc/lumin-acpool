@@ -21,12 +21,6 @@ const (
 	// queryInsertAccount 插入新账号。
 	queryInsertAccount = `INSERT INTO accounts (` + accountSelectColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	// queryUpdateAccount 更新账号信息（乐观锁：WHERE version=?，自动递增 version）。
-	queryUpdateAccount = `UPDATE accounts SET provider_type=?, provider_name=?, credential=?, status=?, priority=?, 
-		tags=?, metadata=?, usage_rules=?, cooldown_until=?, circuit_open_until=?, updated_at=?, 
-		version=version+1 
-		WHERE id=? AND version=?`
-
 	// queryDeleteAccount 根据 ID 删除账号。
 	queryDeleteAccount = `DELETE FROM accounts WHERE id=?`
 

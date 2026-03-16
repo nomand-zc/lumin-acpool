@@ -41,7 +41,7 @@ type SearchFilter struct {
 	Status int
 	// SupportedModel 按支持的模型过滤（JSON数组包含匹配），空值表示不过滤。
 	SupportedModel string
-	// ExtraCond 额外的通用过滤条件（filtercond 表达式树），用于上面三个字段无法表达的查询。
+	// ExtraCond 额外的通用过滤条件（filtercond 表达式树），用于上面四个字段无法表达的查询。
 	ExtraCond *filtercond.Filter
 }
 
@@ -84,10 +84,13 @@ type AccountStorage interface {
 	// Returns ErrAlreadyExists if the ID already exists.
 	AddAccount(ctx context.Context, acct *account.Account) error
 
-	// UpdateAccount updates account info (full replacement).
+	// UpdateAccount 按 fields 指定的字段更新账号信息。
+	// fields 为位掩码，标识本次需要更新的字段集合（如 UpdateFieldStatus | UpdateFieldCredential）。
+	// 未包含在 fields 中的字段不会被修改，避免并发更新时误覆盖。
+	// 当 fields 包含 UpdateFieldStatus 且状态发生变更时，存储层应在事务内同步更新 Provider 的 AvailableAccountCount。
 	// Returns ErrNotFound if the ID does not exist.
 	// Returns ErrVersionConflict if the version does not match (optimistic lock conflict).
-	UpdateAccount(ctx context.Context, acct *account.Account) error
+	UpdateAccount(ctx context.Context, acct *account.Account, fields UpdateField) error
 
 	// RemoveAccount deletes an account.
 	// Returns ErrNotFound if the ID does not exist.

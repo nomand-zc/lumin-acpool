@@ -96,7 +96,7 @@ func (s *Store) AddAccount(_ context.Context, acct *account.Account) error {
 	return nil
 }
 
-func (s *Store) UpdateAccount(_ context.Context, acct *account.Account) error {
+func (s *Store) UpdateAccount(_ context.Context, acct *account.Account, fields storage.UpdateField) error {
 	s.acctMu.Lock()
 	defer s.acctMu.Unlock()
 
@@ -110,16 +110,50 @@ func (s *Store) UpdateAccount(_ context.Context, acct *account.Account) error {
 		return storage.ErrVersionConflict
 	}
 
-	// 先从旧索引移除
-	s.acctRemoveFromIndex(old)
+	oldStatus := old.Status
 
-	stored := acct.Clone()
-	stored.UpdatedAt = time.Now()
-	stored.Version++ // 递增版本号
+	// 按 fields 选择性更新字段
+	if fields.Has(storage.UpdateFieldCredential) {
+		old.Credential = acct.Credential
+	}
+	if fields.Has(storage.UpdateFieldStatus) {
+		old.Status = acct.Status
+		old.CooldownUntil = acct.CooldownUntil
+		old.CircuitOpenUntil = acct.CircuitOpenUntil
+	}
+	if fields.Has(storage.UpdateFieldPriority) {
+		old.Priority = acct.Priority
+	}
+	if fields.Has(storage.UpdateFieldTags) {
+		old.Tags = acct.Tags
+	}
+	if fields.Has(storage.UpdateFieldMetadata) {
+		old.Metadata = acct.Metadata
+	}
+	if fields.Has(storage.UpdateFieldUsageRules) {
+		old.UsageRules = acct.UsageRules
+	}
 
-	s.accounts[acct.ID] = stored
-	// 添加到新索引
-	s.acctAddToIndex(stored)
+	old.UpdatedAt = time.Now()
+	old.Version++ // 递增版本号
+
+	// 如果状态发生变更，更新 Provider 可用计数
+	if fields.Has(storage.UpdateFieldStatus) && oldStatus != old.Status {
+		s.provMu.Lock()
+		key := old.ProviderKey()
+		if prov, ok := s.providers[key]; ok {
+			if oldStatus == account.StatusAvailable && old.Status != account.StatusAvailable {
+				if prov.AvailableAccountCount > 0 {
+					prov.AvailableAccountCount--
+				}
+			} else if oldStatus != account.StatusAvailable && old.Status == account.StatusAvailable {
+				prov.AvailableAccountCount++
+			}
+			prov.UpdatedAt = time.Now()
+		}
+		s.provMu.Unlock()
+	}
+
 	return nil
 }
 

@@ -261,7 +261,9 @@ func (c *healthCmd) applyAndPersist(cmd *cobra.Command, account *acct.Account, r
 
 	// 更新账号信息到存储
 	account.UpdatedAt = time.Now()
-if err := deps.Storage.UpdateAccount(cmd.Context(), account); err != nil {
+	// 健康检查可能更新：状态、用量规则、凭证
+	updateFields := storage.UpdateFieldStatus | storage.UpdateFieldUsageRules | storage.UpdateFieldCredential
+if err := deps.Storage.UpdateAccount(cmd.Context(), account, updateFields); err != nil {
 		if err == storage.ErrVersionConflict {
 			fmt.Printf("  ⚠ 更新 Account %s 失败: 版本冲突（账号可能已被其他操作修改）\n", account.ID)
 		} else {
