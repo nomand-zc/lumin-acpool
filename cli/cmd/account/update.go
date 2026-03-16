@@ -59,7 +59,7 @@ func (c *updateCmd) run(cmd *cobra.Command) error {
 	}
 
 	// 从数据库获取老数据，用于填充空字段和保护运行时字段
-oldAcct, err := deps.Storage.GetAccount(cmd.Context(), raw.ID)
+	oldAcct, err := deps.Storage.GetAccount(cmd.Context(), raw.ID)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			return fmt.Errorf("Account %s 不存在，无法更新", raw.ID)
@@ -80,7 +80,7 @@ oldAcct, err := deps.Storage.GetAccount(cmd.Context(), raw.ID)
 	// 用老数据合并填充零值字段，并保护运行时字段
 	updated, updateFields := mergeAccountWithExisting(raw, oldAcct, newCred)
 
-if err := deps.Storage.UpdateAccount(cmd.Context(), updated, updateFields); err != nil {
+	if err := deps.Storage.UpdateAccount(cmd.Context(), updated, updateFields); err != nil {
 		return handleStorageError("Account", err)
 	}
 

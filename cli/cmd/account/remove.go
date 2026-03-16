@@ -78,7 +78,7 @@ func (c *removeCmd) runBatchRemove(cmd *cobra.Command) error {
 
 	// 先查询该 Provider 下所有账号，用于后续清理关联数据
 	filter := buildAccountFilter(c.providerType, c.providerName, 0)
-accounts, err := deps.Storage.SearchAccounts(cmd.Context(), filter)
+	accounts, err := deps.Storage.SearchAccounts(cmd.Context(), filter)
 	if err != nil {
 		return fmt.Errorf("查询 Account 失败: %w", err)
 	}
@@ -89,7 +89,7 @@ accounts, err := deps.Storage.SearchAccounts(cmd.Context(), filter)
 	}
 
 	// 批量删除账号（存储层会自动清理关联的统计数据和用量追踪数据）
-if err := deps.Storage.RemoveAccounts(cmd.Context(), filter); err != nil {
+	if err := deps.Storage.RemoveAccounts(cmd.Context(), filter); err != nil {
 		return fmt.Errorf("批量删除 Account 失败: %w", err)
 	}
 

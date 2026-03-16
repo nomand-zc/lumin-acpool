@@ -1,6 +1,7 @@
 package account
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -43,7 +44,7 @@ func addAccountFromOptions(cmd *cobra.Command, opts *addAccountOptions) (acct.St
 
 	// 验证所属 Provider 是否存在
 	providerKey := acct.BuildProviderKey(opts.ProviderType, opts.ProviderName)
-providerInfo, err := deps.Storage.GetProvider(cmd.Context(), providerKey)
+	providerInfo, err := deps.Storage.GetProvider(cmd.Context(), providerKey)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			return 0, fmt.Errorf("Provider %s 不存在，请先添加 Provider", providerKey)
@@ -83,12 +84,12 @@ providerInfo, err := deps.Storage.GetProvider(cmd.Context(), providerKey)
 	}
 
 	// 如果健康检查没有获取到模型列表，通过 Provider 默认模型列表兜底
-latestProvInfo, _ := deps.Storage.GetProvider(cmd.Context(), providerKey)
+	latestProvInfo, _ := deps.Storage.GetProvider(cmd.Context(), providerKey)
 	if latestProvInfo != nil && len(latestProvInfo.SupportedModels) == 0 {
 		fallbackProviderModels(cmd, deps, providerKey, account)
 	}
 
-if err := deps.Storage.AddAccount(cmd.Context(), account); err != nil {
+	if err := deps.Storage.AddAccount(cmd.Context(), account); err != nil {
 		return 0, handleStorageError("Account", err)
 	}
 
@@ -123,11 +124,11 @@ func printStatusSummary(statusCounts map[acct.Status]int64) {
 func buildDefaultCheckSchedules(probeModel string) []health.CheckSchedule {
 	return []health.CheckSchedule{
 		{Check: &checks.CredentialValidityCheck{}, Enabled: true},
-		{Check: &checks.CredentialRefreshCheck{RefreshThreshold: 5 * time.Minute}, Enabled: true},
-		{Check: &checks.ProbeCheck{Timeout: 15 * time.Second, Model: probeModel}, Enabled: true},
-		{Check: &checks.UsageQuotaCheck{WarningThreshold: 0.01}, Enabled: true},
-		{Check: &checks.UsageRulesRefreshCheck{}, Enabled: true},
-		{Check: &checks.ModelDiscoveryCheck{}, Enabled: true},
+		{Check: &checks.CredentialRefreshCheck{RefreshThreshold: 2 * time.Minute}, Interval: time.Minute, Enabled: true},
+		{Check: &checks.ProbeCheck{Timeout: 15 * time.Second, Model: probeModel}, Interval: time.Hour, Enabled: true},
+		{Check: &checks.UsageQuotaCheck{WarningThreshold: 0.01}, Interval: time.Minute, Enabled: true},
+		{Check: &checks.UsageRulesRefreshCheck{}, Interval: 12 * time.Hour, Enabled: true},
+		{Check: &checks.ModelDiscoveryCheck{}, Interval: 12 * time.Hour, Enabled: true},
 	}
 }
 
@@ -173,6 +174,11 @@ func runHealthCheck(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKe
 
 // applyReportToAccount 从 HealthReport 中提取所有检查数据并应用到账号。
 func applyReportToAccount(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, account *acct.Account, report *health.HealthReport) []*usagerule.UsageStats {
+	return applyReportToAccountWithCtx(cmd.Context(), deps, providerKey, account, report)
+}
+
+// applyReportToAccountWithCtx 从 HealthReport 中提取所有检查数据并应用到账号（接受 context.Context 参数）。
+func applyReportToAccountWithCtx(ctx context.Context, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, account *acct.Account, report *health.HealthReport) []*usagerule.UsageStats {
 	var finalStatus *acct.Status
 	var cooldownUntil *time.Time
 	var usageStats []*usagerule.UsageStats
@@ -206,7 +212,7 @@ func applyReportToAccount(cmd *cobra.Command, deps *bootstrap.Dependencies, prov
 
 		if modelsRaw, ok := dataMap[health.ReportDataKeySupportedModels]; ok {
 			if models, ok := modelsRaw.([]string); ok && len(models) > 0 {
-				updateProviderModels(cmd, deps, providerKey, models)
+				updateProviderModelsWithCtx(ctx, deps, providerKey, models)
 			}
 		}
 
@@ -232,7 +238,12 @@ func applyReportToAccount(cmd *cobra.Command, deps *bootstrap.Dependencies, prov
 
 // updateProviderModels 将发现的模型列表更新到 ProviderInfo.SupportedModels。
 func updateProviderModels(cmd *cobra.Command, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, models []string) {
-provInfo, err := deps.Storage.GetProvider(cmd.Context(), providerKey)
+	updateProviderModelsWithCtx(cmd.Context(), deps, providerKey, models)
+}
+
+// updateProviderModelsWithCtx 将发现的模型列表更新到 ProviderInfo.SupportedModels（接受 context.Context 参数）。
+func updateProviderModelsWithCtx(ctx context.Context, deps *bootstrap.Dependencies, providerKey acct.ProviderKey, models []string) {
+	provInfo, err := deps.Storage.GetProvider(ctx, providerKey)
 	if err != nil {
 		fmt.Printf("  ⚠ 更新模型列表失败（获取 Provider 失败）: %v\n", err)
 		return
@@ -240,7 +251,7 @@ provInfo, err := deps.Storage.GetProvider(cmd.Context(), providerKey)
 
 	provInfo.SupportedModels = models
 	provInfo.UpdatedAt = time.Now()
-	if err := deps.Storage.UpdateProvider(cmd.Context(), provInfo); err != nil {
+	if err := deps.Storage.UpdateProvider(ctx, provInfo); err != nil {
 		fmt.Printf("  ⚠ 更新模型列表失败（保存 Provider 失败）: %v\n", err)
 		return
 	}
@@ -335,7 +346,12 @@ func fallbackProviderModels(cmd *cobra.Command, deps *bootstrap.Dependencies, pr
 
 // initTrackedUsages 根据健康检查返回的真实用量数据初始化 TrackedUsages。
 func initTrackedUsages(cmd *cobra.Command, deps *bootstrap.Dependencies, accountID string, stats []*usagerule.UsageStats) {
-if deps.Storage == nil {
+	initTrackedUsagesWithCtx(cmd.Context(), deps, accountID, stats)
+}
+
+// initTrackedUsagesWithCtx 根据健康检查返回的真实用量数据初始化 TrackedUsages（接受 context.Context 参数）。
+func initTrackedUsagesWithCtx(ctx context.Context, deps *bootstrap.Dependencies, accountID string, stats []*usagerule.UsageStats) {
+	if deps.Storage == nil {
 		return
 	}
 
@@ -360,10 +376,47 @@ if deps.Storage == nil {
 		return
 	}
 
-if err := deps.Storage.SaveUsages(cmd.Context(), accountID, trackedUsages); err != nil {
+	if err := deps.Storage.SaveUsages(ctx, accountID, trackedUsages); err != nil {
 		fmt.Printf("  ⚠ 初始化用量追踪数据失败: %v\n", err)
 		return
 	}
 
 	fmt.Printf("  → 已初始化用量追踪数据（%d 条规则）\n", len(trackedUsages))
+}
+
+// persistHealthReport 将健康检查结果应用到账号并持久化到存储。
+// logPrefix 用于区分调用场景（如 "" 或 "daemon: "）。
+func persistHealthReport(
+	ctx context.Context,
+	deps *bootstrap.Dependencies,
+	account *acct.Account,
+	report *health.HealthReport,
+	logPrefix string,
+) {
+	oldStatus := account.Status
+	providerKey := account.ProviderKey()
+
+	// 复用公共的 applyReportToAccount，将检查结果中的状态、用量规则、模型列表等信息应用到账号
+	usageStats := applyReportToAccountWithCtx(ctx, deps, providerKey, account, report)
+
+	// 更新账号信息到存储
+	account.UpdatedAt = time.Now()
+	updateFields := storage.UpdateFieldStatus | storage.UpdateFieldUsageRules | storage.UpdateFieldCredential
+	if err := deps.Storage.UpdateAccount(ctx, account, updateFields); err != nil {
+		if err == storage.ErrVersionConflict {
+			fmt.Printf("  ⚠ %s更新 Account %s 失败: 版本冲突（账号可能已被其他操作修改）\n", logPrefix, account.ID)
+		} else {
+			fmt.Printf("  ⚠ %s更新 Account %s 失败: %v\n", logPrefix, account.ID, err)
+		}
+		return
+	}
+
+	// 如果检查获取到了真实用量数据，更新 TrackedUsages
+	if len(usageStats) > 0 {
+		initTrackedUsagesWithCtx(ctx, deps, account.ID, usageStats)
+	}
+
+	if oldStatus != account.Status {
+		fmt.Printf("  → %sAccount %s 状态已更新: %s → %s\n", logPrefix, account.ID, oldStatus, account.Status)
+	}
 }

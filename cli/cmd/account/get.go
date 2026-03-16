@@ -42,13 +42,13 @@ func (c *getCmd) cmd() *cobra.Command {
 func (c *getCmd) run(cmd *cobra.Command) error {
 	deps := bootstrap.DepsFromContext(cmd.Context())
 
-acct, err := deps.Storage.GetAccount(cmd.Context(), c.accountID)
+	acct, err := deps.Storage.GetAccount(cmd.Context(), c.accountID)
 	if err != nil {
 		return handleStorageError("Account", err)
 	}
 
 	// 聚合统计和用量追踪数据
-adapter := &depsAdapter{statsStore: deps.Storage, usageStore: deps.Storage}
+	adapter := &depsAdapter{statsStore: deps.Storage, usageStore: deps.Storage}
 	detail := enrichAccountDetail(cmd.Context(), adapter, acct)
 
 	printer := &output.Printer{Format: c.format}
