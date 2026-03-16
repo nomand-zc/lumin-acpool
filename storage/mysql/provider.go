@@ -177,7 +177,6 @@ func (s *Store) UpdateProvider(ctx context.Context, info *account.ProviderInfo) 
 	result, err := s.client.Exec(ctx, queryUpdateProvider,
 		int(info.Status), info.Priority, info.Weight,
 		tagsJSON, modelsJSON, usageRulesJSON, metadataJSON,
-		info.AccountCount, info.AvailableAccountCount,
 		time.Now(), info.ProviderType, info.ProviderName,
 	)
 	if err != nil {

@@ -24,8 +24,7 @@ const (
 
 	// queryUpdateProvider 更新供应商信息。
 	queryUpdateProvider = `UPDATE providers SET status=?, priority=?, weight=?, 
-		tags=?, supported_models=?, usage_rules=?, metadata=?, 
-		account_count=?, available_account_count=?, updated_at=? 
+		tags=?, supported_models=?, usage_rules=?, metadata=?, updated_at=? 
 		WHERE provider_type=? AND provider_name=?`
 
 	// queryDeleteProvider 根据 provider_type 和 provider_name 删除供应商。
