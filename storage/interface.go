@@ -11,8 +11,9 @@ import (
 // UsageStore 用量追踪数据存储接口。
 // 支持内存（单机）和 Redis（集群）两种后端。
 type UsageStore interface {
-	// GetAllUsages 获取指定账号所有规则的追踪数据。
-	GetAllUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error)
+	// GetCurrentUsages 获取指定账号当前时间窗口内的用量追踪数据。
+	// 仅返回 window_end 为空（无限期规则）或 window_end >= 当前时间（窗口未过期）的数据。
+	GetCurrentUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error)
 
 	// SaveUsages 保存指定账号所有规则的追踪数据。
 	SaveUsages(ctx context.Context, accountID string, usages []*account.TrackedUsage) error

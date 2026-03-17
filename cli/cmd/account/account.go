@@ -92,7 +92,7 @@ func (d *depsAdapter) GetUsages(ctx context.Context, accountID string) ([]*accou
 	if d.usageStore == nil {
 		return nil, nil
 	}
-	return d.usageStore.GetAllUsages(ctx, accountID)
+	return d.usageStore.GetCurrentUsages(ctx, accountID)
 }
 
 // ===================== 公共辅助 =====================

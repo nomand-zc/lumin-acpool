@@ -38,9 +38,8 @@ func NewUsageTracker(opts ...Option) UsageTracker {
 }
 
 // RecordUsage 记录使用量。
-// TODO: 需要更当前所在的时间窗口获取/更新对应值，而不是将历史值也更新
 func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string, sourceType usagerule.SourceType, amount float64) error {
-	usages, err := t.store.GetAllUsages(ctx, accountID)
+	usages, err := t.store.GetCurrentUsages(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -59,17 +58,12 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 	// 检测配额是否达到安全阈值，触发回调
 	if len(t.opts.OnQuotaExhausted) > 0 {
 		// 重新获取最新数据（IncrLocalUsed 后数据已变更）
-		usages, err = t.store.GetAllUsages(ctx, accountID)
+		usages, err = t.store.GetCurrentUsages(ctx, accountID)
 		if err != nil {
 			return nil // 检测失败不影响主流程
 		}
-		now := time.Now()
 		for _, u := range usages {
 			if u.Rule == nil || u.Rule.Total <= 0 || u.Rule.SourceType != sourceType {
-				continue
-			}
-			// 窗口已过期则跳过
-			if u.WindowEnd != nil && now.After(*u.WindowEnd) {
 				continue
 			}
 			usedRatio := u.EstimatedUsed() / u.Rule.Total
@@ -86,9 +80,8 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 }
 
 // IsQuotaAvailable 判断配额是否可用。
-// TODO: 仅需获取当前所在的时间窗口数据
 func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID string) (bool, error) {
-	usages, err := t.store.GetAllUsages(ctx, accountID)
+	usages, err := t.store.GetCurrentUsages(ctx, accountID)
 	if err != nil {
 		return false, err
 	}
@@ -96,14 +89,9 @@ func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID st
 		return true, nil // 未初始化规则，默认可用
 	}
 
-	now := time.Now()
 	for _, u := range usages {
 		if u.Rule == nil || u.Rule.Total <= 0 {
 			continue
-		}
-		// 检查是否在窗口内
-		if u.WindowEnd != nil && now.After(*u.WindowEnd) {
-			continue // 窗口已过期，跳过
 		}
 		usedRatio := u.EstimatedUsed() / u.Rule.Total
 		if usedRatio >= t.opts.SafetyRatio {
@@ -114,9 +102,8 @@ func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID st
 }
 
 // Calibrate 校准配额。
-// TODO: 仅需更新当前所在的时间窗口数据
 func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, stats []*usagerule.UsageStats) error {
-	usages, err := t.store.GetAllUsages(ctx, accountID)
+	usages, err := t.store.GetCurrentUsages(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -197,7 +184,7 @@ func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, s
 }
 
 func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, accountID string, sourceType usagerule.SourceType) error {
-	usages, err := t.store.GetAllUsages(ctx, accountID)
+	usages, err := t.store.GetCurrentUsages(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -215,11 +202,11 @@ func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, account
 }
 
 func (t *defaultUsageTracker) GetTrackedUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
-	return t.store.GetAllUsages(ctx, accountID)
+	return t.store.GetCurrentUsages(ctx, accountID)
 }
 
 func (t *defaultUsageTracker) MinRemainRatio(ctx context.Context, accountID string) (float64, error) {
-	usages, err := t.store.GetAllUsages(ctx, accountID)
+	usages, err := t.store.GetCurrentUsages(ctx, accountID)
 	if err != nil {
 		return 0, err
 	}

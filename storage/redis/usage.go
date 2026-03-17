@@ -86,40 +86,77 @@ func unmarshalUsageFromHash(data map[string]string) (*account.TrackedUsage, erro
 	return usage, nil
 }
 
-func (s *Store) GetAllUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
+func (s *Store) GetCurrentUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	countKey := usageCountRedisKey(s.keyPrefix, accountID)
-	countStr, err := s.client.Get(ctx, countKey)
+	keyPattern := s.keyPrefix + usageKeyPrefix + accountID + ":"
+
+	// Lua 脚本：在 Redis 服务端过滤当前窗口内的数据，避免将过期数据传回客户端。
+	// RFC3339Nano 格式天然支持字典序比较，无需额外解析。
+	script := `
+		local count_str = redis.call("GET", KEYS[1])
+		if not count_str then
+			return {}
+		end
+		local count = tonumber(count_str)
+		if not count or count <= 0 then
+			return {}
+		end
+
+		local now = ARGV[1]
+		local prefix = ARGV[2]
+		local results = {}
+
+		for i = 0, count - 1 do
+			local key = prefix .. tostring(i)
+			local window_end = redis.call("HGET", key, "window_end")
+			-- 仅返回窗口未过期的数据（window_end 为空或 >= 当前时间）
+			if not window_end or window_end == "" or window_end >= now then
+				local data = redis.call("HGETALL", key)
+				if #data > 0 then
+					table.insert(results, cjson.encode(data))
+				end
+			end
+		end
+		return results
+	`
+
+	now := time.Now().Format(time.RFC3339Nano)
+	rawResults, err := s.client.Eval(ctx, script, []string{countKey}, now, keyPattern)
 	if err != nil {
 		if IsNotFound(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("redis store: failed to get usage count: %w", err)
+		return nil, fmt.Errorf("redis store: failed to get current usages: %w", err)
 	}
 
-	count, err := strconv.Atoi(countStr)
-	if err != nil || count <= 0 {
+	results, ok := rawResults.([]interface{})
+	if !ok || len(results) == 0 {
 		return nil, nil
 	}
 
-	var result []*account.TrackedUsage
-	for i := range count {
-		key := usageRuleRedisKey(s.keyPrefix, accountID, i)
-		data, err := s.client.HGetAll(ctx, key)
-		if err != nil {
-			return nil, fmt.Errorf("redis store: failed to get usage at index %d: %w", i, err)
-		}
-		if len(data) == 0 {
+	var usages []*account.TrackedUsage
+	for _, r := range results {
+		jsonStr, ok := r.(string)
+		if !ok {
 			continue
 		}
-
+		// Lua cjson.encode(HGETALL result) 返回 ["field1","val1","field2","val2",...] 数组
+		var pairs []string
+		if err := json.Unmarshal([]byte(jsonStr), &pairs); err != nil {
+			continue
+		}
+		data := make(map[string]string, len(pairs)/2)
+		for j := 0; j+1 < len(pairs); j += 2 {
+			data[pairs[j]] = pairs[j+1]
+		}
 		usage, err := unmarshalUsageFromHash(data)
 		if err != nil {
-			return nil, fmt.Errorf("redis store: failed to unmarshal usage at index %d: %w", i, err)
+			continue
 		}
-		result = append(result, usage)
+		usages = append(usages, usage)
 	}
 
-	return result, nil
+	return usages, nil
 }
 
 func (s *Store) SaveUsages(ctx context.Context, accountID string, usages []*account.TrackedUsage) error {

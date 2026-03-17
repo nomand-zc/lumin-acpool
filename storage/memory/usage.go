@@ -8,7 +8,7 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 )
 
-func (s *Store) GetAllUsages(_ context.Context, accountID string) ([]*account.TrackedUsage, error) {
+func (s *Store) GetCurrentUsages(_ context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	s.usageMu.Lock()
 	defer s.usageMu.Unlock()
 
@@ -17,11 +17,15 @@ func (s *Store) GetAllUsages(_ context.Context, accountID string) ([]*account.Tr
 		return nil, nil
 	}
 
-	// 返回副本，避免外部修改内部状态
-	result := make([]*account.TrackedUsage, len(usages))
-	for i, u := range usages {
+	// 仅返回当前窗口内的数据（内存存储无查询引擎，代码层过滤）
+	now := time.Now()
+	var result []*account.TrackedUsage
+	for _, u := range usages {
+		if u.WindowEnd != nil && now.After(*u.WindowEnd) {
+			continue
+		}
 		cp := *u
-		result[i] = &cp
+		result = append(result, &cp)
 	}
 	return result, nil
 }

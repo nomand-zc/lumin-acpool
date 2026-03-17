@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	queryGetAllUsages = `SELECT rule_index, source_type, time_granularity, window_size, rule_total, 
+	// queryGetCurrentUsages 根据 account_id 查询当前窗口内的用量追踪数据。
+	queryGetCurrentUsages = `SELECT rule_index, source_type, time_granularity, window_size, rule_total, 
 		local_used, remote_used, remote_remain, window_start, window_end, last_sync_at 
-		FROM tracked_usages WHERE account_id=? ORDER BY rule_index ASC`
+		FROM tracked_usages WHERE account_id=? AND (window_end IS NULL OR window_end >= datetime('now')) 
+		ORDER BY rule_index ASC`
 
 	queryDeleteUsages = `DELETE FROM tracked_usages WHERE account_id=?`
 
@@ -31,7 +33,7 @@ const (
 		WHERE account_id=? AND rule_index=?`
 )
 
-func (s *Store) GetAllUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
+func (s *Store) GetCurrentUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {
 	var result []*account.TrackedUsage
 	err := s.client.Query(ctx, func(rows *sql.Rows) error {
 		var (
@@ -84,7 +86,7 @@ func (s *Store) GetAllUsages(ctx context.Context, accountID string) ([]*account.
 
 		result = append(result, usage)
 		return nil
-	}, queryGetAllUsages, accountID)
+	}, queryGetCurrentUsages, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite store: failed to get usages: %w", err)
 	}
