@@ -83,7 +83,8 @@ func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResu
 }
 
 // pickExact handles Mode 1: exact provider specification.
-func (b *defaultBalancer) pickExact(ctx context.Context, selReq *selector.SelectRequest, maxRetries int) (*PickResult, error) {
+func (b *defaultBalancer) pickExact(ctx context.Context, selReq *selector.SelectRequest,
+	maxRetries int) (*PickResult, error) {
 	// Resolve provider via Resolver (unified validation of existence, active status, and model support)
 	provInfo, err := b.opts.Resolver.ResolveProvider(ctx, *selReq.ProviderKey, selReq.Model)
 	if err != nil {
@@ -104,7 +105,8 @@ func (b *defaultBalancer) pickExact(ctx context.Context, selReq *selector.Select
 }
 
 // pickAuto handles Mode 2/3: selection by type or fully automatic.
-func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectRequest, maxRetries int, enableFailover bool) (*PickResult, error) {
+func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectRequest, maxRetries int,
+	enableFailover bool) (*PickResult, error) {
 	// Resolve candidate provider list via Resolver
 	providerType := ""
 	if selReq.IsProviderTypeOnly() {
@@ -228,7 +230,7 @@ func (b *defaultBalancer) selectAccountFromProvider(
 		selReq.ExcludeAccountIDs = originalExclude
 
 		return &PickResult{
-			Account:     deepCopyAccount(chosen),
+			Account:     chosen.Clone(),
 			ProviderKey: provInfo.ProviderKey(),
 			Attempts:    i,
 		}, nil
@@ -273,6 +275,7 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 		}
 
 		// 仅当状态需要变更时才持久化 Account（使用乐观锁避免竞态覆盖）
+		// TODO: 需要更新熔断时间为nil
 		if acct.Status == account.StatusCircuitOpen {
 			acct.Status = account.StatusAvailable
 			acct.CircuitOpenUntil = nil
@@ -310,6 +313,7 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 	}
 
 	// 2. 记录用量到 UsageTracker（无论成功失败，请求已发出即消耗配额）
+	// TODO: 请求次数需要更新、token用量待评估
 	if b.opts.UsageTracker != nil {
 		_ = b.opts.UsageTracker.RecordUsage(ctx, accountID, usagerule.SourceTypeRequest, 1.0)
 	}
@@ -339,6 +343,7 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 			needUpdate = true
 		}
 	} else if b.opts.CircuitBreaker != nil {
+		// TODO: 此处需要根据httpErr来做精确的状态处理，比如账号是否被封禁等
 		// 非限流错误，通知熔断器
 		tripped, cbErr := b.opts.CircuitBreaker.RecordFailure(ctx, acct, consecutiveFailures)
 		if cbErr != nil {
@@ -386,11 +391,6 @@ func filterProviders(candidates []*account.ProviderInfo, excludeKeys []account.P
 		}
 	}
 	return result
-}
-
-// deepCopyAccount creates a deep copy of an account object.
-func deepCopyAccount(src *account.Account) *account.Account {
-	return src.Clone()
 }
 
 // rateLimitError is the rate limit error interface.

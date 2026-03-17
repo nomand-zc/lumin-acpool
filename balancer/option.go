@@ -13,7 +13,7 @@ import (
 )
 
 var defaultOptions = Options{
-	DefaultMaxRetries:     0,
+	DefaultMaxRetries:     3,
 	DefaultEnableFailover: false,
 	Selector:              accountstrategies.NewRoundRobin(),
 	GroupSelector:         groupstrategies.NewGroupPriority(),

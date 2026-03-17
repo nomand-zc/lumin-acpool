@@ -37,6 +37,8 @@ func NewUsageTracker(opts ...Option) UsageTracker {
 	}
 }
 
+// RecordUsage 记录使用量。
+// TODO: 需要更当前所在的时间窗口获取/更新对应值，而不是将历史值也更新
 func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string, sourceType usagerule.SourceType, amount float64) error {
 	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
@@ -83,6 +85,8 @@ func (t *defaultUsageTracker) RecordUsage(ctx context.Context, accountID string,
 	return nil
 }
 
+// IsQuotaAvailable 判断配额是否可用。
+// TODO: 仅需获取当前所在的时间窗口数据
 func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID string) (bool, error) {
 	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
@@ -109,6 +113,8 @@ func (t *defaultUsageTracker) IsQuotaAvailable(ctx context.Context, accountID st
 	return true, nil
 }
 
+// Calibrate 校准配额。
+// TODO: 仅需更新当前所在的时间窗口数据
 func (t *defaultUsageTracker) Calibrate(ctx context.Context, accountID string, stats []*usagerule.UsageStats) error {
 	usages, err := t.store.GetAllUsages(ctx, accountID)
 	if err != nil {
