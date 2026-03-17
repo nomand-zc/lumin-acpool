@@ -102,15 +102,26 @@ func WithFallbackLimit(limit int64) AdaptiveLimitOption {
 }
 
 func (a *AdaptiveLimit) FilterAvailable(ctx context.Context, accounts []*account.Account) []*account.Account {
+	if len(accounts) == 0 {
+		return accounts
+	}
+
+	// 收集所有账号 ID，批量获取占用数据（单次网络往返）
+	accountIDs := make([]string, len(accounts))
+	for i, acct := range accounts {
+		accountIDs[i] = acct.ID
+	}
+
+	occupancies, err := a.store.GetOccupancies(ctx, accountIDs)
+	if err != nil {
+		// 批量查询失败，保守策略：返回所有账号
+		return accounts
+	}
+
 	result := make([]*account.Account, 0, len(accounts))
 	for _, acct := range accounts {
 		limit := a.calculateLimit(ctx, acct)
-		current, err := a.store.GetOccupancy(ctx, acct.ID)
-		if err != nil {
-			// 存储查询失败，保守策略：保留该账号
-			result = append(result, acct)
-			continue
-		}
+		current := occupancies[acct.ID] // 不存在时为零值 0，语义正确
 		if current < limit {
 			result = append(result, acct)
 		}

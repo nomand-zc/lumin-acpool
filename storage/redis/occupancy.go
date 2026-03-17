@@ -77,3 +77,51 @@ func (s *Store) GetOccupancy(ctx context.Context, accountID string) (int64, erro
 	}
 	return val, nil
 }
+
+// occupancyLuaBatchGet 批量获取多个账号的占用计数。
+// KEYS: 所有待查询的 occupancy key
+// 返回: 与 KEYS 顺序一致的占用数数组。
+var occupancyLuaBatchGet = `
+	local results = {}
+	for i, key in ipairs(KEYS) do
+		local val = redis.call("GET", key)
+		if val == false then
+			results[i] = 0
+		else
+			results[i] = tonumber(val)
+		end
+	end
+	return results
+`
+
+func (s *Store) GetOccupancies(ctx context.Context, accountIDs []string) (map[string]int64, error) {
+	if len(accountIDs) == 0 {
+		return make(map[string]int64), nil
+	}
+
+	keys := make([]string, len(accountIDs))
+	for i, id := range accountIDs {
+		keys[i] = occupancyRedisKey(s.keyPrefix, id)
+	}
+
+	result, err := s.client.Eval(ctx, occupancyLuaBatchGet, keys)
+	if err != nil {
+		return nil, fmt.Errorf("redis store: failed to batch get occupancies: %w", err)
+	}
+
+	vals, ok := result.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("redis store: unexpected batch get result type: %T", result)
+	}
+
+	occupancies := make(map[string]int64, len(accountIDs))
+	for i, v := range vals {
+		if i >= len(accountIDs) {
+			break
+		}
+		if val, ok := v.(int64); ok && val > 0 {
+			occupancies[accountIDs[i]] = val
+		}
+	}
+	return occupancies, nil
+}

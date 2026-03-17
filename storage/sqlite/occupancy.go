@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -42,4 +43,35 @@ func (s *Store) GetOccupancy(ctx context.Context, accountID string) (int64, erro
 		return 0, fmt.Errorf("sqlite store: failed to get occupancy: %w", err)
 	}
 	return count, nil
+}
+
+func (s *Store) GetOccupancies(ctx context.Context, accountIDs []string) (map[string]int64, error) {
+	if len(accountIDs) == 0 {
+		return make(map[string]int64), nil
+	}
+
+	// 构建 IN 子句的占位符
+	placeholders := make([]string, len(accountIDs))
+	args := make([]any, len(accountIDs))
+	for i, id := range accountIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := `SELECT account_id, count FROM account_occupancy WHERE account_id IN (` + strings.Join(placeholders, ",") + `)`
+
+	result := make(map[string]int64, len(accountIDs))
+	err := s.client.Query(ctx, func(rows *sql.Rows) error {
+		var accountID string
+		var count int64
+		if err := rows.Scan(&accountID, &count); err != nil {
+			return err
+		}
+		result[accountID] = count
+		return nil
+	}, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite store: failed to batch get occupancies: %w", err)
+	}
+	return result, nil
 }

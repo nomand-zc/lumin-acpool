@@ -165,6 +165,11 @@ type OccupancyStore interface {
 	// GetOccupancy 获取指定账号当前的占用计数。
 	// 用于 FilterAvailable 操作：判断是否还有余量。
 	GetOccupancy(ctx context.Context, accountID string) (int64, error)
+
+	// GetOccupancies 批量获取多个账号的当前占用计数。
+	// 返回 accountID → 占用数 的映射，未找到的账号不包含在结果中（视为 0）。
+	// 用于 FilterAvailable 批量过滤，减少多次网络往返开销。
+	GetOccupancies(ctx context.Context, accountIDs []string) (map[string]int64, error)
 }
 
 // Storage 是所有存储接口的聚合接口。

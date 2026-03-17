@@ -30,3 +30,16 @@ func (s *Store) GetOccupancy(_ context.Context, accountID string) (int64, error)
 
 	return s.occupancyStore[accountID], nil
 }
+
+func (s *Store) GetOccupancies(_ context.Context, accountIDs []string) (map[string]int64, error) {
+	s.occupancyMu.Lock()
+	defer s.occupancyMu.Unlock()
+
+	result := make(map[string]int64, len(accountIDs))
+	for _, id := range accountIDs {
+		if v, ok := s.occupancyStore[id]; ok {
+			result[id] = v
+		}
+	}
+	return result, nil
+}
