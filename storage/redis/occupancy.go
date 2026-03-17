@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 )
 
@@ -13,35 +14,19 @@ func occupancyRedisKey(prefix, accountID string) string {
 	return prefix + occupancyKeyPrefix + accountID
 }
 
-var occupancyLuaIncr = `
-	local key = KEYS[1]
-	local newVal = redis.call("INCR", key)
-	return newVal
-`
+var (
+	//go:embed scripts/occupancy_incr.lua
+	occupancyLuaIncr string
 
-var occupancyLuaDecr = `
-	local key = KEYS[1]
-	local val = redis.call("GET", key)
-	if val == false or tonumber(val) <= 0 then
-		redis.call("DEL", key)
-		return 0
-	end
-	local newVal = redis.call("DECR", key)
-	if newVal <= 0 then
-		redis.call("DEL", key)
-		return 0
-	end
-	return newVal
-`
+	//go:embed scripts/occupancy_decr.lua
+	occupancyLuaDecr string
 
-var occupancyLuaGet = `
-	local key = KEYS[1]
-	local val = redis.call("GET", key)
-	if val == false then
-		return 0
-	end
-	return tonumber(val)
-`
+	//go:embed scripts/occupancy_get.lua
+	occupancyLuaGet string
+
+	//go:embed scripts/occupancy_batch_get.lua
+	occupancyLuaBatchGet string
+)
 
 func (s *Store) IncrOccupancy(ctx context.Context, accountID string) (int64, error) {
 	key := occupancyRedisKey(s.keyPrefix, accountID)
@@ -77,22 +62,6 @@ func (s *Store) GetOccupancy(ctx context.Context, accountID string) (int64, erro
 	}
 	return val, nil
 }
-
-// occupancyLuaBatchGet 批量获取多个账号的占用计数。
-// KEYS: 所有待查询的 occupancy key
-// 返回: 与 KEYS 顺序一致的占用数数组。
-var occupancyLuaBatchGet = `
-	local results = {}
-	for i, key in ipairs(KEYS) do
-		local val = redis.call("GET", key)
-		if val == false then
-			results[i] = 0
-		else
-			results[i] = tonumber(val)
-		end
-	end
-	return results
-`
 
 func (s *Store) GetOccupancies(ctx context.Context, accountIDs []string) (map[string]int64, error) {
 	if len(accountIDs) == 0 {
