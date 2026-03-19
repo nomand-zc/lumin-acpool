@@ -78,7 +78,33 @@ func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResu
 	// Determine dispatch mode based on the three states of ProviderKey
 	switch {
 	case selReq.IsExactProvider():
-		return b.pickExact(ctx, selReq, maxRetries)
+		result, err := b.pickExact(ctx, selReq, maxRetries)
+		if err == nil {
+			return result, nil
+		}
+
+		// 精确供应商选号失败：若开启 failover 则降级到自动选号
+		if enableFailover {
+			fallbackReq := &selector.SelectRequest{
+				UserID: selReq.UserID,
+				Model:  selReq.Model,
+				Tags:   selReq.Tags,
+			}
+			// 保留 ProviderKey.Type 作为类型约束（如果有），清除精确 Name
+			if selReq.ProviderKey != nil && selReq.ProviderKey.Type != "" {
+				fallbackReq.ProviderKey = &account.ProviderKey{Type: selReq.ProviderKey.Type}
+			}
+
+			fallbackResult, fallbackErr := b.pickAuto(ctx, fallbackReq, maxRetries, enableFailover)
+			if fallbackErr != nil {
+				// fallback 也失败，返回原始精确选号错误（更有诊断价值）
+				return nil, err
+			}
+			fallbackResult.Fallback = true
+			return fallbackResult, nil
+		}
+
+		return nil, err
 	default:
 		return b.pickAuto(ctx, selReq, maxRetries, enableFailover)
 	}
@@ -154,43 +180,8 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 			return nil, fmt.Errorf("balancer: group select: %w", err)
 		}
 
-		// 渐进式探测：在 pickAuto 层做 ResolveAccounts + FilterAvailable，
-		// 确认该供应商有真实可用账号后才进入选号流程，避免空转。
-		accounts, err := b.opts.Resolver.ResolveAccounts(ctx, resolver.ResolveAccountsRequest{
-			Key:  chosen.ProviderKey(),
-			Tags: selReq.Tags,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("balancer: resolve accounts: %w", err)
-		}
-
-		if len(accounts) == 0 {
-			// 该供应商无可用账号（Status 级别），跳过
-			if enableFailover {
-				excludeProviderKeys = append(excludeProviderKeys, chosen.ProviderKey())
-				continue
-			}
-			return nil, ErrNoAvailableAccount
-		}
-
-		// 占用过滤：排除已达并发上限的账号
-		accounts = b.opts.OccupancyController.FilterAvailable(ctx, accounts)
-		if len(accounts) == 0 {
-			// 该供应商所有账号并发已满，直接跳过（不进入选号流程，避免空转 IO）
-			if enableFailover {
-				excludeProviderKeys = append(excludeProviderKeys, chosen.ProviderKey())
-				continue
-			}
-			return nil, ErrOccupancyFull
-		}
-
-		// 随机打散账号列表，分散同供应商内的账号竞争热点
-		rand.Shuffle(len(accounts), func(i, j int) {
-			accounts[i], accounts[j] = accounts[j], accounts[i]
-		})
-
-		// 使用已过滤的账号列表直接选号（缓存复用，不再重复 ResolveAccounts + FilterAvailable）
-		result, err := b.acquireFromAccounts(ctx, chosen, accounts, selReq, maxRetries)
+		// 委托 selectAccountFromProvider 完成 ResolveAccounts + FilterAvailable + Shuffle + Acquire 全流程
+		result, err := b.selectAccountFromProvider(ctx, chosen, selReq, maxRetries)
 		if err == nil {
 			return result, nil
 		}
@@ -208,8 +199,9 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 }
 
 // acquireFromAccounts 从已过滤的账号列表中选取并获取占用槽位。
-// 与 selectAccountFromProvider 不同，此方法接收 pickAuto 层已经完成 ResolveAccounts + FilterAvailable
-// 的账号列表，直接进行 Select + Acquire，避免重复的存储查询开销。
+// 接收已完成 ResolveAccounts + FilterAvailable + Shuffle 的账号列表，
+// 直接进行 Select + Acquire 重试循环，避免重复的存储查询开销。
+// 调用链：pickAuto/pickExact → selectAccountFromProvider → acquireFromAccounts
 func (b *defaultBalancer) acquireFromAccounts(
 	ctx context.Context,
 	provInfo *account.ProviderInfo,
@@ -263,89 +255,42 @@ func (b *defaultBalancer) acquireFromAccounts(
 	return nil, ErrMaxRetriesExceeded
 }
 
-// selectAccountFromProvider selects an account from the specified provider (with retry).
-// 用于 pickExact 模式（指定供应商），完整执行 ResolveAccounts + FilterAvailable + Select + Acquire 流程。
+// selectAccountFromProvider 从指定供应商中选取账号。
+// 执行一次 ResolveAccounts + FilterAvailable + Shuffle，然后委托 acquireFromAccounts 进行 Select + Acquire 重试循环。
+// 被 pickExact 和 pickAuto 共同调用。
+// 调用链：pickAuto/pickExact → selectAccountFromProvider → acquireFromAccounts
 func (b *defaultBalancer) selectAccountFromProvider(
 	ctx context.Context,
 	provInfo *account.ProviderInfo,
 	selReq *selector.SelectRequest,
 	maxRetries int,
 ) (*PickResult, error) {
-	// Save the original ExcludeAccountIDs
-	originalExclude := selReq.ExcludeAccountIDs
-
-	for i := 0; i <= maxRetries; i++ {
-		// Resolve available accounts under this provider via Resolver
-		accounts, err := b.opts.Resolver.ResolveAccounts(ctx, resolver.ResolveAccountsRequest{
-			Key:        provInfo.ProviderKey(),
-			Tags:       selReq.Tags,
-			ExcludeIDs: selReq.ExcludeAccountIDs,
-		})
-		if err != nil {
-			selReq.ExcludeAccountIDs = originalExclude
-			return nil, fmt.Errorf("balancer: resolve accounts: %w", err)
-		}
-
-		if len(accounts) == 0 {
-			// Restore the original exclude list
-			selReq.ExcludeAccountIDs = originalExclude
-			return nil, ErrNoAvailableAccount
-		}
-
-		// 占用过滤：排除已达并发上限的账号
-		accounts = b.opts.OccupancyController.FilterAvailable(ctx, accounts)
-		if len(accounts) == 0 {
-			selReq.ExcludeAccountIDs = originalExclude
-			return nil, ErrOccupancyFull
-		}
-
-		// 随机打散账号列表，分散竞争热点
-		rand.Shuffle(len(accounts), func(i, j int) {
-			accounts[i], accounts[j] = accounts[j], accounts[i]
-		})
-
-		// Use Selector to select an account
-		chosen, err := b.opts.Selector.Select(accounts, selReq)
-		if err != nil {
-			if errors.Is(err, selector.ErrEmptyCandidates) || errors.Is(err, selector.ErrNoAvailableAccount) {
-				selReq.ExcludeAccountIDs = originalExclude
-				return nil, ErrNoAvailableAccount
-			}
-			selReq.ExcludeAccountIDs = originalExclude
-			return nil, fmt.Errorf("balancer: select account: %w", err)
-		}
-
-		// 占用获取：原子操作确保竞态安全
-		if !b.opts.OccupancyController.Acquire(ctx, chosen) {
-			// 竞态失败（FilterAvailable 通过但 Acquire 时已被其他请求占满），排除后重试
-			selReq.ExcludeAccountIDs = append(selReq.ExcludeAccountIDs, chosen.ID)
-			continue
-		}
-
-		// Update LastUsedAt via StatsStore
-		now := time.Now()
-		if b.opts.StatsStore != nil {
-			if err := b.opts.StatsStore.UpdateLastUsed(ctx, chosen.ID, now); err != nil {
-				// UpdateLastUsed 失败，需释放已获取的占用槽位
-				b.opts.OccupancyController.Release(ctx, chosen.ID)
-				selReq.ExcludeAccountIDs = append(selReq.ExcludeAccountIDs, chosen.ID)
-				continue
-			}
-		}
-
-		// Restore the exclude list
-		selReq.ExcludeAccountIDs = originalExclude
-
-		return &PickResult{
-			Account:     chosen.Clone(),
-			ProviderKey: provInfo.ProviderKey(),
-			Attempts:    i,
-		}, nil
+	// Resolve available accounts under this provider via Resolver
+	accounts, err := b.opts.Resolver.ResolveAccounts(ctx, resolver.ResolveAccountsRequest{
+		Key:  provInfo.ProviderKey(),
+		Tags: selReq.Tags,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("balancer: resolve accounts: %w", err)
 	}
 
-	// 重试次数耗尽
-	selReq.ExcludeAccountIDs = originalExclude
-	return nil, ErrMaxRetriesExceeded
+	if len(accounts) == 0 {
+		return nil, ErrNoAvailableAccount
+	}
+
+	// 占用过滤：排除已达并发上限的账号
+	accounts = b.opts.OccupancyController.FilterAvailable(ctx, accounts)
+	if len(accounts) == 0 {
+		return nil, ErrOccupancyFull
+	}
+
+	// 随机打散账号列表，分散竞争热点
+	rand.Shuffle(len(accounts), func(i, j int) {
+		accounts[i], accounts[j] = accounts[j], accounts[i]
+	})
+
+	// 委托 acquireFromAccounts 进行 Select + Acquire 重试循环
+	return b.acquireFromAccounts(ctx, provInfo, accounts, selReq, maxRetries)
 }
 
 // ReportSuccess reports a successful call.

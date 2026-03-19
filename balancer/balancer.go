@@ -24,6 +24,8 @@ type Balancer interface {
 	// Failover:
 	//   When EnableFailover=true and no available accounts exist under the current provider,
 	//   automatically exclude that provider and re-select from remaining candidates until success or candidates exhausted.
+	//   In exact provider mode (Mode 1), if pickExact fails, automatically fallback to pickAuto
+	//   (Mode 2/3) for broader candidate selection, preserving ProviderKey.Type as a type preference.
 	//
 	// Retry:
 	//   When MaxRetries>0, on selection failure, exclude already-tried account IDs and re-select,
@@ -91,4 +93,8 @@ type PickResult struct {
 
 	// Attempts is the total number of attempts (including retries).
 	Attempts int
+
+	// Fallback 标记本次选号是否经过了回退（从精确供应商降级到自动选号）。
+	// 当 EnableFailover=true 且精确供应商选号失败后成功回退时为 true。
+	Fallback bool
 }
