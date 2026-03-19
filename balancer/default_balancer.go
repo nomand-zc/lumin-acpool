@@ -53,6 +53,7 @@ func New(opts ...Option) (Balancer, error) {
 }
 
 // Pick performs a single selection.
+// TODO: 可以考虑Provider上异步维护一个真实可用账号数字段。
 func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResult, error) {
 	if req.Model == "" {
 		return nil, ErrModelRequired
@@ -106,6 +107,7 @@ func (b *defaultBalancer) pickExact(ctx context.Context, selReq *selector.Select
 }
 
 // pickAuto handles Mode 2/3: selection by type or fully automatic.
+// TODO: 改为并行批量探测来提升效率
 func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectRequest, maxRetries int,
 	enableFailover bool) (*PickResult, error) {
 	// Resolve candidate provider list via Resolver
