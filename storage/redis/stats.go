@@ -32,13 +32,13 @@ var statsLuaIncrSuccess = `
 	local key = KEYS[1]
 	local now = ARGV[1]
 	local accountID = ARGV[2]
-	
+
 	redis.call("HSET", key, "account_id", accountID)
 	redis.call("HINCRBY", key, "total_calls", 1)
 	redis.call("HINCRBY", key, "success_calls", 1)
 	redis.call("HSET", key, "consecutive_failures", "0")
 	redis.call("HSET", key, "last_used_at", now)
-	
+
 	return 1
 `
 
@@ -47,14 +47,14 @@ var statsLuaIncrFailure = `
 	local now = ARGV[1]
 	local errMsg = ARGV[2]
 	local accountID = ARGV[3]
-	
+
 	redis.call("HSET", key, "account_id", accountID)
 	redis.call("HINCRBY", key, "total_calls", 1)
 	redis.call("HINCRBY", key, "failed_calls", 1)
 	local failures = redis.call("HINCRBY", key, "consecutive_failures", 1)
 	redis.call("HSET", key, "last_error_at", now)
 	redis.call("HSET", key, "last_error_msg", errMsg)
-	
+
 	return failures
 `
 

@@ -74,3 +74,68 @@ docs/
 │   └── cluster-deployment.md        ← 集群部署注意事项
 └── CONVENTIONS.md                   ← 编码规范
 ```
+
+## Pre-commit 配置
+
+项目使用 [pre-commit](https://pre-commit.com/) 进行代码提交前的自动化质量检查，确保代码符合项目的统一规范。
+
+### 安装
+
+```bash
+# 检查是否已安装 pre-commit
+pre-commit --version
+
+# 如果未安装，使用以下命令安装：
+# 方式一：使用 pip（推荐）
+pip install pre-commit
+
+# 方式二：使用 Homebrew（macOS）
+brew install pre-commit
+
+# 方式三：使用 apt（Ubuntu/Debian）
+sudo apt install pre-commit
+
+# 安装完成后，在项目根目录安装 git hooks
+pre-commit install
+```
+
+### 检查项说明
+
+| 类别 | 检查项 | 说明 |
+|------|--------|------|
+| **Go 代码** | `go fmt` | 格式化 Go 代码 |
+| | `golangci-lint` | 综合代码检查（含 goimports, go vet） |
+| | `go test` | **单元测试门禁**（-race 竞态检测 + 覆盖率） |
+| | `go mod tidy` | 依赖整理 |
+| **通用检查** | `trailing-whitespace` | 行尾空白检查 |
+| | `end-of-file-fixer` | 文件末尾换行检查 |
+| | `check-added-large-files` | 大文件检查（≤500KB） |
+| | `check-yaml` / `check-json` | YAML/JSON 语法检查 |
+| | `check-merge-conflict` | 合并冲突标记检查 |
+| **文档** | `pymarkdown` | Markdown 格式化 |
+
+### 使用方式
+
+```bash
+# 对所有文件运行检查
+pre-commit run --all-files
+
+# 只检查暂存的文件（推荐）
+pre-commit run
+
+# 手动触发特定检查
+pre-commit run go-vet --all-files
+```
+
+### 跳过检查
+
+**仅在紧急情况下使用**：
+
+```bash
+# 跳过所有检查提交（不推荐）
+git commit --no-verify
+```
+
+### 配置文件
+
+详细配置见 [.pre-commit-config.yaml](.pre-commit-config.yaml)

@@ -39,8 +39,8 @@ var (
 // Store 是基于 MySQL 的统一存储实现，实现所有 store 接口。
 // 共享同一个 Client 连接，支持跨表事务操作。
 type Store struct {
-	client           Client
-	accountConverter *MysqlConverter
+	client            Client
+	accountConverter  *MysqlConverter
 	providerConverter *MysqlConverter
 }
 
@@ -64,7 +64,7 @@ func NewStore(opts ...Option) (*Store, error) {
 	}
 
 	store := &Store{
-		client:           client,
+		client:            client,
 		accountConverter:  NewConditionConverter(accountFieldMapping, nil),
 		providerConverter: NewConditionConverter(providerFieldMapping, providerJSONFields),
 	}

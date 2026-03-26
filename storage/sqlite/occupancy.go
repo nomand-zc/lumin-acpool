@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	queryOccupancyIncr = `INSERT INTO account_occupancy (account_id, count) 
-		VALUES (?, 1) 
-		ON CONFLICT(account_id) DO UPDATE SET count = count + 1 
+	queryOccupancyIncr = `INSERT INTO account_occupancy (account_id, count)
+		VALUES (?, 1)
+		ON CONFLICT(account_id) DO UPDATE SET count = count + 1
 		RETURNING count`
 	queryOccupancyDecr = `UPDATE account_occupancy SET count = MAX(count - 1, 0) WHERE account_id=?`
 	queryOccupancyGet  = `SELECT count FROM account_occupancy WHERE account_id=?`

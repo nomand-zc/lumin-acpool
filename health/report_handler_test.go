@@ -437,9 +437,9 @@ func TestReportCallback_MultipleResults(t *testing.T) {
 				Message:   "credential is valid",
 			},
 			{
-				CheckName: "usage_quota",
-				Status:    CheckFailed,
-				Severity:  SeverityCritical,
+				CheckName:       "usage_quota",
+				Status:          CheckFailed,
+				Severity:        SeverityCritical,
 				SuggestedStatus: statusPtr(account.StatusCoolingDown),
 				Data: map[string]any{
 					ReportDataKeyUsageStats: []*usagerule.UsageStats{

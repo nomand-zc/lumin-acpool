@@ -236,14 +236,14 @@ func (s *Store) CalibrateRule(ctx context.Context, accountID string, ruleIndex i
 		if redis.call("EXISTS", key) == 0 then
 			return 0
 		end
-		
+
 		redis.call("HSET", key, "remote_used", ARGV[1])
 		redis.call("HSET", key, "remote_remain", ARGV[2])
 		redis.call("HSET", key, "local_used", "0")
 		redis.call("HSET", key, "window_start", ARGV[3])
 		redis.call("HSET", key, "window_end", ARGV[4])
 		redis.call("HSET", key, "last_sync_at", ARGV[5])
-		
+
 		return 1
 	`
 

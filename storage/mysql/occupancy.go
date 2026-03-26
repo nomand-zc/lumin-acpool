@@ -10,8 +10,8 @@ import (
 const (
 	// queryOccupancyIncr 原子递增占用计数（upsert 语义）。
 	// 使用 LAST_INSERT_ID() 技巧，使递增后的值可通过 Result.LastInsertId() 原子获取。
-	queryOccupancyIncr = `INSERT INTO account_occupancy (account_id, count) 
-		VALUES (?, 1) 
+	queryOccupancyIncr = `INSERT INTO account_occupancy (account_id, count)
+		VALUES (?, 1)
 		ON DUPLICATE KEY UPDATE count = LAST_INSERT_ID(count + 1)`
 
 	// queryOccupancyDecr 原子递减占用计数，保证不低于 0。

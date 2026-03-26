@@ -67,7 +67,7 @@ func AffinityWithStore(store storage.AffinityStore) AffinityOption {
 //	s := NewAffinity(AffinityWithStore(redisAffinityStore))
 func NewAffinity(opts ...AffinityOption) *Affinity {
 	a := &Affinity{
-	store:    storememory.NewStore(),
+		store:    storememory.NewStore(),
 		fallback: NewRoundRobin(),
 	}
 	for _, opt := range opts {

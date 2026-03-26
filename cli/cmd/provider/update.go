@@ -46,7 +46,7 @@ func (c *updateCmd) run(cmd *cobra.Command) error {
 	}
 
 	// 从数据库获取老数据，用于填充空字段和保护运行时字段
-oldInfo, err := deps.Storage.GetProvider(cmd.Context(), info.ProviderKey())
+	oldInfo, err := deps.Storage.GetProvider(cmd.Context(), info.ProviderKey())
 	if err != nil {
 		if err == storage.ErrNotFound {
 			return fmt.Errorf("Provider %s 不存在，无法更新", info.ProviderKey())
@@ -57,7 +57,7 @@ oldInfo, err := deps.Storage.GetProvider(cmd.Context(), info.ProviderKey())
 	// 用老数据合并填充零值字段，并保护运行时字段
 	mergeWithExisting(info, oldInfo)
 
-if err := deps.Storage.UpdateProvider(cmd.Context(), info); err != nil {
+	if err := deps.Storage.UpdateProvider(cmd.Context(), info); err != nil {
 		return handleStorageError("Provider", err)
 	}
 

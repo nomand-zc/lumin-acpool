@@ -1,0 +1,84 @@
+# Pre-commit configuration for lumin-client
+# 确保代码质量符合项目"统一抽象、简洁高效"的设计理念
+
+repos:
+  # =========================
+  # Go 代码质量检查
+  # =========================
+
+  # go fmt - 格式化 Go 代码
+  - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+    rev: v2.16.0
+    hooks:
+      - id: pretty-format-golang
+        args: [--autofix]
+
+  # golangci-lint - 综合代码检查（包含 goimports, go vet 等）
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.64.8
+    hooks:
+      - id: golangci-lint
+        args: [--timeout=5m]
+        exclude: ^(.*_test\.go|.*\.md|testdata/|.*_mock\.go)$
+
+  # go test - 单元测试门禁（本地脚本）
+  - repo: local
+    hooks:
+      - id: go-test
+        name: go test
+        entry: ./scripts/run-tests.sh
+        language: script
+        types: [go]
+        pass_filenames: false
+
+  # go mod tidy - 依赖整理
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.4
+    hooks:
+      - id: go-mod-tidy
+
+  # =========================
+  # 通用代码质量检查
+  # =========================
+
+  # 通用代码质量检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^testdata/
+      - id: end-of-file-fixer
+        exclude: ^testdata/
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+        exclude: ^testdata/
+      - id: check-merge-conflict
+
+  # =========================
+  # Markdown 文档检查
+  # =========================
+
+  # Markdown 格式化 - 保持文档整洁
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: v0.9.36
+    hooks:
+      - id: pymarkdown
+        args: [fix]
+
+# =========================
+# 全局配置
+# =========================
+default_language_version:
+  python: python3
+
+# 跳过测试数据目录和自动生成文件
+exclude: |
+  (?x)^(
+    testdata/|
+    \.codebuddy/|
+    docs/references/|
+    .*_generated\.go$
+  )

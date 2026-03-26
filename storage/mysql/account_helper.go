@@ -12,7 +12,7 @@ import (
 
 const (
 	// accountSelectColumns 是 accounts 表的通用查询列。
-	accountSelectColumns = `id, provider_type, provider_name, credential, status, priority, 
+	accountSelectColumns = `id, provider_type, provider_name, credential, status, priority,
 		tags, metadata, usage_rules, cooldown_until, circuit_open_until, created_at, updated_at, version`
 
 	// queryGetAccount 根据 ID 查询单个账号。
@@ -26,14 +26,14 @@ const (
 
 	// queryIncrProviderAccountCount 增加供应商的账号计数。
 	// 参数: available_incr(0或1), provider_type, provider_name
-	queryIncrProviderAccountCount = `UPDATE providers SET account_count = account_count + 1, 
-		available_account_count = available_account_count + ?, updated_at = NOW(3) 
+	queryIncrProviderAccountCount = `UPDATE providers SET account_count = account_count + 1,
+		available_account_count = available_account_count + ?, updated_at = NOW(3)
 		WHERE provider_type = ? AND provider_name = ?`
 
 	// queryDecrProviderAccountCount 减少供应商的账号计数。
 	// 参数: available_decr(0或1), provider_type, provider_name
-	queryDecrProviderAccountCount = `UPDATE providers SET account_count = GREATEST(account_count - 1, 0), 
-		available_account_count = GREATEST(available_account_count - ?, 0), updated_at = NOW(3) 
+	queryDecrProviderAccountCount = `UPDATE providers SET account_count = GREATEST(account_count - 1, 0),
+		available_account_count = GREATEST(available_account_count - ?, 0), updated_at = NOW(3)
 		WHERE provider_type = ? AND provider_name = ?`
 )
 

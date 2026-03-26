@@ -10,36 +10,36 @@ import (
 )
 
 const (
-	queryGetStats = `SELECT account_id, total_calls, success_calls, failed_calls, 
-		consecutive_failures, last_used_at, last_error_at, last_error_msg 
+	queryGetStats = `SELECT account_id, total_calls, success_calls, failed_calls,
+		consecutive_failures, last_used_at, last_error_at, last_error_msg
 		FROM account_stats WHERE account_id=?`
 
-	queryIncrSuccess = `INSERT INTO account_stats (account_id, total_calls, success_calls, consecutive_failures, last_used_at) 
-		VALUES (?, 1, 1, 0, ?) 
-		ON CONFLICT(account_id) DO UPDATE SET 
-			total_calls = total_calls + 1, 
-			success_calls = success_calls + 1, 
-			consecutive_failures = 0, 
+	queryIncrSuccess = `INSERT INTO account_stats (account_id, total_calls, success_calls, consecutive_failures, last_used_at)
+		VALUES (?, 1, 1, 0, ?)
+		ON CONFLICT(account_id) DO UPDATE SET
+			total_calls = total_calls + 1,
+			success_calls = success_calls + 1,
+			consecutive_failures = 0,
 			last_used_at = ?`
 
-	queryIncrFailure = `INSERT INTO account_stats (account_id, total_calls, failed_calls, consecutive_failures, last_error_at, last_error_msg) 
-		VALUES (?, 1, 1, 1, ?, ?) 
-		ON CONFLICT(account_id) DO UPDATE SET 
-			total_calls = total_calls + 1, 
-			failed_calls = failed_calls + 1, 
-			consecutive_failures = consecutive_failures + 1, 
-			last_error_at = ?, 
+	queryIncrFailure = `INSERT INTO account_stats (account_id, total_calls, failed_calls, consecutive_failures, last_error_at, last_error_msg)
+		VALUES (?, 1, 1, 1, ?, ?)
+		ON CONFLICT(account_id) DO UPDATE SET
+			total_calls = total_calls + 1,
+			failed_calls = failed_calls + 1,
+			consecutive_failures = consecutive_failures + 1,
+			last_error_at = ?,
 			last_error_msg = ?`
 
 	queryGetConsecutiveFailuresAfterIncr = `SELECT consecutive_failures FROM account_stats WHERE account_id=?`
 
-	queryUpdateLastUsed = `INSERT INTO account_stats (account_id, last_used_at) 
-		VALUES (?, ?) 
+	queryUpdateLastUsed = `INSERT INTO account_stats (account_id, last_used_at)
+		VALUES (?, ?)
 		ON CONFLICT(account_id) DO UPDATE SET last_used_at = ?`
 
-	queryGetConsecutiveFailures    = `SELECT consecutive_failures FROM account_stats WHERE account_id=?`
-	queryResetConsecutiveFailures  = `UPDATE account_stats SET consecutive_failures = 0 WHERE account_id=?`
-	queryDeleteStats               = `DELETE FROM account_stats WHERE account_id=?`
+	queryGetConsecutiveFailures   = `SELECT consecutive_failures FROM account_stats WHERE account_id=?`
+	queryResetConsecutiveFailures = `UPDATE account_stats SET consecutive_failures = 0 WHERE account_id=?`
+	queryDeleteStats              = `DELETE FROM account_stats WHERE account_id=?`
 )
 
 func (s *Store) GetStats(ctx context.Context, accountID string) (*account.AccountStats, error) {

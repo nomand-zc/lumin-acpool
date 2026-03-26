@@ -7,7 +7,7 @@ import (
 
 const (
 	queryGetAffinity    = `SELECT target_id FROM affinities WHERE affinity_key=?`
-	queryUpsertAffinity = `INSERT INTO affinities (affinity_key, target_id, updated_at) VALUES (?, ?, strftime('%Y-%m-%d %H:%M:%f', 'now')) 
+	queryUpsertAffinity = `INSERT INTO affinities (affinity_key, target_id, updated_at) VALUES (?, ?, strftime('%Y-%m-%d %H:%M:%f', 'now'))
 		ON CONFLICT(affinity_key) DO UPDATE SET target_id=?, updated_at=strftime('%Y-%m-%d %H:%M:%f', 'now')`
 )
 

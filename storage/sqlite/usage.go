@@ -12,24 +12,24 @@ import (
 
 const (
 	// queryGetCurrentUsages 根据 account_id 查询当前窗口内的用量追踪数据。
-	queryGetCurrentUsages = `SELECT rule_index, source_type, time_granularity, window_size, rule_total, 
-		local_used, remote_used, remote_remain, window_start, window_end, last_sync_at 
-		FROM tracked_usages WHERE account_id=? AND (window_end IS NULL OR window_end >= datetime('now')) 
+	queryGetCurrentUsages = `SELECT rule_index, source_type, time_granularity, window_size, rule_total,
+		local_used, remote_used, remote_remain, window_start, window_end, last_sync_at
+		FROM tracked_usages WHERE account_id=? AND (window_end IS NULL OR window_end >= datetime('now'))
 		ORDER BY rule_index ASC`
 
 	queryDeleteUsages = `DELETE FROM tracked_usages WHERE account_id=?`
 
-	queryInsertUsage = `INSERT INTO tracked_usages 
-		(account_id, rule_index, source_type, time_granularity, window_size, rule_total, 
-		local_used, remote_used, remote_remain, window_start, window_end, last_sync_at) 
+	queryInsertUsage = `INSERT INTO tracked_usages
+		(account_id, rule_index, source_type, time_granularity, window_size, rule_total,
+		local_used, remote_used, remote_remain, window_start, window_end, last_sync_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	queryIncrLocalUsed = `UPDATE tracked_usages SET local_used = local_used + ? 
+	queryIncrLocalUsed = `UPDATE tracked_usages SET local_used = local_used + ?
 		WHERE account_id=? AND rule_index=?`
 
-	queryCalibrateRule = `UPDATE tracked_usages SET 
-		remote_used=?, remote_remain=?, local_used=0, 
-		window_start=?, window_end=?, last_sync_at=? 
+	queryCalibrateRule = `UPDATE tracked_usages SET
+		remote_used=?, remote_remain=?, local_used=0,
+		window_start=?, window_end=?, last_sync_at=?
 		WHERE account_id=? AND rule_index=?`
 )
 

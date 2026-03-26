@@ -78,7 +78,7 @@ type defaultHealthChecker struct {
 	// leaderElector 可选的领导者选举器。
 	// 集群部署时注入，后台任务执行前先判断 IsLeader。
 	// 为 nil 时默认当前实例为 leader（兼容单机部署）。
-	leaderKey string
+	leaderKey     string
 	leaderElector LeaderElector
 
 	// Background check lifecycle control

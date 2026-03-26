@@ -53,7 +53,7 @@ func NewConditionConverter(fieldMapping map[string]string, jsonFields map[string
 	}
 	return &MysqlConverter{
 		fieldMapping: fieldMapping,
-		jsonFields:  jsonFields,
+		jsonFields:   jsonFields,
 	}
 }
 
@@ -226,7 +226,7 @@ func (c *MysqlConverter) buildJSONCondition(cond *filtercond.Filter) (*CondConve
 	}
 
 	fieldName := c.convertFieldName(cond.Field)
-	
+
 	// 对于JSON数组查询，我们需要将值转换为JSON格式
 	jsonValue, err := c.convertToJSONValue(cond.Value)
 	if err != nil {

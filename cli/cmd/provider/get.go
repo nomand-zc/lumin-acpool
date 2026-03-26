@@ -12,7 +12,7 @@ import (
 type getCmd struct {
 	providerType string
 	providerName string
-	format output.Format
+	format       output.Format
 }
 
 // cmd 返回 cobra.Command。

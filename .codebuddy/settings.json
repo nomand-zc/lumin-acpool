@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "pr-review-toolkit@codebuddy-plugins-official": true,
+    "code-review-ai@codebuddy-plugins-official": true
+  }
+}

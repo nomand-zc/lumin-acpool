@@ -12,8 +12,8 @@ import (
 
 const (
 	// providerSelectColumns 是 providers 表的通用查询列。
-	providerSelectColumns = `provider_type, provider_name, status, priority, weight, 
-		tags, supported_models, usage_rules, metadata, 
+	providerSelectColumns = `provider_type, provider_name, status, priority, weight,
+		tags, supported_models, usage_rules, metadata,
 		account_count, available_account_count, created_at, updated_at`
 
 	// queryGetProvider 根据 provider_type 和 provider_name 查询单个供应商。
@@ -23,8 +23,8 @@ const (
 	queryInsertProvider = `INSERT INTO providers (` + providerSelectColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	// queryUpdateProvider 更新供应商信息。
-	queryUpdateProvider = `UPDATE providers SET status=?, priority=?, weight=?, 
-		tags=?, supported_models=?, usage_rules=?, metadata=?, updated_at=? 
+	queryUpdateProvider = `UPDATE providers SET status=?, priority=?, weight=?,
+		tags=?, supported_models=?, usage_rules=?, metadata=?, updated_at=?
 		WHERE provider_type=? AND provider_name=?`
 
 	// queryDeleteProvider 根据 provider_type 和 provider_name 删除供应商。

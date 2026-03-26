@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	providerSelectColumns = `provider_type, provider_name, status, priority, weight, 
-		tags, supported_models, usage_rules, metadata, 
+	providerSelectColumns = `provider_type, provider_name, status, priority, weight,
+		tags, supported_models, usage_rules, metadata,
 		account_count, available_account_count, created_at, updated_at`
 
 	queryGetProvider    = `SELECT ` + providerSelectColumns + ` FROM providers WHERE provider_type=? AND provider_name=?`
 	queryInsertProvider = `INSERT INTO providers (` + providerSelectColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	queryUpdateProvider = `UPDATE providers SET status=?, priority=?, weight=?, 
-		tags=?, supported_models=?, usage_rules=?, metadata=?, 
-		account_count=?, available_account_count=?, updated_at=? 
+	queryUpdateProvider = `UPDATE providers SET status=?, priority=?, weight=?,
+		tags=?, supported_models=?, usage_rules=?, metadata=?,
+		account_count=?, available_account_count=?, updated_at=?
 		WHERE provider_type=? AND provider_name=?`
 	queryDeleteProvider = `DELETE FROM providers WHERE provider_type=? AND provider_name=?`
 )
