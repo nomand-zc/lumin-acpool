@@ -8,8 +8,8 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/circuitbreaker"
-	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 	"github.com/nomand-zc/lumin-acpool/storage"
+	storememory "github.com/nomand-zc/lumin-acpool/storage/memory"
 )
 
 // --- Fix-1: ReportFailure 版本冲突重试 ---
@@ -517,12 +517,12 @@ func TestReportFailure_VersionConflict_RetrySuccess(t *testing.T) {
 
 type mockRateLimitError struct{}
 
-func (e *mockRateLimitError) Error() string    { return "rate limit" }
+func (e *mockRateLimitError) Error() string     { return "rate limit" }
 func (e *mockRateLimitError) IsRateLimit() bool { return true }
 
 type mockHTTP429Error struct{}
 
-func (e *mockHTTP429Error) Error() string  { return "http 429" }
+func (e *mockHTTP429Error) Error() string   { return "http 429" }
 func (e *mockHTTP429Error) StatusCode() int { return 429 }
 
 func TestIsRateLimitError_RateLimitInterface(t *testing.T) {
@@ -558,8 +558,8 @@ type mockRetryAfterError struct {
 	retryAfter *time.Time
 }
 
-func (e *mockRetryAfterError) Error() string         { return "rate limit with retry" }
-func (e *mockRetryAfterError) IsRateLimit() bool     { return true }
+func (e *mockRetryAfterError) Error() string          { return "rate limit with retry" }
+func (e *mockRetryAfterError) IsRateLimit() bool      { return true }
 func (e *mockRetryAfterError) RetryAfter() *time.Time { return e.retryAfter }
 
 func TestExtractRetryAfter_WithTime(t *testing.T) {

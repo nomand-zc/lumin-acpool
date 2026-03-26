@@ -16,8 +16,8 @@ import (
 
 // trackingUsageTracker 包装真实 UsageTracker 并追踪 GetTrackedUsages 调用次数
 type trackingUsageTracker struct {
-	inner            usagetracker.UsageTracker
-	getTrackedCalls  atomic.Int64
+	inner           usagetracker.UsageTracker
+	getTrackedCalls atomic.Int64
 }
 
 func newTrackingUsageTracker(inner usagetracker.UsageTracker) *trackingUsageTracker {

@@ -17,7 +17,7 @@ type recordingCheck struct {
 	checked []string // 记录每次 Check 时 target 的账号 ID
 }
 
-func (c *recordingCheck) Name() string           { return "recording" }
+func (c *recordingCheck) Name() string            { return "recording" }
 func (c *recordingCheck) Severity() CheckSeverity { return SeverityInfo }
 func (c *recordingCheck) DependsOn() []string     { return nil }
 func (c *recordingCheck) Check(_ context.Context, target CheckTarget) *CheckResult {

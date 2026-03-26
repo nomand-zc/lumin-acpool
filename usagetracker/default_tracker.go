@@ -199,7 +199,7 @@ func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, account
 			// CalibrateRule 会原子更新并重置 LocalUsed = 0
 			calibrated := &account.TrackedUsage{
 				RemoteUsed:   u.RemoteUsed + u.LocalUsed, // 已用量 = 远端 + 本地增量
-				RemoteRemain: 0,                        // 剩余 = 0（耗尽）
+				RemoteRemain: 0,                          // 剩余 = 0（耗尽）
 				WindowStart:  u.WindowStart,
 				WindowEnd:    u.WindowEnd,
 			}

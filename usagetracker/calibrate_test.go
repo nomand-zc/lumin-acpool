@@ -12,8 +12,8 @@ import (
 
 // trackingUsageStore 包装内存 UsageStore，追踪 SaveUsages 和 CalibrateRule 的调用次数
 type trackingUsageStore struct {
-	inner            *storememory.Store
-	saveUsagesCalls  atomic.Int64
+	inner              *storememory.Store
+	saveUsagesCalls    atomic.Int64
 	calibrateRuleCalls atomic.Int64
 }
 
