@@ -162,17 +162,14 @@ func (a *AdaptiveLimit) calculateLimit(ctx context.Context, acct *account.Accoun
 	maxLimit := a.getMaxLimit(acct)
 	fallbackLimit := a.getFallbackLimit(acct)
 
-	// 获取追踪数据以计算窗口剩余时间
+	// 获取追踪数据以计算窗口剩余时间（单次查询，同时用于 minRatio 计算）
 	usages, err := a.tracker.GetTrackedUsages(ctx, acct.ID)
 	if err != nil || len(usages) == 0 {
 		return fallbackLimit
 	}
 
-	// 获取最小剩余比例
-	minRatio, err := a.tracker.MinRemainRatio(ctx, acct.ID)
-	if err != nil {
-		return fallbackLimit
-	}
+	// 本地计算 minRatio，避免再次调用 MinRemainRatio（消除第二次存储查询）
+	minRatio := computeMinRemainRatio(usages)
 
 	// 找到约束最紧的规则来计算
 	var (
@@ -232,6 +229,19 @@ func (a *AdaptiveLimit) calculateLimit(ctx context.Context, acct *account.Accoun
 	}
 
 	return bestLimit
+}
+
+// computeMinRemainRatio 本地计算已追踪用量中最小的剩余比例。
+// 避免调用 UsageTracker.MinRemainRatio 产生额外的存储查询。
+func computeMinRemainRatio(usages []*account.TrackedUsage) float64 {
+	min := 1.0
+	for _, u := range usages {
+		r := u.RemainRatio()
+		if r < min {
+			min = r
+		}
+	}
+	return min
 }
 
 // getFactor 获取调控因子，优先从 Metadata 读取，否则使用本地配置。

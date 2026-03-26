@@ -248,3 +248,125 @@ func TestResolveAccounts_EmptyResult(t *testing.T) {
 		t.Fatalf("expected 0 accounts (all cooling down), got %d", len(accounts))
 	}
 }
+
+// --- Fix-11: ResolveProviders 空结果时返回 nil, nil ---
+
+// TestResolveProviders_EmptyResult_ReturnsNilError 无匹配供应商时返回 nil, nil
+func TestResolveProviders_EmptyResult_ReturnsNilError(t *testing.T) {
+	ctx := context.Background()
+	r, _, _ := setupResolver()
+
+	// 没有任何 Provider，ResolveProviders 应返回 nil, nil
+	providers, err := r.ResolveProviders(ctx, "gpt-4", "")
+	if err != nil {
+		t.Fatalf("expected nil error when no providers found, got %v", err)
+	}
+	if providers != nil {
+		t.Fatalf("expected nil providers slice, got %v", providers)
+	}
+}
+
+// TestResolveProviders_AllInactive_ReturnsNilError 所有 Provider 不可用时返回 nil, nil
+func TestResolveProviders_AllInactive_ReturnsNilError(t *testing.T) {
+	ctx := context.Background()
+	r, ps, _ := setupResolver()
+
+	// 添加两个禁用 Provider
+	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusDisabled, 5, []string{"gpt-4"})
+	addProvider(ctx, ps, "kiro", "team-b", account.ProviderStatusDisabled, 3, []string{"gpt-4"})
+
+	providers, err := r.ResolveProviders(ctx, "gpt-4", "")
+	if err != nil {
+		t.Fatalf("expected nil error when all providers inactive, got %v", err)
+	}
+	if providers != nil {
+		t.Fatalf("expected nil providers slice when all inactive, got %v", providers)
+	}
+}
+
+// TestResolveProviders_NoAvailableAccounts_ReturnsNilError 有 Provider 但无可用账号时返回 nil, nil
+func TestResolveProviders_NoAvailableAccounts_ReturnsNilError(t *testing.T) {
+	ctx := context.Background()
+	r, ps, as := setupResolver()
+
+	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4"})
+	// 只有 CoolingDown 账号（不算 Available）
+	addAccount(ctx, as, "acc-1", "kiro", "team-a", account.StatusCoolingDown, 5, nil)
+
+	providers, err := r.ResolveProviders(ctx, "gpt-4", "")
+	if err != nil {
+		t.Fatalf("expected nil error when no available accounts, got %v", err)
+	}
+	if providers != nil {
+		t.Fatalf("expected nil providers when no available accounts, got %v", providers)
+	}
+}
+
+// TestResolveProviders_NilSliceNotEmptySlice 返回的是 nil 而不是空切片
+func TestResolveProviders_NilSliceNotEmptySlice(t *testing.T) {
+	ctx := context.Background()
+	r, _, _ := setupResolver()
+
+	result, err := r.ResolveProviders(ctx, "nonexistent-model", "")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	// 严格验证返回 nil（不是空 slice）
+	if result != nil {
+		t.Fatalf("expected nil (not empty slice), got len=%d", len(result))
+	}
+}
+
+// --- Fix-6: filterExcluded 使用 map 实现 ---
+
+// TestFilterExcluded_EmptyExcludeList 空排除列表返回原切片
+func TestFilterExcluded_EmptyExcludeList(t *testing.T) {
+	accounts := []*account.Account{
+		{ID: "acc-1"},
+		{ID: "acc-2"},
+	}
+	result := filterExcluded(accounts, nil)
+	if len(result) != 2 {
+		t.Fatalf("expected 2 accounts with empty exclude list, got %d", len(result))
+	}
+}
+
+// TestFilterExcluded_ExcludesSome 排除指定 ID
+func TestFilterExcluded_ExcludesSome(t *testing.T) {
+	accounts := []*account.Account{
+		{ID: "acc-1"},
+		{ID: "acc-2"},
+		{ID: "acc-3"},
+	}
+	result := filterExcluded(accounts, []string{"acc-1", "acc-3"})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 account after excluding acc-1 and acc-3, got %d", len(result))
+	}
+	if result[0].ID != "acc-2" {
+		t.Fatalf("expected acc-2, got %s", result[0].ID)
+	}
+}
+
+// TestFilterExcluded_ExcludesAll 排除所有返回空切片
+func TestFilterExcluded_ExcludesAll(t *testing.T) {
+	accounts := []*account.Account{
+		{ID: "acc-1"},
+		{ID: "acc-2"},
+	}
+	result := filterExcluded(accounts, []string{"acc-1", "acc-2"})
+	if len(result) != 0 {
+		t.Fatalf("expected 0 accounts after excluding all, got %d", len(result))
+	}
+}
+
+// TestFilterExcluded_NonExistentIDs 排除不存在的 ID 不影响结果
+func TestFilterExcluded_NonExistentIDs(t *testing.T) {
+	accounts := []*account.Account{
+		{ID: "acc-1"},
+		{ID: "acc-2"},
+	}
+	result := filterExcluded(accounts, []string{"acc-nonexistent"})
+	if len(result) != 2 {
+		t.Fatalf("expected 2 accounts when excluding non-existent ID, got %d", len(result))
+	}
+}

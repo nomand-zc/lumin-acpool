@@ -314,31 +314,47 @@ func (b *defaultBalancer) ReportSuccess(ctx context.Context, accountID string) e
 
 	// 3. 通知熔断器
 	if b.opts.CircuitBreaker != nil {
-		acct, err := b.opts.AccountStorage.GetAccount(ctx, accountID)
-		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
-				return ErrAccountNotFound
+		// 性能优化：仅当存在连续失败记录时，才需要检查并恢复熔断状态。
+		// 正常路径（连续失败数为 0）完全无存储查询。
+		consecutiveFailures := 0
+		if b.opts.StatsStore != nil {
+			if stats, statsErr := b.opts.StatsStore.GetStats(ctx, accountID); statsErr == nil {
+				consecutiveFailures = stats.ConsecutiveFailures
 			}
-			return fmt.Errorf("balancer: get account: %w", err)
 		}
 
-		if err := b.opts.CircuitBreaker.RecordSuccess(ctx, acct); err != nil {
-			return fmt.Errorf("balancer: circuit breaker record success: %w", err)
-		}
-
-		// 仅当状态需要变更时才持久化 Account（使用乐观锁避免竞态覆盖）
-		// TODO: 需要更新熔断时间为nil
-		if acct.Status == account.StatusCircuitOpen {
-			acct.Status = account.StatusAvailable
-			acct.CircuitOpenUntil = nil
-			acct.UpdatedAt = time.Now()
-			if err := b.opts.AccountStorage.UpdateAccount(ctx, acct, storage.UpdateFieldStatus); err != nil {
-				if errors.Is(err, storage.ErrVersionConflict) {
-					// 版本冲突，已被其他实例更新，忽略（幂等）
-					return nil
+		if consecutiveFailures > 0 {
+			// 有连续失败记录，检查并尝试恢复熔断状态
+			acct, err := b.opts.AccountStorage.GetAccount(ctx, accountID)
+			if err != nil {
+				if errors.Is(err, storage.ErrNotFound) {
+					return ErrAccountNotFound
 				}
-				return fmt.Errorf("balancer: update account: %w", err)
+				return fmt.Errorf("balancer: get account: %w", err)
 			}
+
+			if err := b.opts.CircuitBreaker.RecordSuccess(ctx, acct); err != nil {
+				return fmt.Errorf("balancer: circuit breaker record success: %w", err)
+			}
+
+			// 仅当状态需要变更时才持久化 Account（使用乐观锁避免竞态覆盖）
+			if acct.Status == account.StatusCircuitOpen {
+				acct.Status = account.StatusAvailable
+				acct.CircuitOpenUntil = nil
+				acct.UpdatedAt = time.Now()
+				if err := b.opts.AccountStorage.UpdateAccount(ctx, acct, storage.UpdateFieldStatus); err != nil {
+					if errors.Is(err, storage.ErrVersionConflict) {
+						// 版本冲突，已被其他实例更新，忽略（幂等）
+						return nil
+					}
+					return fmt.Errorf("balancer: update account: %w", err)
+				}
+			}
+		}
+
+		// 无论是否需要 GetAccount，都重置连续失败计数
+		if b.opts.StatsStore != nil {
+			_ = b.opts.StatsStore.ResetConsecutiveFailures(ctx, accountID)
 		}
 	}
 
@@ -412,7 +428,24 @@ func (b *defaultBalancer) ReportFailure(ctx context.Context, accountID string, c
 		acct.UpdatedAt = time.Now()
 		if err := b.opts.AccountStorage.UpdateAccount(ctx, acct, storage.UpdateFieldStatus); err != nil {
 			if errors.Is(err, storage.ErrVersionConflict) {
-				// 版本冲突，已被其他实例更新（如已被标记为 CoolingDown/CircuitOpen），忽略
+				// 版本冲突：重新获取最新版本并重试一次（避免熔断状态丢失）
+				latestAcct, getErr := b.opts.AccountStorage.GetAccount(ctx, accountID)
+				if getErr != nil {
+					return nil // 无法获取最新数据，静默忽略
+				}
+				// 如果账号已被标记为更严重的终态（或更高优先级的熔断状态），不覆盖
+				if latestAcct.Status == account.StatusBanned ||
+					latestAcct.Status == account.StatusInvalidated ||
+					latestAcct.Status == account.StatusDisabled ||
+					latestAcct.Status == account.StatusCircuitOpen {
+					return nil
+				}
+				latestAcct.Status = acct.Status
+				latestAcct.CircuitOpenUntil = acct.CircuitOpenUntil
+				latestAcct.CooldownUntil = acct.CooldownUntil
+				latestAcct.UpdatedAt = time.Now()
+				// 重试一次，若再次冲突则静默忽略
+				_ = b.opts.AccountStorage.UpdateAccount(ctx, latestAcct, storage.UpdateFieldStatus)
 				return nil
 			}
 			return fmt.Errorf("balancer: update account: %w", err)

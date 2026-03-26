@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -10,6 +11,9 @@ import (
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-client/usagerule"
 )
+
+//go:embed scripts/usage_save.lua
+var scriptUsageSave string
 
 const (
 	usageKeyPrefix = "usage:"
@@ -161,33 +165,47 @@ func (s *Store) GetCurrentUsages(ctx context.Context, accountID string) ([]*acco
 
 func (s *Store) SaveUsages(ctx context.Context, accountID string, usages []*account.TrackedUsage) error {
 	countKey := usageCountRedisKey(s.keyPrefix, accountID)
+	keyPrefix := usageRuleRedisKey(s.keyPrefix, accountID, 0)
+	// 去掉末尾的 "0"，保留 "usage:<accountID>:" 前缀供 Lua 脚本拼接索引
+	keyPrefix = keyPrefix[:len(keyPrefix)-1]
 
+	// 查询当前已有条目数，用于 Lua 脚本删除旧 key
 	oldCountStr, _ := s.client.Get(ctx, countKey)
 	oldCount, _ := strconv.Atoi(oldCountStr)
 
-	for i := range oldCount {
-		key := usageRuleRedisKey(s.keyPrefix, accountID, i)
-		if err := s.client.Del(ctx, key); err != nil {
-			return fmt.Errorf("redis store: failed to delete old usage at index %d: %w", i, err)
-		}
-	}
-
-	for i, u := range usages {
-		key := usageRuleRedisKey(s.keyPrefix, accountID, i)
+	// 将所有规则的字段序列化为 ARGV 列表
+	// 格式：ARGV[5..] = rule0_f0, rule0_v0, rule0_f1, rule0_v1, ..., rule1_f0, rule1_v0, ...
+	// 要求所有规则的字段数必须一致（marshalUsageToHash 对相同 Rule 存在性产生相同字段集）
+	var ruleArgs []any
+	actualFieldCount := -1
+	for _, u := range usages {
 		fields := marshalUsageToHash(u)
-
-		args := make([]any, 0, len(fields)*2)
-		for k, v := range fields {
-			args = append(args, k, v)
+		if actualFieldCount == -1 {
+			actualFieldCount = len(fields)
+		} else if len(fields) != actualFieldCount {
+			return fmt.Errorf("redis store: inconsistent usage field count: got %d, expected %d", len(fields), actualFieldCount)
 		}
-
-		if err := s.client.HSet(ctx, key, args...); err != nil {
-			return fmt.Errorf("redis store: failed to save usage at index %d: %w", i, err)
+		for k, v := range fields {
+			ruleArgs = append(ruleArgs, k, fmt.Sprintf("%v", v))
 		}
 	}
 
-	if err := s.client.Set(ctx, countKey, strconv.Itoa(len(usages)), 0); err != nil {
-		return fmt.Errorf("redis store: failed to update usage count: %w", err)
+	if actualFieldCount < 0 {
+		actualFieldCount = 0
+	}
+
+	// ARGV: [oldCount, newCount, keyPrefix, fieldCount, rule0_fields..., rule1_fields..., ...]
+	args := []any{
+		strconv.Itoa(oldCount),
+		strconv.Itoa(len(usages)),
+		keyPrefix,
+		strconv.Itoa(actualFieldCount),
+	}
+	args = append(args, ruleArgs...)
+
+	_, err := s.client.Eval(ctx, scriptUsageSave, []string{countKey}, args...)
+	if err != nil {
+		return fmt.Errorf("redis store: failed to save usages atomically: %w", err)
 	}
 
 	return nil

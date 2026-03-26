@@ -192,13 +192,23 @@ func (t *defaultUsageTracker) CalibrateFromResponse(ctx context.Context, account
 		return nil
 	}
 
-	for _, u := range usages {
+	// 使用 CalibrateRule 逐条原子更新，避免 SaveUsages 全量覆写丢失并发 IncrLocalUsed 增量
+	for i, u := range usages {
 		if u.Rule != nil && u.Rule.SourceType == sourceType {
-			// 标记为已耗尽：将 LocalUsed 调整到使 EstimatedRemain() <= 0
-			u.LocalUsed = u.RemoteRemain
+			// 标记为已耗尽：设置 RemoteRemain = 0
+			// CalibrateRule 会原子更新并重置 LocalUsed = 0
+			calibrated := &account.TrackedUsage{
+				RemoteUsed:   u.RemoteUsed + u.LocalUsed, // 已用量 = 远端 + 本地增量
+				RemoteRemain: 0,                        // 剩余 = 0（耗尽）
+				WindowStart:  u.WindowStart,
+				WindowEnd:    u.WindowEnd,
+			}
+			if err := t.store.CalibrateRule(ctx, accountID, i, calibrated); err != nil {
+				return err
+			}
 		}
 	}
-	return t.store.SaveUsages(ctx, accountID, usages)
+	return nil
 }
 
 func (t *defaultUsageTracker) GetTrackedUsages(ctx context.Context, accountID string) ([]*account.TrackedUsage, error) {

@@ -126,10 +126,12 @@ func (c *ProbeCheck) buildProbeRequest(ctx context.Context, target health.CheckT
 	model := c.resolveModel(ctx, target)
 
 	if c.ProbeRequest != nil {
-		if model != "" && c.ProbeRequest.Model == "" {
-			c.ProbeRequest.Model = model
+		// 创建副本而非修改共享字段，避免并发调用时的数据竞争
+		req := *c.ProbeRequest
+		if model != "" && req.Model == "" {
+			req.Model = model
 		}
-		return c.ProbeRequest
+		return &req
 	}
 	// Construct the lightest possible probe request
 	maxTokens := 1

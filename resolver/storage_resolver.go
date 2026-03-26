@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
@@ -76,7 +75,7 @@ func (r *storageResolver) ResolveProviders(ctx context.Context, model string, pr
 	}
 
 	if len(active) == 0 {
-		return nil, ErrNoAccount
+		return nil, nil // 返回空切片而非错误，由调用方通过 len(candidates)==0 判断
 	}
 
 	return active, nil
@@ -111,9 +110,13 @@ func (r *storageResolver) ResolveAccounts(ctx context.Context, req ResolveAccoun
 
 // filterExcluded filters out accounts with specified IDs.
 func filterExcluded(accounts []*account.Account, excludeIDs []string) []*account.Account {
-	var result []*account.Account
+	excludeSet := make(map[string]struct{}, len(excludeIDs))
+	for _, id := range excludeIDs {
+		excludeSet[id] = struct{}{}
+	}
+	result := make([]*account.Account, 0, len(accounts))
 	for _, acct := range accounts {
-		if !slices.Contains(excludeIDs, acct.ID) {
+		if _, excluded := excludeSet[acct.ID]; !excluded {
 			result = append(result, acct)
 		}
 	}

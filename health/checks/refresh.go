@@ -67,8 +67,12 @@ func (c *CredentialRefreshCheck) Check(ctx context.Context, target health.CheckT
 			Severity:        health.SeverityCritical,
 			Message:         "credential refreshed successfully",
 			SuggestedStatus: utils.ToPtr(account.StatusAvailable),
-			Duration:        time.Since(start),
-			Timestamp:       time.Now(),
+			// 显式标记凭证已被修改，ReportHandler 据此决定是否持久化 Credential 字段
+			Data: map[string]any{
+				health.ReportDataKeyCredentialRefreshed: true,
+			},
+			Duration:  time.Since(start),
+			Timestamp: time.Now(),
 		}
 	}
 

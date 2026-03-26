@@ -493,3 +493,108 @@ func TestReportCallback_NilResultInSlice(t *testing.T) {
 		},
 	})
 }
+
+// --- Fix-5: credential_refreshed 标记 ---
+
+// TestReportCallback_CredentialRefreshed_IncludesCredentialField 验证凭证刷新时包含 UpdateFieldCredential
+func TestReportCallback_CredentialRefreshed_IncludesCredentialField(t *testing.T) {
+	ctx := context.Background()
+	as := storememory.NewStore()
+	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
+
+	// 记录初始版本
+	origAcct, _ := as.GetAccount(ctx, "acc-1")
+	origVersion := origAcct.Version
+
+	cb := NewDefaultReportCallback(ReportHandlerDeps{
+		AccountStorage: as,
+	})
+
+	// 模拟 CredentialRefreshCheck 成功刷新：Data 中带 credential_refreshed: true
+	cb(ctx, &HealthReport{
+		AccountID: "acc-1",
+		Results: []*CheckResult{
+			{
+				CheckName:       "credential_refresh",
+				Status:          CheckPassed,
+				Severity:        SeverityCritical,
+				SuggestedStatus: statusPtr(account.StatusAvailable),
+				Data: map[string]any{
+					ReportDataKeyCredentialRefreshed: true,
+				},
+			},
+		},
+	})
+
+	// 验证账号被更新（版本号递增）
+	updated, _ := as.GetAccount(ctx, "acc-1")
+	if updated.Version <= origVersion {
+		t.Fatalf("expected account to be updated (version incremented) when credential refreshed, got version=%d", updated.Version)
+	}
+}
+
+// TestReportCallback_CredentialNotRefreshed_NoCredentialField 未刷新凭证时不包含 UpdateFieldCredential
+func TestReportCallback_CredentialNotRefreshed_NoCredentialField(t *testing.T) {
+	ctx := context.Background()
+	as := storememory.NewStore()
+	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
+
+	origAcct, _ := as.GetAccount(ctx, "acc-1")
+	origVersion := origAcct.Version
+
+	cb := NewDefaultReportCallback(ReportHandlerDeps{
+		AccountStorage: as,
+	})
+
+	// 凭证检查通过但未刷新（没有 credential_refreshed 标记）
+	cb(ctx, &HealthReport{
+		AccountID: "acc-1",
+		Results: []*CheckResult{
+			{
+				CheckName: "credential_validity",
+				Status:    CheckPassed,
+				Severity:  SeverityCritical,
+				// 无 Data，无 SuggestedStatus
+			},
+		},
+	})
+
+	// 账号状态未变化，因此不应该触发 UpdateAccount
+	updated, _ := as.GetAccount(ctx, "acc-1")
+	if updated.Version != origVersion {
+		t.Fatalf("expected account NOT to be updated when no credential change, got version=%d (orig=%d)", updated.Version, origVersion)
+	}
+}
+
+// TestReportCallback_CredentialRefreshed_FalseValue 当 credential_refreshed=false 时不触发凭证更新
+func TestReportCallback_CredentialRefreshed_FalseValue(t *testing.T) {
+	ctx := context.Background()
+	as := storememory.NewStore()
+	addTestAccount(ctx, as, "acc-1", account.StatusAvailable)
+
+	origAcct, _ := as.GetAccount(ctx, "acc-1")
+	origVersion := origAcct.Version
+
+	cb := NewDefaultReportCallback(ReportHandlerDeps{
+		AccountStorage: as,
+	})
+
+	// credential_refreshed = false（不触发凭证更新）
+	cb(ctx, &HealthReport{
+		AccountID: "acc-1",
+		Results: []*CheckResult{
+			{
+				CheckName: "credential_refresh",
+				Status:    CheckPassed,
+				Data: map[string]any{
+					ReportDataKeyCredentialRefreshed: false, // false 不触发
+				},
+			},
+		},
+	})
+
+	updated, _ := as.GetAccount(ctx, "acc-1")
+	if updated.Version != origVersion {
+		t.Fatalf("expected no update when credential_refreshed=false, got version=%d", updated.Version)
+	}
+}

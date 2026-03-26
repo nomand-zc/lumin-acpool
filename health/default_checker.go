@@ -315,7 +315,6 @@ func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastR
 			default:
 				result := check.Check(ctx, target)
 				results = append(results, result)
-				lastRun[check.Name()] = now
 			}
 		}
 
@@ -332,6 +331,11 @@ func (c *defaultHealthChecker) tickRun(ctx context.Context, now time.Time, lastR
 				cb(ctx, report)
 			}
 		}
+	}
+
+	// 所有 targets 完成后才更新 lastRun，确保每个 target 都被检查到
+	for _, check := range dueChecks {
+		lastRun[check.Name()] = now
 	}
 }
 

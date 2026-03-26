@@ -206,9 +206,13 @@ func (s *Store) RemoveAccounts(_ context.Context, filter *storage.SearchFilter) 
 		return err
 	}
 
-	s.acctMu.Lock()
-	defer s.acctMu.Unlock()
+	type removedEntry struct {
+		id   string
+		acct *account.Account
+	}
+	var toRemove []removedEntry
 
+	s.acctMu.Lock()
 	for id, acct := range s.accounts {
 		if !matchAccountSearchFilter(acct, filter) {
 			continue
@@ -216,8 +220,47 @@ func (s *Store) RemoveAccounts(_ context.Context, filter *storage.SearchFilter) 
 		if filterFn(acct) {
 			s.acctRemoveFromIndex(acct)
 			delete(s.accounts, id)
+			toRemove = append(toRemove, removedEntry{id: id, acct: acct})
 		}
 	}
+	s.acctMu.Unlock()
+
+	if len(toRemove) == 0 {
+		return nil
+	}
+
+	// 按照与 RemoveAccount 相同的锁顺序：provMu → statsMu → usageMu
+
+	// 更新 Provider 计数
+	s.provMu.Lock()
+	for _, entry := range toRemove {
+		key := entry.acct.ProviderKey()
+		if prov, ok := s.providers[key]; ok {
+			if prov.AccountCount > 0 {
+				prov.AccountCount--
+			}
+			if entry.acct.Status == account.StatusAvailable && prov.AvailableAccountCount > 0 {
+				prov.AvailableAccountCount--
+			}
+			prov.UpdatedAt = time.Now()
+		}
+	}
+	s.provMu.Unlock()
+
+	// 清理关联的统计数据
+	s.statsMu.Lock()
+	for _, entry := range toRemove {
+		delete(s.statsStore, entry.id)
+	}
+	s.statsMu.Unlock()
+
+	// 清理关联的用量追踪数据
+	s.usageMu.Lock()
+	for _, entry := range toRemove {
+		delete(s.usageStore, entry.id)
+	}
+	s.usageMu.Unlock()
+
 	return nil
 }
 

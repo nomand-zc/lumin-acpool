@@ -22,6 +22,9 @@ const (
 	ReportDataKeySupportedModels = "supported_models"
 	// ReportDataKeyUsageRules 用量规则的 Key，对应 []*usagerule.UsageRule。
 	ReportDataKeyUsageRules = "usage_rules"
+	// ReportDataKeyCredentialRefreshed 凭证已刷新标记的 Key，对应 bool。
+	// 由 CredentialRefreshCheck 在成功刷新后设置，ReportHandler 据此决定是否持久化凭证字段。
+	ReportDataKeyCredentialRefreshed = "credential_refreshed"
 )
 
 // ReportHandlerDeps 是构建默认 ReportCallback 所需的依赖。
@@ -54,6 +57,7 @@ func NewDefaultReportCallback(deps ReportHandlerDeps) ReportCallback {
 		}
 
 		needUpdate := false
+		credentialChanged := false
 
 		for _, result := range report.Results {
 			if result == nil {
@@ -75,20 +79,33 @@ func NewDefaultReportCallback(deps ReportHandlerDeps) ReportCallback {
 				needUpdate = handleUsageRulesRefresh(ctx, deps, acct, result) || needUpdate
 			}
 
-			// 4. 处理 SuggestedStatus 状态变更
+			// 4. 检查凭证是否已刷新（由 CredentialRefreshCheck 在 Data 中显式标记）
+			if result.Data != nil {
+				if dataMap, ok := result.Data.(map[string]any); ok {
+					if refreshed, ok := dataMap[ReportDataKeyCredentialRefreshed].(bool); ok && refreshed {
+						credentialChanged = true
+					}
+				}
+			}
+
+			// 5. 处理 SuggestedStatus 状态变更
 			if result.SuggestedStatus != nil {
 				needUpdate = handleSuggestedStatus(ctx, deps, acct, result) || needUpdate
 			}
 		}
 
-		// 3. 持久化变更
-		if needUpdate {
+		// 持久化变更：仅更新实际发生变化的字段
+		if needUpdate || credentialChanged {
 			acct.UpdatedAt = time.Now()
 
-			// 根据实际变更的内容确定需要更新的字段
-			updateFields := storage.UpdateFieldStatus     // 状态始终更新（handleSuggestedStatus）
-			updateFields |= storage.UpdateFieldUsageRules // UsageRules 刷新
-			updateFields |= storage.UpdateFieldCredential // 凭证刷新（Token 刷新后）
+			// 按实际变更构建字段掩码，避免不必要的覆盖写
+			var updateFields storage.UpdateField
+			if needUpdate {
+				updateFields |= storage.UpdateFieldStatus | storage.UpdateFieldUsageRules
+			}
+			if credentialChanged {
+				updateFields |= storage.UpdateFieldCredential
+			}
 			_ = deps.AccountStorage.UpdateAccount(ctx, acct, updateFields)
 		}
 	}
