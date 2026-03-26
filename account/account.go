@@ -69,6 +69,26 @@ func (a *Account) ProviderKey() ProviderKey {
 	return BuildProviderKey(a.ProviderType, a.ProviderName)
 }
 
+// ShallowClone 创建 Account 的浅拷贝：值字段深拷贝，引用字段（Tags/Metadata/UsageRules）共享引用。
+// 调用方必须保证不修改返回的 Tags/Metadata/UsageRules 字段。
+// 适用于只读场景（如 SearchAccounts 返回候选列表），比 Clone 分配更少内存。
+func (a *Account) ShallowClone() *Account {
+	if a == nil {
+		return nil
+	}
+	dst := *a // 值拷贝所有字段（Tags/Metadata/UsageRules 共享引用）
+	// 时间指针需要独立拷贝，避免外部修改影响原始对象
+	if a.CooldownUntil != nil {
+		t := *a.CooldownUntil
+		dst.CooldownUntil = &t
+	}
+	if a.CircuitOpenUntil != nil {
+		t := *a.CircuitOpenUntil
+		dst.CircuitOpenUntil = &t
+	}
+	return &dst
+}
+
 // Clone 创建 Account 的深拷贝。
 func (a *Account) Clone() *Account {
 	if a == nil {

@@ -160,6 +160,11 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 	// Exclude already-tried providers (failover scenario)
 	var excludeProviderKeys []account.ProviderKey
 
+	// 懒加载缓存：每个 Provider 的账号列表只查询一次，failover 切换 Provider 时直接复用。
+	// 缓存生命周期仅限于本次 Pick 请求，不存在跨请求的状态过期问题。
+	// FilterAvailable 每次仍实时执行（占用状态是动态的），只跳过重复的存储查询。
+	providerAccountsCache := make(map[account.ProviderKey][]*account.Account)
+
 	for {
 		// 检查 context 是否已取消，避免 failover 循环长时间阻塞
 		select {
@@ -180,8 +185,8 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 			return nil, fmt.Errorf("balancer: group select: %w", err)
 		}
 
-		// 委托 selectAccountFromProvider 完成 ResolveAccounts + FilterAvailable + Shuffle + Acquire 全流程
-		result, err := b.selectAccountFromProvider(ctx, chosen, selReq, maxRetries)
+		// 使用带缓存的版本替代 selectAccountFromProvider，避免 failover 时重复查询同一 Provider 的账号
+		result, err := b.selectAccountFromProviderCached(ctx, chosen, selReq, maxRetries, providerAccountsCache)
 		if err == nil {
 			return result, nil
 		}
@@ -196,6 +201,52 @@ func (b *defaultBalancer) pickAuto(ctx context.Context, selReq *selector.SelectR
 
 		return nil, err
 	}
+}
+
+// selectAccountFromProviderCached 带懒加载缓存的账号查询。
+// 同一 Provider 在本次 Pick 请求生命周期内只执行一次 ResolveAccounts 存储查询，
+// failover 时切换回同一 Provider 直接复用缓存，避免重复的 O(n) 存储查询开销。
+// FilterAvailable 每次仍实时执行，确保占用状态的实时性。
+func (b *defaultBalancer) selectAccountFromProviderCached(
+	ctx context.Context,
+	provInfo *account.ProviderInfo,
+	selReq *selector.SelectRequest,
+	maxRetries int,
+	cache map[account.ProviderKey][]*account.Account,
+) (*PickResult, error) {
+	provKey := provInfo.ProviderKey()
+
+	accounts, ok := cache[provKey]
+	if !ok {
+		// 首次访问该 Provider，查询账号列表并缓存
+		var err error
+		accounts, err = b.opts.Resolver.ResolveAccounts(ctx, resolver.ResolveAccountsRequest{
+			Key:  provKey,
+			Tags: selReq.Tags,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("balancer: resolve accounts: %w", err)
+		}
+		cache[provKey] = accounts
+	}
+
+	if len(accounts) == 0 {
+		return nil, ErrNoAvailableAccount
+	}
+
+	// 占用过滤：每次实时执行，排除已达并发上限的账号（占用状态是动态的，不能缓存）
+	available := b.opts.OccupancyController.FilterAvailable(ctx, accounts)
+	if len(available) == 0 {
+		return nil, ErrOccupancyFull
+	}
+
+	// 随机打散账号列表，分散竞争热点
+	rand.Shuffle(len(available), func(i, j int) {
+		available[i], available[j] = available[j], available[i]
+	})
+
+	// 委托 acquireFromAccounts 进行 Select + Acquire 重试循环
+	return b.acquireFromAccounts(ctx, provInfo, available, selReq, maxRetries)
 }
 
 // acquireFromAccounts 从已过滤的账号列表中选取并获取占用槽位。

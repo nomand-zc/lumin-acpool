@@ -33,13 +33,37 @@ func (s *Store) SearchAccounts(_ context.Context, filter *storage.SearchFilter) 
 	s.acctMu.RLock()
 	defer s.acctMu.RUnlock()
 
+	// 快路径：同时指定 ProviderType 和 ProviderName 时，利用二级索引定点查询，避免全表扫描。
+	if filter != nil && filter.ProviderType != "" && filter.ProviderName != "" {
+		key := account.BuildProviderKey(filter.ProviderType, filter.ProviderName)
+		ids, ok := s.acctProviderIndex[key]
+		if !ok || len(ids) == 0 {
+			return nil, nil
+		}
+		result := make([]*account.Account, 0, len(ids))
+		for id := range ids {
+			acct := s.accounts[id]
+			if acct == nil {
+				continue
+			}
+			if !matchAccountSearchFilter(acct, filter) {
+				continue
+			}
+			if filterFn(acct) {
+				result = append(result, acct.Clone())
+			}
+		}
+		return result, nil
+	}
+
+	// 慢路径：全表扫描。
 	result := make([]*account.Account, 0)
 	for _, acct := range s.accounts {
 		if !matchAccountSearchFilter(acct, filter) {
 			continue
 		}
 		if filterFn(acct) {
-			result = append(result, acct.Clone())
+			result = append(result, acct.ShallowClone())
 		}
 	}
 	return result, nil

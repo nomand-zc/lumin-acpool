@@ -2,7 +2,9 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/storage"
@@ -278,5 +280,374 @@ func TestRemoveAccounts_CleansBothStatsAndUsage(t *testing.T) {
 		if len(usages) != 0 {
 			t.Fatalf("usages not cleaned for %s: %d entries remain", id, len(usages))
 		}
+	}
+}
+
+// --- SearchAccounts 快路径（索引）测试 ---
+
+// TestSearchAccounts_IndexPath_ExactProvider 验证快路径只返回指定 Provider 下的账号。
+func TestSearchAccounts_IndexPath_ExactProvider(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	// 添加两个 Provider
+	for _, name := range []string{"team-a", "team-b"} {
+		_ = store.AddProvider(ctx, &account.ProviderInfo{
+			ProviderType: "openai",
+			ProviderName: name,
+			Status:       account.ProviderStatusActive,
+		})
+	}
+
+	// team-a 10 个，team-b 90 个
+	for i := range 10 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("team-a-%d", i),
+			ProviderType: "openai",
+			ProviderName: "team-a",
+			Status:       account.StatusAvailable,
+		})
+	}
+	for i := range 90 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("team-b-%d", i),
+			ProviderType: "openai",
+			ProviderName: "team-b",
+			Status:       account.StatusAvailable,
+		})
+	}
+
+	result, err := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "openai",
+		ProviderName: "team-a",
+	})
+	if err != nil {
+		t.Fatalf("SearchAccounts failed: %v", err)
+	}
+	if len(result) != 10 {
+		t.Fatalf("expected 10 accounts, got %d", len(result))
+	}
+	for _, acct := range result {
+		if acct.ProviderType != "openai" || acct.ProviderName != "team-a" {
+			t.Fatalf("unexpected account: type=%s name=%s", acct.ProviderType, acct.ProviderName)
+		}
+	}
+}
+
+// TestSearchAccounts_IndexPath_StatusFilter 验证快路径正确过滤 Status。
+func TestSearchAccounts_IndexPath_StatusFilter(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "openai",
+		ProviderName: "team-a",
+		Status:       account.ProviderStatusActive,
+	})
+
+	// 6 个 Available
+	for i := range 6 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("avail-%d", i),
+			ProviderType: "openai",
+			ProviderName: "team-a",
+			Status:       account.StatusAvailable,
+		})
+	}
+	// 4 个 CoolingDown
+	for i := range 4 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("cool-%d", i),
+			ProviderType: "openai",
+			ProviderName: "team-a",
+			Status:       account.StatusCoolingDown,
+		})
+	}
+
+	result, err := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "openai",
+		ProviderName: "team-a",
+		Status:       int(account.StatusAvailable),
+	})
+	if err != nil {
+		t.Fatalf("SearchAccounts failed: %v", err)
+	}
+	if len(result) != 6 {
+		t.Fatalf("expected 6 available accounts, got %d", len(result))
+	}
+	for _, acct := range result {
+		if acct.Status != account.StatusAvailable {
+			t.Fatalf("expected StatusAvailable, got %v", acct.Status)
+		}
+	}
+}
+
+// TestSearchAccounts_IndexPath_EmptyProvider 验证查询不存在的 Provider 返回空切片无错误。
+func TestSearchAccounts_IndexPath_EmptyProvider(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	result, err := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "nonexistent",
+		ProviderName: "ghost",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(result) != 0 {
+		t.Fatalf("expected empty result, got %d accounts", len(result))
+	}
+}
+
+// TestSearchAccounts_FallbackPath_TypeOnly 验证只有 ProviderType 时走慢路径，返回所有匹配账号。
+func TestSearchAccounts_FallbackPath_TypeOnly(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	for _, name := range []string{"a", "b"} {
+		_ = store.AddProvider(ctx, &account.ProviderInfo{
+			ProviderType: "openai",
+			ProviderName: name,
+			Status:       account.ProviderStatusActive,
+		})
+		for i := range 5 {
+			_ = store.AddAccount(ctx, &account.Account{
+				ID:           fmt.Sprintf("openai-%s-%d", name, i),
+				ProviderType: "openai",
+				ProviderName: name,
+				Status:       account.StatusAvailable,
+			})
+		}
+	}
+
+	// 只指定 ProviderType，应走慢路径并返回全部 10 个
+	result, err := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "openai",
+	})
+	if err != nil {
+		t.Fatalf("SearchAccounts failed: %v", err)
+	}
+	if len(result) != 10 {
+		t.Fatalf("expected 10 accounts (fallback path), got %d", len(result))
+	}
+}
+
+// BenchmarkSearchAccounts_IndexPath 快路径基准测试（1000 账号，目标 Provider 10 个）。
+func BenchmarkSearchAccounts_IndexPath(b *testing.B) {
+	ctx := context.Background()
+	store := NewStore()
+
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "openai",
+		ProviderName: "target",
+		Status:       account.ProviderStatusActive,
+	})
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "openai",
+		ProviderName: "other",
+		Status:       account.ProviderStatusActive,
+	})
+
+	for i := range 10 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("target-%d", i),
+			ProviderType: "openai",
+			ProviderName: "target",
+			Status:       account.StatusAvailable,
+		})
+	}
+	for i := range 990 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("other-%d", i),
+			ProviderType: "openai",
+			ProviderName: "other",
+			Status:       account.StatusAvailable,
+		})
+	}
+
+	filter := &storage.SearchFilter{
+		ProviderType: "openai",
+		ProviderName: "target",
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_, _ = store.SearchAccounts(ctx, filter)
+	}
+}
+
+// BenchmarkSearchAccounts_FullScan 慢路径全表扫描基准测试（1000 账号）。
+func BenchmarkSearchAccounts_FullScan(b *testing.B) {
+	ctx := context.Background()
+	store := NewStore()
+
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "openai",
+		ProviderName: "target",
+		Status:       account.ProviderStatusActive,
+	})
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "openai",
+		ProviderName: "other",
+		Status:       account.ProviderStatusActive,
+	})
+
+	for i := range 10 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("target-%d", i),
+			ProviderType: "openai",
+			ProviderName: "target",
+			Status:       account.StatusAvailable,
+		})
+	}
+	for i := range 990 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("other-%d", i),
+			ProviderType: "openai",
+			ProviderName: "other",
+			Status:       account.StatusAvailable,
+		})
+	}
+
+	// 只指定 ProviderType，走全表扫描
+	filter := &storage.SearchFilter{
+		ProviderType: "openai",
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_, _ = store.SearchAccounts(ctx, filter)
+	}
+}
+
+// --- P2 性能优化：ShallowClone 数据隔离测试 ---
+
+// TestSearchAccounts_ReturnedAccountsAreIndependent 验证 SearchAccounts 返回的账号是独立拷贝，
+// 修改返回值不会影响存储中的原始数据。
+func TestSearchAccounts_ReturnedAccountsAreIndependent(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "test",
+		ProviderName: "prov",
+		Status:       account.ProviderStatusActive,
+	})
+	_ = store.AddAccount(ctx, &account.Account{
+		ID:           "iso-1",
+		ProviderType: "test",
+		ProviderName: "prov",
+		Priority:     10,
+		Status:       account.StatusAvailable,
+	})
+
+	// 第一次 SearchAccounts
+	results, err := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "test",
+		ProviderName: "prov",
+	})
+	if err != nil || len(results) != 1 {
+		t.Fatalf("SearchAccounts failed: err=%v len=%d", err, len(results))
+	}
+
+	// 修改返回的账号字段
+	results[0].Priority = 999
+	results[0].Status = account.StatusCoolingDown
+
+	// 再次 SearchAccounts，验证存储中的原始数据未被修改
+	results2, err := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "test",
+		ProviderName: "prov",
+		Status:       int(account.StatusAvailable),
+	})
+	if err != nil {
+		t.Fatalf("second SearchAccounts failed: %v", err)
+	}
+	if len(results2) != 1 {
+		t.Fatalf("expected 1 account (original status preserved), got %d", len(results2))
+	}
+	if results2[0].Priority != 10 {
+		t.Errorf("expected Priority=10 (original), got %d", results2[0].Priority)
+	}
+}
+
+// TestSearchAccounts_CooldownUntilIsIndependent 验证时间指针独立（ShallowClone 正确处理）
+func TestSearchAccounts_CooldownUntilIsIndependent(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	now := time.Now().Add(time.Hour)
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "test",
+		ProviderName: "prov",
+		Status:       account.ProviderStatusActive,
+	})
+	_ = store.AddAccount(ctx, &account.Account{
+		ID:            "iso-time",
+		ProviderType:  "test",
+		ProviderName:  "prov",
+		Status:        account.StatusCoolingDown,
+		CooldownUntil: &now,
+	})
+
+	results, err := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "test",
+		ProviderName: "prov",
+	})
+	if err != nil || len(results) != 1 {
+		t.Fatalf("SearchAccounts failed: err=%v len=%d", err, len(results))
+	}
+
+	// 修改时间指针指向的值
+	later := now.Add(24 * time.Hour)
+	*results[0].CooldownUntil = later
+
+	// 再次获取，验证存储中时间不受影响
+	results2, _ := store.SearchAccounts(ctx, &storage.SearchFilter{
+		ProviderType: "test",
+		ProviderName: "prov",
+	})
+	if len(results2) == 0 {
+		t.Fatal("expected 1 account")
+	}
+	if !results2[0].CooldownUntil.Equal(now) {
+		t.Errorf("expected original CooldownUntil %v, got %v", now, results2[0].CooldownUntil)
+	}
+}
+
+// BenchmarkSearchAccounts_ShallowCloneWithTagsMetadata 带 Tags/Metadata 的 ShallowClone 性能基准。
+func BenchmarkSearchAccounts_ShallowCloneWithTagsMetadata(b *testing.B) {
+	ctx := context.Background()
+	store := NewStore()
+
+	_ = store.AddProvider(ctx, &account.ProviderInfo{
+		ProviderType: "bench",
+		ProviderName: "default",
+		Status:       account.ProviderStatusActive,
+	})
+
+	for i := range 10 {
+		_ = store.AddAccount(ctx, &account.Account{
+			ID:           fmt.Sprintf("bench-%d", i),
+			ProviderType: "bench",
+			ProviderName: "default",
+			Status:       account.StatusAvailable,
+			Priority:     i,
+			Tags:         map[string]string{"env": "prod", "tier": "premium"},
+			Metadata:     map[string]any{"region": "us-east-1", "quota": 1000},
+		})
+	}
+
+	filter := &storage.SearchFilter{
+		ProviderType: "bench",
+		ProviderName: "default",
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_, _ = store.SearchAccounts(ctx, filter)
 	}
 }

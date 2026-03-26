@@ -59,8 +59,8 @@ type Store struct {
 	affinityMaxEntries int
 
 	// ---- Occupancy 相关 ----
-	occupancyMu    sync.Mutex
-	occupancyStore map[string]int64
+	// occupancyStore 存储 per-account 的 *atomic.Int64，使用 sync.Map 避免全局锁。
+	occupancyStore sync.Map // key: string(accountID), value: *atomic.Int64
 
 	// ---- Stats 相关 ----
 	statsMu    sync.Mutex
@@ -86,9 +86,8 @@ func NewStore(opts ...StoreOption) *Store {
 		affinityBindings:   make(map[string]string),
 		affinityMaxEntries: 10000,
 
-		occupancyStore: make(map[string]int64),
-		statsStore:     make(map[string]*account.AccountStats),
-		usageStore:     make(map[string][]*account.TrackedUsage),
+		statsStore: make(map[string]*account.AccountStats),
+		usageStore: make(map[string][]*account.TrackedUsage),
 	}
 	for _, opt := range opts {
 		opt(s)
