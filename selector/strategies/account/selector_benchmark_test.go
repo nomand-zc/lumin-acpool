@@ -4,6 +4,7 @@ package account
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/nomand-zc/lumin-acpool/account"
@@ -18,9 +19,9 @@ func createCandidateAccounts(count int) []*account.Account {
 	accounts := make([]*account.Account, count)
 	for i := 0; i < count; i++ {
 		accounts[i] = &account.Account{
-			ID:           "acc-" + string(rune('0'+(i%10))),
+			ID:           fmt.Sprintf("acc-%d", i),
 			ProviderType: "test",
-			ProviderName: "provider-" + string(rune('a'+(i/10)%26)),
+			ProviderName: fmt.Sprintf("provider-%c", rune('a'+(i/10)%26)),
 			Status:       account.StatusAvailable,
 			Priority:     (count - i) % 100, // 递减优先级
 		}
@@ -28,20 +29,20 @@ func createCandidateAccounts(count int) []*account.Account {
 	return accounts
 }
 
-// createAccountsWithStats 创建带统计信息的账号。
+// createAccountsWithStats 创建带统计信息的账号，每个账号有独立且递增的调用次数。
 func createAccountsWithStats(store *storememory.Store, count int) []*account.Account {
 	accounts := make([]*account.Account, count)
 
 	for i := 0; i < count; i++ {
 		accounts[i] = &account.Account{
-			ID:           "acc-" + string(rune('0'+(i%10))),
+			ID:           fmt.Sprintf("acc-%d", i),
 			ProviderType: "test",
-			ProviderName: "provider-" + string(rune('a'+(i/10)%26)),
+			ProviderName: fmt.Sprintf("provider-%c", rune('a'+(i/10)%26)),
 			Status:       account.StatusAvailable,
 			Priority:     (count - i) % 100,
 		}
 
-		// 向 StatsStore 记录不同的调用次数
+		// 向 StatsStore 记录不同的调用次数，模拟各账号历史使用量不同
 		for j := 0; j < i; j++ {
 			store.IncrSuccess(context.Background(), accounts[i].ID)
 		}

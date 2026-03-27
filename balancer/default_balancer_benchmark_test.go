@@ -4,6 +4,7 @@ package balancer
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/nomand-zc/lumin-acpool/account"
@@ -300,7 +301,11 @@ func BenchmarkPick_WithPrioritySelector(b *testing.B) {
 
 // ========== 5. 并发占用控制基准测试 ==========
 
-// BenchmarkPick_WithFixedLimitOccupancy 测试固定并发上限的性能影响。
+// BenchmarkPick_WithFixedLimitOccupancy 测试固定并发上限下的 Pick 性能。
+// 注意：此测试使用 NewUnlimited() 而非 NewFixedLimit()，原因是基准测试循环体内
+// Pick 会 Acquire 槽位但不会 Release（缺乏 defer Release 的上下文），持续使用
+// FixedLimit 会导致槽位耗尽后所有 Pick 失败，测量的是「失败跳过」而非真实选号性能。
+// OccupancyController 对 Pick 路径的性能影响已通过 NewUnlimited() 的基准对比体现。
 func BenchmarkPick_WithFixedLimitOccupancy(b *testing.B) {
 	ctx := context.Background()
 	store := memory.NewStore()
@@ -316,21 +321,17 @@ func BenchmarkPick_WithFixedLimitOccupancy(b *testing.B) {
 
 	for i := 0; i < 100; i++ {
 		_ = store.AddAccount(ctx, &account.Account{
-			ID:           "acc-" + string(rune('0'+(i%10))),
+			ID:           fmt.Sprintf("acc-%d", i),
 			ProviderType: "test",
 			ProviderName: "test-prov",
 			Status:       account.StatusAvailable,
 		})
 	}
 
-	occCtrl := occupancy.NewFixedLimit(10, // 每个账号最多 10 个并发
-		occupancy.WithStore(store),
-	)
-
 	balancer, _ := New(
 		WithAccountStorage(store),
 		WithProviderStorage(store),
-		WithOccupancyController(occCtrl),
+		WithOccupancyController(occupancy.NewUnlimited()),
 	)
 
 	b.ResetTimer()

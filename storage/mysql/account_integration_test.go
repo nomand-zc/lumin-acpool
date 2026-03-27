@@ -40,15 +40,17 @@ func IntegrationTest_MySQLAccountCRUD(t *testing.T) {
 	}
 	defer store.Close()
 
-	// 验证连接可用（ping）
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// 验证连接可用（ping）：短超时 ctx 仅用于连通性检测
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pingCancel()
 
-	// 通过尝试查询来验证连接
-	_, err = store.GetAccount(ctx, "non-existent-account-for-ping-test")
+	_, err = store.GetAccount(pingCtx, "non-existent-account-for-ping-test")
 	if err != nil && err != storage.ErrNotFound {
 		t.Fatalf("failed to connect to mysql: %v, make sure mysql is running with 'make env-up'", err)
 	}
+
+	// 后续所有操作使用无超时的 ctx，避免子测试在慢速 CI 环境下因共享超时而虚假失败
+	ctx := context.Background()
 
 	// ========== 2. 数据隔离：清理测试数据 ==========
 	// 集成测试必须确保测试前环境干净，测试后无污染
