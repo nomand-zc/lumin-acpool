@@ -42,6 +42,16 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
+  # go code review - AI 代码审查门禁（pre-push，codebuddy CLI 不可用时软性降级）
+  - repo: local
+    hooks:
+      - id: go-code-review
+        name: go code review
+        entry: ./git-hooks/run-code-review.sh
+        language: script
+        pass_filenames: false
+        stages: [pre-push]
+
   # go mod tidy - 依赖整理
   - repo: https://github.com/tekwizely/pre-commit-golang
     rev: v1.0.0-rc.4

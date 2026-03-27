@@ -100,6 +100,7 @@ benchstat before.txt after.txt   # go install golang.org/x/perf/cmd/benchstat@la
 | `golangci-lint` | golangci-lint v1.64.8 | 零 lint 错误，超时上限 5 分钟 |
 | `go-test` | `git-hooks/run-tests.sh` | 测试全部通过（见第 2 节） |
 | `go-integration-test` | `git-hooks/run-integration-tests.sh` | 集成测试全部通过（pre-push，见第 3 节） |
+| `go-code-review` | `git-hooks/run-code-review.sh` | AI 代码审查通过（pre-push，见第 6.1 节） |
 | `go-mod-tidy` | go mod tidy | `go.mod` / `go.sum` 整洁，无多余依赖 |
 
 > `golangci-lint` 不检查 `_test.go`、`_mock.go` 及文档文件，但测试文件本身须通过 `go-test`。
@@ -131,6 +132,30 @@ benchstat before.txt after.txt   # go install golang.org/x/perf/cmd/benchstat@la
 - Mock 存储统一使用 `storage/memory.NewStore()`
 - 修改核心调度路径（`balancer/`、`selector/`、`resolver/`）时，PR 描述须附基准对比结果（见第 4 节）
 
+## 6.1 AI Code Review 门禁
+
+`git push` 时由 `git-hooks/run-code-review.sh` 自动触发，详见 [CODE_REVIEW.md](CODE_REVIEW.md)。
+
+| 指标 | 要求 |
+|------|------|
+| Critical 问题 | 0（任何 Critical 问题均阻断 push）|
+| Important 问题 | 0（任何 Important 问题均阻断 push）|
+| Minor 问题 | 仅记录，不阻断 |
+
+**Review 范围**：仅审查此次 push 的差异代码（`git diff origin/<branch>..HEAD`），
+纯文档修改（无 `.go` 文件变更）自动跳过。
+
+**失败处理**：push 被阻断后，自动创建 CodeBuddy 修复任务。修复完成后重新 `git push`，
+再次触发 review 直至通过。
+
+**紧急跳过**（仅限热修复）：
+
+```bash
+SKIP_CODE_REVIEW=1 git push
+```
+
+> 必须在 PR 描述中注明跳过原因，滥用视为违规。
+
 ## 7. 覆盖率排除范围
 
 以下包**不计入**全局覆盖率统计（在 `git-hooks/run-tests.sh` 的 `EXCLUDE_PKG_PREFIXES` 中配置）：
@@ -161,7 +186,7 @@ pip install pre-commit
 # 安装 pre-commit hook（每次 commit 前触发）
 pre-commit install
 
-# 安装 pre-push hook（每次 push 前触发，含集成测试）
+# 安装 pre-push hook（每次 push 前触发，含集成测试 + code review）
 pre-commit install --hook-type pre-push
 
 # 手动对所有文件执行全部 pre-commit hook
@@ -170,11 +195,17 @@ pre-commit run --all-files
 # 手动触发集成测试 hook
 pre-commit run go-integration-test --hook-stage pre-push --all-files
 
+# 手动触发 code review hook
+pre-commit run go-code-review --hook-stage pre-push --all-files
+
 # 仅执行单元测试 hook
 pre-commit run go-test --all-files
 
 # 仅执行 lint hook
 pre-commit run golangci-lint --all-files
+
+# 紧急跳过 code review（仅限热修复，须在 PR 中注明原因）
+SKIP_CODE_REVIEW=1 git push
 ```
 
 ## 10. 违规处理
@@ -185,4 +216,6 @@ pre-commit run golangci-lint --all-files
 | 覆盖率不足 | 提交被拒绝，补充测试用例后重新提交 |
 | Lint 报错 | 提交被拒绝，修复代码问题后重新提交 |
 | 格式问题 | Hook 自动修复，重新 `git add` 后提交 |
+| Code Review FAIL | push 被拒绝，修复 Critical/Important 问题后重新 push |
 | 绕过 `--no-verify` | 视为违规，代码审查阶段强制回滚 |
+| 滥用 `SKIP_CODE_REVIEW=1` | 视为违规，需在 PR 中说明原因并获得审查者明确批准 |
