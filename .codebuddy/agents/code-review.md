@@ -40,7 +40,7 @@ git log --oneline "$REVIEW_BASE_SHA".."$REVIEW_HEAD_SHA"
 ### Step 2：读取审查规范
 
 读取 `docs/CODE_REVIEW.md`，获取最新的 checklist 内容作为审查依据。
-同时参考 `docs/CONVENTIONS.md` 中的命名规范和测试规范。
+同时参考 `docs/CONVENTIONS.md`（命名规范）和 `docs/TESTING.md`（测试规范）。
 如需了解架构约束，参考 `ARCHITECTURE.md`。
 
 ### Step 3：逐项审查
