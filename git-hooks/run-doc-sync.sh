@@ -199,11 +199,16 @@ export DOC_SYNC_REPORT_PATH="$REPORT_PATH"
   echo "报告必须包含 '## Verdict:' 行（UPDATED / SKIPPED / NO_CHANGES / SUGGESTIONS_ONLY）。"
 } > "$PROMPT_FILE"
 
-codebuddy --print -y < "$PROMPT_FILE" > "$REPORT_PATH" 2>&1 || {
-  echo "WARN: Doc sync agent exited with error, skipping doc sync gate."
+set +e
+codebuddy --print -y < "$PROMPT_FILE" > "$REPORT_PATH" 2>&1
+CODEBUDDY_EXIT=$?
+set -e
+
+if [[ $CODEBUDDY_EXIT -ne 0 ]]; then
+  echo "WARN: Doc sync agent exited with error (code: ${CODEBUDDY_EXIT}), skipping doc sync gate."
   echo "      Check codebuddy configuration and retry manually."
   exit 0
-}
+fi
 
 # ------------------------------------------------------------------------------
 # Step 9: 解析 Verdict
