@@ -3,6 +3,8 @@ module github.com/nomand-zc/lumin-acpool
 go 1.24.11
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
@@ -24,6 +26,7 @@ require (
 	github.com/panjf2000/ants/v2 v2.11.5 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tiktoken-go/tokenizer v0.7.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect

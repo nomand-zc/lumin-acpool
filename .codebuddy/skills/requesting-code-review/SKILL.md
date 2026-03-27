@@ -15,6 +15,7 @@ Dispatch superpowers:code-reviewer subagent to catch issues before they cascade.
 - After each task in subagent-driven development
 - After completing major feature
 - Before merge to main
+- Before commit or push
 
 **Optional but valuable:**
 - When stuck (fresh perspective)

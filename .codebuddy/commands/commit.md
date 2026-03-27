@@ -6,95 +6,86 @@ subtask: true
 
 # Git Commit & Push Workflow Guide
 
-# Git Commit & Push Workflow (Copy-Paste Ready)
 
-## Rules
+## 规范
 
-1. **Required Commit Prefixes**
+1. **提交记录必须添加前缀**
 
-    - `docs:` All changes in `packages/web`
+- `docs:` 存放于 `packages/web` 目录的所有修改
 
-    - `tui:` Terminal/UI interaction changes
 
-    - `core:` Core functionality/logic changes
+- `core:` 核心功能、业务逻辑相关改动
 
-    - `ci:` CI/CD configuration updates
+- `ci:` 持续集成/持续部署配置更新
 
-    - `ignore: `.gitignore and ignore-related configs
+- `ignore:` .gitignore 文件及忽略规则相关配置修改
 
-    - `wip:` Work in progress (unfinished changes)
+- `wip:` 未完成的临时开发改动
 
-2. **Commit Message Standard**
+1. **提交说明文案规范**
 
-    - Write **WHY** from an **end-user perspective** (not WHAT was done)
+- 从**终端用户视角**写清楚改动原因（不要只写做了什么操作）
 
-    - Be **specific** about user-facing changes (no generic messages)
+- 精准描述对用户可见的变更内容，禁止笼统模糊文案
 
-3. **Pre-Commit Enforcement (MANDATORY)**
+1. **提交前强制校验（必须执行）**
+需要严格按照[commit验收标准](../../../docs/COMMIT_ACCEPTANCE.md)来做提交前的验收，若验收不通过，严禁提交，并输出验收不通过的原因和验收检测明细数据
 
-    - **Run pre-commit checks BEFORE committing**
+1. **冲突处理规则**
 
-    - Fix all issues if checks fail
+- **禁止自行解决代码冲突**
 
-    - **DO NOT commit until pre-commit passes**
-
-    - **NEVER skip pre-commit** (no `--no-verify` / `-n` flags)
-
-4. **Conflict Rule**
-
-    - **DO NOT fix conflicts**
-
-    - Notify me immediately if conflicts occur
+- 若出现代码冲突，立刻告知我
 
 ---
 
-## Full Commit & Push Commands
+## 完整提交&推送命令
 
 ```Bash
 
-# 1. Run pre-commit checks (required)
+# 1. 运行预提交全量文件校验（必执行）
 pre-commit run --all-files
 
-# 2. Fix all failed checks → re-run until all pass
+# 2. 修复所有校验报错 → 重复运行，直至全部校验通过
 
-# 3. Stage changes
+# 3. 暂存所有改动文件
 git add .
 
-# 4. Commit with valid prefix & message
-git commit -m "prefix: specific user-facing reason/change"
+# 4. 按规范前缀+说明提交代码
+git commit -m "前缀: 面向用户的具体改动原因/优化点"
 
-# 5. Push
+# 5. 推送代码到远程仓库
 git push
 ```
 
 ---
 
-## Valid Commit Message Examples
+## 合规提交文案示例
 
 ```Bash
 
-# packages/web → docs: prefix
-git commit -m "docs: fix document page loading lag for faster user access"
+# packages/web 目录改动 → 使用 docs 前缀
+git commit -m "docs: 优化文档页面加载卡顿问题，提升用户访问速度"
 
-# core feature fix
-git commit -m "core: resolve user data export failure to restore full functionality"
+# 核心功能修复
+git commit -m "core: 修复用户数据导出失败问题，恢复完整导出功能"
 
-# UI improvement
-git commit -m "tui: adjust button layout for better user click accuracy"
+# 界面交互优化
+git commit -m "tui: 调整按钮布局，提升用户点击操作精准度"
 ```
 
 ---
 
-## Git Status / Diff Commands
+## 仓库状态 & 差异查看命令
 
 ```Bash
 
-# Short status
+# 简洁查看文件改动状态
 git status --short
 
-# View unstaged changes
+# 查看未暂存的代码差异
 git diff
 
-# View staged changes
+# 查看已暂存待提交的代码差异
 git diff --cached
 ```

@@ -370,3 +370,80 @@ func TestFilterExcluded_NonExistentIDs(t *testing.T) {
 		t.Fatalf("expected 2 accounts when excluding non-existent ID, got %d", len(result))
 	}
 }
+
+// TestResolveProvider_NoAvailableAccounts Provider 激活且支持模型，但 AccountCount=0，返回 ErrNoAccount
+func TestResolveProvider_NoAvailableAccounts(t *testing.T) {
+	ctx := context.Background()
+	r, ps, _ := setupResolver()
+
+	// 添加 active provider，不添加任何账号（AccountCount 和 AvailableAccountCount 均为 0）
+	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4"})
+
+	_, err := r.ResolveProvider(ctx, account.BuildProviderKey("kiro", "team-a"), "gpt-4")
+	if err != ErrNoAccount {
+		t.Fatalf("expected ErrNoAccount when no accounts exist, got %v", err)
+	}
+}
+
+// TestMatchTags_EmptyRequired requiredTags 为空时，matchTags 返回 true
+func TestMatchTags_EmptyRequired(t *testing.T) {
+	accountTags := map[string]string{"env": "prod"}
+	if !matchTags(accountTags, nil) {
+		t.Fatal("expected matchTags to return true when requiredTags is nil")
+	}
+	if !matchTags(accountTags, map[string]string{}) {
+		t.Fatal("expected matchTags to return true when requiredTags is empty map")
+	}
+}
+
+// TestMatchTags_EmptyAccountTags 账号无 tags，requiredTags 非空时，matchTags 返回 false
+func TestMatchTags_EmptyAccountTags(t *testing.T) {
+	if matchTags(nil, map[string]string{"env": "prod"}) {
+		t.Fatal("expected matchTags to return false when accountTags is nil")
+	}
+	if matchTags(map[string]string{}, map[string]string{"env": "prod"}) {
+		t.Fatal("expected matchTags to return false when accountTags is empty map")
+	}
+}
+
+// TestMatchTags_ValueMismatch key 存在但 value 不匹配，matchTags 返回 false
+func TestMatchTags_ValueMismatch(t *testing.T) {
+	accountTags := map[string]string{"env": "test"}
+	requiredTags := map[string]string{"env": "prod"}
+	if matchTags(accountTags, requiredTags) {
+		t.Fatal("expected matchTags to return false when value mismatches")
+	}
+}
+
+// TestResolveAccounts_EmptyProvider 不存在该 Provider 下的账号，返回空切片（不报错）
+func TestResolveAccounts_EmptyProvider(t *testing.T) {
+	ctx := context.Background()
+	r, _, _ := setupResolver()
+
+	accounts, err := r.ResolveAccounts(ctx, ResolveAccountsRequest{
+		Key: account.BuildProviderKey("kiro", "nonexistent-provider"),
+	})
+	if err != nil {
+		t.Fatalf("ResolveAccounts expected no error for empty provider, got %v", err)
+	}
+	if len(accounts) != 0 {
+		t.Fatalf("expected 0 accounts for nonexistent provider, got %d", len(accounts))
+	}
+}
+
+// TestResolveProviders_AccountCountZero Provider AccountCount=0，被过滤不返回
+func TestResolveProviders_AccountCountZero(t *testing.T) {
+	ctx := context.Background()
+	r, ps, _ := setupResolver()
+
+	// 添加 active provider，但不添加任何账号（AccountCount=0）
+	addProvider(ctx, ps, "kiro", "team-a", account.ProviderStatusActive, 5, []string{"gpt-4"})
+
+	providers, err := r.ResolveProviders(ctx, "gpt-4", "")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if providers != nil {
+		t.Fatalf("expected nil providers when AccountCount=0, got %v", providers)
+	}
+}
