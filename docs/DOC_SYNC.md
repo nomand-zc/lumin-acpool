@@ -2,6 +2,10 @@
 
 本文档定义 lumin-acpool 的文档同步机制，作为 pre-push `go-doc-sync` 门禁的规范依据。
 
+> **与其他规范的关系**
+> - `docs/DOC_CONVENTIONS.md`：被本文档引用的内容约束规范（权威来源）
+> - `docs/CODE_REVIEW.md`：同一 pre-push hook 链的前一道门禁
+
 > **定位**：Code Review 的补充门禁，在 `go-code-review` 之后执行。专注代码变更引发的
 > **文档漂移**（文档描述与实际行为不符），而非新增内容。
 

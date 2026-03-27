@@ -265,7 +265,7 @@ inform（理解背景与意图）
 
 ```markdown
 <!-- 正确 -->
-详见 [DOC_SYNC.md § 4.4 大幅修改阈值](DOC_SYNC.md#44-大幅修改阈值)
+详见 [DOC_SYNC.md § 4.2 复杂修改的执行原则](DOC_SYNC.md#42-复杂修改的执行原则)
 
 <!-- 禁止 -->
 详见 DOC_SYNC.md 中的相关说明
