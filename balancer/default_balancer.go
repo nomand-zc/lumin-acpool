@@ -53,7 +53,6 @@ func New(opts ...Option) (Balancer, error) {
 }
 
 // Pick performs a single selection.
-// TODO: 可以考虑Provider上异步维护一个真实可用账号数字段。
 func (b *defaultBalancer) Pick(ctx context.Context, req *PickRequest) (*PickResult, error) {
 	if req.Model == "" {
 		return nil, ErrModelRequired
