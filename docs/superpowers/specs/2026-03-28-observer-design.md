@@ -125,6 +125,7 @@ const (
 **说明**：
 - `QuotaMetrics` 存储 Token/Request 两个维度的原始用量指标，由业务层自行判断是否告警
 - `RemainRatio` 方便业务层快速判断，无需再次计算
+- `QuotaMetrics` 统计范围为「服务生命周期内」的账号，见下方指标统计口径对照表
 
 ### 3.2 指标快照结构（`observer/snapshot.go`）
 
@@ -148,15 +149,22 @@ type Metrics struct {
     ProviderName string // Provider 名称；全局时为 GlobalProviderName
 
     // 账号统计
-    TotalAccounts      int        // 账号总数
-    EffectiveAvailable int        // 真实可用账号数（三重过滤后）
-    StatusDist         StatusDist // 状态分布
+    TotalAccounts      int        // 账号总数（全量，含所有状态）
+    EffectiveAvailable int        // 真实可用账号数（三重过滤后，见下方说明）
+    StatusDist         StatusDist // 状态分布（全量统计，各状态之和 == TotalAccounts）
 
     // 并发情况
-    OccupancyTotal int64 // 当前总并发占用数
+    // OccupancyTotal 当前池内所有账号的并发占用总量（直接从 OccupancyStore 汇总，不按账号状态过滤）
+    OccupancyTotal int64
 
     // 质量指标
-    SuccessRate  float64      // 近期成功率（0.0 - 1.0）；无历史调用时为 1.0
+    // SuccessRate 统计范围：仍在服务生命周期内的账号（Available + CoolingDown + CircuitOpen），
+    // 排除 Expired / Invalidated / Banned / Disabled。无历史调用时为 1.0。
+    SuccessRate float64
+    // TokenQuota / RequestQuota 统计范围同 SuccessRate：
+    // 仅统计 Available + CoolingDown + CircuitOpen 的账号，
+    // 排除已退出服务生命周期的账号（Expired / Invalidated / Banned / Disabled），
+    // 反映池子当前实际可用的额度容量。
     TokenQuota   QuotaMetrics // Token/积分维度的额度汇总
     RequestQuota QuotaMetrics // 请求次数维度的额度汇总
     Health       PoolHealth   // 综合健康状态
@@ -175,6 +183,19 @@ func (m *Metrics) IsGlobal() bool {
 > 1. `account.Status == StatusAvailable`
 > 2. 所有 `UsageRule` 的 `estimatedUsed / rule.Total < safetyRatio`（未触发限流）
 > 3. 当前并发占用 < `account.MaxConcurrency`（通过 `OccupancyStore.GetOccupancies` 批量查询，`MaxConcurrency == 0` 时视为无上限）
+
+### 3.3 指标统计口径对照表
+
+| 指标 | 统计范围 | 说明 |
+|------|----------|------|
+| `TotalAccounts` | 全量（含所有状态） | 池内账号总数，反映"资产"规模 |
+| `StatusDist` | 全量（含所有状态） | 各状态计数之和 == TotalAccounts |
+| `EffectiveAvailable` | Available → 三重过滤 | 当前真正可被 Pick 的账号数 |
+| `OccupancyTotal` | 全量（不按状态过滤） | 直接汇总 OccupancyStore，含 CoolingDown/CircuitOpen 残留占用 |
+| `SuccessRate` | Available + CoolingDown + CircuitOpen | 服务生命周期内账号；排除 Expired / Invalidated / Banned / Disabled |
+| `TokenQuota` | Available + CoolingDown + CircuitOpen | 同 SuccessRate；CoolingDown/CircuitOpen 恢复后额度仍可用 |
+| `RequestQuota` | Available + CoolingDown + CircuitOpen | 同 SuccessRate |
+| `Health` | 基于 EffectiveAvailable 推导 | TotalAccounts==0 或 EffectiveAvailable==0 → Critical |
 
 ---
 
@@ -336,8 +357,11 @@ func WithLeaderElector(key string, le LeaderElector) Option
 ### 6.2 QuotaMetrics 聚合计算
 
 ```
+统计范围：Status ∈ {Available, CoolingDown, CircuitOpen} 的账号
+（排除 Expired / Invalidated / Banned / Disabled）
+
 TokenQuota：
-  遍历所有账号，从 UsageStore.GetCurrentUsages() 取 SourceType == Token 的规则
+  遍历范围内账号，从 UsageStore.GetCurrentUsages() 取 SourceType == Token 的规则
   TotalQuota      = sum(rule.Total)
   EstimatedUsed   = sum(EstimatedUsed())
   EstimatedRemain = sum(EstimatedRemain())
@@ -346,6 +370,7 @@ TokenQuota：
 RequestQuota：同上，取 SourceType == Request 的规则
 
 无规则的账号贡献 0，不影响比例。
+EstimatedRemain < 0 时 RemainRatio 钳制为 0.0。
 ```
 
 ### 6.3 PoolHealth 计算规则
@@ -361,7 +386,10 @@ EffectiveAvailable > 0          → PoolHealthy
 ### 6.4 SuccessRate 计算规则
 
 ```
-从 StatsStore.GetStats() 汇总 Provider（或全局）下所有账号的 TotalCalls / SuccessCalls
+统计范围：Status ∈ {Available, CoolingDown, CircuitOpen} 的账号
+（排除 Expired / Invalidated / Banned / Disabled）
+
+从 StatsStore.GetStats() 汇总范围内账号的 TotalCalls / SuccessCalls
 SuccessRate = sum(SuccessCalls) / sum(TotalCalls)
 TotalCalls == 0 时返回 1.0（无历史调用，默认健康）
 ```
@@ -428,7 +456,7 @@ storage/
 
 ### AC-1：EffectiveAvailable 三重过滤准确性（单元测试）
 
-**目标**：快照中的 `EffectiveAvailable` 必须与 Pick 流程中可被选出的账号数量严格一致。
+**目标**：指标中的 `EffectiveAvailable` 必须与 Pick 流程中可被选出的账号数量严格一致。
 
 **测试文件**：`observer/observer_test.go`，函数前缀 `TestCollector_EffectiveAvailable`
 
