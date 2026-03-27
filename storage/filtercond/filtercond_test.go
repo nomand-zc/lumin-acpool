@@ -211,21 +211,21 @@ func TestIn_NoValues(t *testing.T) {
 // 验证所有常量值正确
 func TestOperatorConstants(t *testing.T) {
 	cases := map[string]string{
-		OperatorAnd:              "and",
-		OperatorOr:               "or",
-		OperatorEqual:            "eq",
-		OperatorNotEqual:         "ne",
-		OperatorGreaterThan:      "gt",
+		OperatorAnd:                "and",
+		OperatorOr:                 "or",
+		OperatorEqual:              "eq",
+		OperatorNotEqual:           "ne",
+		OperatorGreaterThan:        "gt",
 		OperatorGreaterThanOrEqual: "gte",
-		OperatorLessThan:         "lt",
-		OperatorLessThanOrEqual:  "lte",
-		OperatorIn:               "in",
-		OperatorNotIn:            "not in",
-		OperatorLike:             "like",
-		OperatorNotLike:          "not like",
-		OperatorBetween:          "between",
-		OperatorJSONContains:     "json_contains",
-		OperatorJSONNotContains:  "json_not_contains",
+		OperatorLessThan:           "lt",
+		OperatorLessThanOrEqual:    "lte",
+		OperatorIn:                 "in",
+		OperatorNotIn:              "not in",
+		OperatorLike:               "like",
+		OperatorNotLike:            "not like",
+		OperatorBetween:            "between",
+		OperatorJSONContains:       "json_contains",
+		OperatorJSONNotContains:    "json_not_contains",
 	}
 	for got, want := range cases {
 		if got != want {

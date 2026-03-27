@@ -386,8 +386,8 @@ func TestReportSuccess_AccountNotFound(t *testing.T) {
 	// 使用一个 StatsStore mock：IncrSuccess 之后 GetStats 仍返回 ConsecutiveFailures > 0
 	// 这样才能触发 GetAccount 路径（不会被 IncrSuccess 重置掉）
 	fakeStats := &fixedConsecutiveFailuresStore{
-		inner:                     store,
-		fixedConsecutiveFailures:  3,
+		inner:                    store,
+		fixedConsecutiveFailures: 3,
 	}
 
 	cb, _ := circuitbreaker.NewCircuitBreaker(circuitbreaker.WithStatsStore(store))

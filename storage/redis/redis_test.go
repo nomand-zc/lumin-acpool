@@ -375,4 +375,3 @@ func TestDefaultClientBuilder_NoDSN_Error(t *testing.T) {
 		t.Error("expected error when no DSN provided")
 	}
 }
-

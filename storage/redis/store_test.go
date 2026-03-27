@@ -10,8 +10,8 @@ import (
 	"github.com/nomand-zc/lumin-acpool/storage"
 	goredis "github.com/redis/go-redis/v9"
 
-	kirocreds "github.com/nomand-zc/lumin-client/credentials/kiro"
 	_ "github.com/nomand-zc/lumin-client/credentials/geminicli"
+	kirocreds "github.com/nomand-zc/lumin-client/credentials/kiro"
 )
 
 const (

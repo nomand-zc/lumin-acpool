@@ -93,32 +93,32 @@ func TestSelectRequest_IsAutoSelect_HasKey(t *testing.T) {
 
 func TestSelectRequest_MutualExclusion(t *testing.T) {
 	cases := []struct {
-		name        string
-		req         *SelectRequest
-		wantExact   bool
+		name         string
+		req          *SelectRequest
+		wantExact    bool
 		wantTypeOnly bool
-		wantAuto    bool
+		wantAuto     bool
 	}{
 		{
-			name:        "AutoSelect",
-			req:         &SelectRequest{ProviderKey: nil},
-			wantExact:   false,
+			name:         "AutoSelect",
+			req:          &SelectRequest{ProviderKey: nil},
+			wantExact:    false,
 			wantTypeOnly: false,
-			wantAuto:    true,
+			wantAuto:     true,
 		},
 		{
-			name:        "TypeOnly",
-			req:         &SelectRequest{ProviderKey: pkPtr("kiro", "")},
-			wantExact:   false,
+			name:         "TypeOnly",
+			req:          &SelectRequest{ProviderKey: pkPtr("kiro", "")},
+			wantExact:    false,
 			wantTypeOnly: true,
-			wantAuto:    false,
+			wantAuto:     false,
 		},
 		{
-			name:        "ExactProvider",
-			req:         &SelectRequest{ProviderKey: pkPtr("kiro", "kiro-team-a")},
-			wantExact:   true,
+			name:         "ExactProvider",
+			req:          &SelectRequest{ProviderKey: pkPtr("kiro", "kiro-team-a")},
+			wantExact:    true,
 			wantTypeOnly: false,
-			wantAuto:    false,
+			wantAuto:     false,
 		},
 	}
 

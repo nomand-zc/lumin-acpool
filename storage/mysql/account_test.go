@@ -19,14 +19,16 @@ type mockCredential struct {
 	token string
 }
 
-func (m *mockCredential) Clone() credentials.Credential              { return &mockCredential{token: m.token} }
-func (m *mockCredential) Validate() error                            { return nil }
-func (m *mockCredential) GetAccessToken() string                     { return m.token }
-func (m *mockCredential) GetRefreshToken() string                    { return "" }
-func (m *mockCredential) GetExpiresAt() *time.Time                   { return nil }
-func (m *mockCredential) IsExpired() bool                            { return false }
-func (m *mockCredential) GetUserInfo() (credentials.UserInfo, error) { return credentials.UserInfo{}, nil }
-func (m *mockCredential) ToMap() map[string]any                      { return map[string]any{"token": m.token} }
+func (m *mockCredential) Clone() credentials.Credential { return &mockCredential{token: m.token} }
+func (m *mockCredential) Validate() error               { return nil }
+func (m *mockCredential) GetAccessToken() string        { return m.token }
+func (m *mockCredential) GetRefreshToken() string       { return "" }
+func (m *mockCredential) GetExpiresAt() *time.Time      { return nil }
+func (m *mockCredential) IsExpired() bool               { return false }
+func (m *mockCredential) GetUserInfo() (credentials.UserInfo, error) {
+	return credentials.UserInfo{}, nil
+}
+func (m *mockCredential) ToMap() map[string]any { return map[string]any{"token": m.token} }
 
 const testProviderTypeMysql = "test-mysql"
 

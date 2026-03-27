@@ -25,14 +25,16 @@ type mockCredential struct {
 	expiresAt   *time.Time
 }
 
-func (c *mockCredential) Clone() credentials.Credential              { return c }
-func (c *mockCredential) Validate() error                            { return c.validateErr }
-func (c *mockCredential) GetAccessToken() string                     { return "access-token" }
-func (c *mockCredential) GetRefreshToken() string                    { return "refresh-token" }
-func (c *mockCredential) GetExpiresAt() *time.Time                   { return c.expiresAt }
-func (c *mockCredential) IsExpired() bool                            { return c.expired }
-func (c *mockCredential) GetUserInfo() (credentials.UserInfo, error) { return credentials.UserInfo{}, nil }
-func (c *mockCredential) ToMap() map[string]any                      { return map[string]any{} }
+func (c *mockCredential) Clone() credentials.Credential { return c }
+func (c *mockCredential) Validate() error               { return c.validateErr }
+func (c *mockCredential) GetAccessToken() string        { return "access-token" }
+func (c *mockCredential) GetRefreshToken() string       { return "refresh-token" }
+func (c *mockCredential) GetExpiresAt() *time.Time      { return c.expiresAt }
+func (c *mockCredential) IsExpired() bool               { return c.expired }
+func (c *mockCredential) GetUserInfo() (credentials.UserInfo, error) {
+	return credentials.UserInfo{}, nil
+}
+func (c *mockCredential) ToMap() map[string]any { return map[string]any{} }
 
 // mockProvider 实现 providers.Provider 接口
 type mockProvider struct {
