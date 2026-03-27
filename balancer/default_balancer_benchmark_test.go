@@ -8,7 +8,6 @@ import (
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/balancer/occupancy"
-	"github.com/nomand-zc/lumin-acpool/selector"
 	strataccount "github.com/nomand-zc/lumin-acpool/selector/strategies/account"
 	stratgroup "github.com/nomand-zc/lumin-acpool/selector/strategies/group"
 	"github.com/nomand-zc/lumin-acpool/storage/memory"
@@ -350,7 +349,10 @@ func BenchmarkPick_And_ReportSuccess(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result, _ := balancer.Pick(ctx, &PickRequest{Model: "gpt-4"})
+		result, err := balancer.Pick(ctx, &PickRequest{Model: "gpt-4"})
+		if err != nil || result == nil {
+			continue
+		}
 		_ = balancer.ReportSuccess(ctx, result.Account.ID)
 	}
 }
@@ -364,7 +366,10 @@ func BenchmarkPick_And_ReportFailure(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result, _ := balancer.Pick(ctx, &PickRequest{Model: "gpt-4"})
+		result, err := balancer.Pick(ctx, &PickRequest{Model: "gpt-4"})
+		if err != nil || result == nil {
+			continue
+		}
 		_ = balancer.ReportFailure(ctx, result.Account.ID, testErr)
 	}
 }
@@ -393,7 +398,10 @@ func BenchmarkPick_And_ReportSuccess_Parallel(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			result, _ := balancer.Pick(ctx, &PickRequest{Model: "gpt-4"})
+			result, err := balancer.Pick(ctx, &PickRequest{Model: "gpt-4"})
+			if err != nil || result == nil {
+				continue
+			}
 			_ = balancer.ReportSuccess(ctx, result.Account.ID)
 		}
 	})
@@ -448,18 +456,4 @@ type testError struct {
 
 func (e *testError) Error() string {
 	return e.msg
-}
-
-// benchmarkSelector 装饰 Selector，用于性能测试。
-// 可用于注入额外的性能监控或特殊行为。
-type benchmarkSelector struct {
-	inner selector.Selector
-}
-
-func (s *benchmarkSelector) Name() string {
-	return "benchmark-" + s.inner.Name()
-}
-
-func (s *benchmarkSelector) Select(candidates []*account.Account, req *selector.SelectRequest) (*account.Account, error) {
-	return s.inner.Select(candidates, req)
 }

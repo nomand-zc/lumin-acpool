@@ -30,19 +30,6 @@ func createCandidateProviders(count int) []*account.ProviderInfo {
 	return providers
 }
 
-// createProvidersWithAffinity 创建带亲和绑定的 Provider 列表。
-func createProvidersWithAffinity(store *storememory.Store, count int) []*account.ProviderInfo {
-	providers := createCandidateProviders(count)
-
-	// 为每个 Provider 创建亲和绑定
-	for _, p := range providers {
-		key := p.ProviderKey()
-		store.SetAffinity(key.String(), p.ProviderName) // 简化示例
-	}
-
-	return providers
-}
-
 // ========== 1. GroupRoundRobin 基准测试 ==========
 
 // BenchmarkGroupRoundRobin_Small 测试轮转选择在小 Provider 集上的性能。

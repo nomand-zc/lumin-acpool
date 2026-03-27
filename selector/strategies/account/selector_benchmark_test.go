@@ -3,6 +3,7 @@
 package account
 
 import (
+	"context"
 	"testing"
 
 	"github.com/nomand-zc/lumin-acpool/account"
@@ -42,7 +43,7 @@ func createAccountsWithStats(store *storememory.Store, count int) []*account.Acc
 
 		// 向 StatsStore 记录不同的调用次数
 		for j := 0; j < i; j++ {
-			store.IncrSuccess(nil, accounts[i].ID)
+			store.IncrSuccess(context.Background(), accounts[i].ID)
 		}
 	}
 	return accounts
