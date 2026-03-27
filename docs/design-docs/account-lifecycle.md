@@ -49,10 +49,11 @@
 | `ReportFailure` | 连续失败超阈值 | → CircuitOpen |
 | `ReportSuccess` | CircuitOpen 账号成功 | → Available |
 | `HealthChecker` | RecoveryCheck 冷却/熔断到期 | → Available |
-| `HealthChecker` | RefreshCheck Token 刷新成功 | → Available |
-| `HealthChecker` | CredentialCheck 凭证无效 | → Invalidated |
-| `HealthChecker` | ProbeCheck 探活失败（封禁） | → Banned |
-| `HealthChecker` | UsageCheck 配额耗尽 | → CoolingDown |
+| `HealthChecker` | CredentialRefreshCheck Token 刷新成功 | → Available |
+| `HealthChecker` | CredentialValidityCheck 凭证格式无效 | → Invalidated |
+| `HealthChecker` | CredentialRefreshCheck invalid_grant | → Invalidated |
+| `HealthChecker` | ProbeCheck / CredentialRefreshCheck 探活失败（封禁） | → Banned |
+| `HealthChecker` | UsageQuotaCheck 配额耗尽 | → CoolingDown |
 | 管理员 API | 手动禁用 | → Disabled |
 
 ## 可用性判断

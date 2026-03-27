@@ -153,13 +153,13 @@ func BenchmarkClone_Shallow(b *testing.B) {
 func buildBenchAccount() *Account {
 	now := time.Now()
 	return &Account{
-		ID:           "bench-acc",
-		ProviderType: "kiro",
-		ProviderName: "kiro-team-a",
-		Priority:     5,
-		Status:       StatusAvailable,
-		Tags:         map[string]string{"env": "prod", "tier": "premium"},
-		Metadata:     map[string]any{"region": "us-east-1", "quota": 1000},
+		ID:            "bench-acc",
+		ProviderType:  "kiro",
+		ProviderName:  "kiro-team-a",
+		Priority:      5,
+		Status:        StatusAvailable,
+		Tags:          map[string]string{"env": "prod", "tier": "premium"},
+		Metadata:      map[string]any{"region": "us-east-1", "quota": 1000},
 		CooldownUntil: &now,
 	}
 }

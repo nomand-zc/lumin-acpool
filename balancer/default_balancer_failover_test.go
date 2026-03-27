@@ -225,9 +225,9 @@ func TestPickAuto_FailoverNoRetryStaleAccounts(t *testing.T) {
 
 	// 实现一个在第二次 FilterAvailable 时返回空的控制器
 	filterCtrl := &filterCountingController{
-		callCount:     0,
-		blockAfterN:   1, // 第 1 次调用后，后续全部返回空
-		inner:         occupancy.NewUnlimited(),
+		callCount:   0,
+		blockAfterN: 1, // 第 1 次调用后，后续全部返回空
+		inner:       occupancy.NewUnlimited(),
 	}
 	_ = filterCallCount // suppress unused warning
 

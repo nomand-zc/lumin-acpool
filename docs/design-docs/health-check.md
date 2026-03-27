@@ -6,13 +6,17 @@
 HealthChecker（编排器）
   │
   ├─ Register(CheckSchedule) — 注册检查项 + 执行间隔
+  ├─ Unregister(checkName) — 移除检查项
+  ├─ ListChecks() — 列出所有已注册检查项
   ├─ Start(ctx) — 启动后台周期任务
   │   └─ 每个检查项按自己的 Interval 独立执行
   │   └─ LeaderElector.IsLeader() — 集群模式下选主
+  ├─ Stop() — 停止后台检查
   │
   ├─ RunAll(ctx, target) — 对指定账号执行所有检查
   │   └─ 按 DependsOn 拓扑排序执行
   │   └─ 依赖失败 → 自动 Skipped
+  ├─ RunOne(ctx, target, checkName) — 执行单个检查项
   │
   └─ ReportCallback — 消费 HealthReport 驱动状态变更
 ```
@@ -31,23 +35,23 @@ CheckTarget interface {
 
 ## 内置检查项
 
-| 检查项 | 包 | 严重级别 | 依赖 | 说明 |
-|--------|---|---------|------|------|
-| `RecoveryCheck` | `checks/recovery.go` | Critical | 无 | 冷却/熔断到期恢复（纯本地时间判断，无网络） |
-| `CredentialCheck` | `checks/credential.go` | Critical | 无 | 凭证有效性验证（Validate） |
-| `RefreshCheck` | `checks/refresh.go` | Critical | credential | Token 过期刷新（调用 Provider.Refresh） |
-| `ProbeCheck` | `checks/probe.go` | Critical | refresh | 探活请求（实际调用 API 验证可用性） |
-| `UsageCheck` | `checks/usage.go` | Warning | refresh | 获取远端用量统计（校准 UsageTracker） |
-| `UsageRulesRefresh` | `checks/usage_rules_refresh.go` | Info | refresh | 刷新用量规则 |
-| `ModelDiscovery` | `checks/model_discovery.go` | Info | refresh | 动态发现支持的模型列表 |
+| 检查项 | 名称常量 | 源文件 | 严重级别 | 依赖 | 说明 |
+|--------|---------|--------|---------|------|------|
+| `RecoveryCheck` | `recovery` | `checks/recovery.go` | Critical | 无 | 冷却/熔断到期恢复（纯本地时间判断，无网络） |
+| `CredentialValidityCheck` | `credential_validity` | `checks/credential.go` | Critical | 无 | 凭证格式和过期状态验证（本地，无网络） |
+| `CredentialRefreshCheck` | `credential_refresh` | `checks/refresh.go` | Critical | `credential_validity` | Token 过期刷新（调用 Provider.Refresh） |
+| `ProbeCheck` | `probe` | `checks/probe.go` | Warning | `credential_refresh` | 探活请求（实际调用 API 验证可用性） |
+| `UsageQuotaCheck` | `usage_quota` | `checks/usage.go` | Critical | `credential_refresh` | 获取远端用量统计（校准 UsageTracker，配额耗尽触发冷却） |
+| `UsageRulesRefreshCheck` | `usage_rules_refresh` | `checks/usage_rules_refresh.go` | Info | `credential_refresh` | 动态刷新用量规则 |
+| `ModelDiscoveryCheck` | `model_discovery` | `checks/model_discovery.go` | Info | `credential_validity` | 动态发现支持的模型列表 |
 
 ### 依赖链
 
 ```
-credential → refresh → probe
-                    → usage
-                    → usage_rules_refresh
-                    → model_discovery
+credential_validity → credential_refresh → probe
+                                        → usage_quota
+                                        → usage_rules_refresh
+credential_validity → model_discovery
 ```
 
 ## HealthCheck 接口
@@ -77,13 +81,14 @@ CheckResult {
 
 ## ReportHandler
 
-`NewDefaultReportCallback(deps)` 消费 HealthReport，执行：
+`NewDefaultReportCallback(deps)` 消费 HealthReport，对每条 CheckResult 依次执行：
 
-1. **UsageStats 校准** → `UsageTracker.Calibrate()`
-2. **SupportedModels 更新** → `ProviderStorage.UpdateProvider()`
-3. **UsageRules 刷新** → 更新 Account.UsageRules + `UsageTracker.InitRules()`
-4. **状态变更** → 根据 `SuggestedStatus` 更新 Account 状态
-5. **持久化** → `AccountStorage.UpdateAccount(fields)`
+1. **UsageStats 校准**：`Data["usage_stats"]` → `UsageTracker.Calibrate()`（不触发 Account 持久化）
+2. **SupportedModels 更新**：`Data["supported_models"]` → `ProviderStorage.UpdateProvider()`
+3. **UsageRules 刷新**：`Data["usage_rules"]` → 更新 `Account.UsageRules` + `UsageTracker.InitRules()`（触发持久化）
+4. **凭证刷新标记**：`Data["credential_refreshed"]=true` → 标记凭证字段需要持久化
+5. **状态变更**：`SuggestedStatus` 非 nil → 调整 Account 状态（`CoolingDown` 经由 `CooldownManager.StartCooldown`）
+6. **持久化**：`AccountStorage.UpdateAccount(fields)` 按实际变更字段掩码写入（`UpdateFieldStatus|UpdateFieldUsageRules|UpdateFieldCredential`）
 
 ## LeaderElector
 
