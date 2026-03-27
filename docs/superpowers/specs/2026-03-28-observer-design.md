@@ -48,15 +48,15 @@ lumin-acpool/
 │   └── observer_test.go    # 单元测试
 │
 └── storage/
-    └── interface.go        # 新增第 7 个子接口：SnapshotStore
+    └── interface.go        # 新增第 7 个子接口：MetricStore
     └── memory/
-        └── snapshot.go     # SnapshotStore Memory 实现
+        └── metric.go       # MetricStore Memory 实现
     └── redis/
-        └── snapshot.go     # SnapshotStore Redis 实现
+        └── metric.go       # MetricStore Redis 实现
     └── mysql/
-        └── snapshot.go     # SnapshotStore MySQL 实现
+        └── metric.go       # MetricStore MySQL 实现
     └── sqlite/
-        └── snapshot.go     # SnapshotStore SQLite 实现
+        └── metric.go       # MetricStore SQLite 实现
 ```
 
 ### 2.2 数据流
@@ -85,7 +85,7 @@ lumin-acpool/
 
 ## 三、数据结构定义
 
-### 3.1 指标枚举类型（`observer/metric.go`）
+### 3.1 指标类型定义（`observer/metric.go`）
 
 ```go
 // StatusDist 账号状态分布
@@ -99,96 +99,106 @@ type StatusDist struct {
     Disabled    int
 }
 
-// QuotaHealth 额度健康度
-type QuotaHealth int
+// QuotaMetrics 额度用量指标（按 SourceType 维度聚合）
+// 业务层根据这些原始指标自定义阈值判断是否告警或补额度
+type QuotaMetrics struct {
+    // TotalQuota 该维度的总额度（各账号 UsageRule.Total 之和）
+    TotalQuota float64
+    // EstimatedUsed 当前估算已用量（各账号 EstimatedUsed 之和）
+    EstimatedUsed float64
+    // EstimatedRemain 当前估算剩余量（各账号 EstimatedRemain 之和）
+    EstimatedRemain float64
+    // RemainRatio 剩余比例（0.0 ~ 1.0），= EstimatedRemain / TotalQuota；TotalQuota 为 0 时值为 1.0
+    RemainRatio float64
+}
 
-const (
-    QuotaHealthy   QuotaHealth = iota // 额度充足
-    QuotaLow                          // 部分账号额度不足（< 20% 的账号剩余比例超过一半）
-    QuotaExhausted                    // 有账号额度已耗尽
-)
-
-// PoolHealth 综合健康等级
-// 注意：具体阈值由业务层根据 EffectiveAvailable / TotalAccounts 自行判断，
-// 此字段由 collector 按以下规则计算：
-//   - TotalAccounts == 0                         → Critical
-//   - EffectiveAvailable == 0 且 TotalAccounts > 0 → Critical
-//   - EffectiveAvailable > 0                     → Healthy
-// 业务层如需更细粒度（如 < 30% 为 Warning），在读到快照后自行对比。
+// PoolHealth 综合健康等级（基于 EffectiveAvailable 计算，业务层可自定义更细粒度）
 type PoolHealth int
 
 const (
-    PoolHealthy  PoolHealth = iota
-    PoolWarning
-    PoolCritical
+    PoolHealthy  PoolHealth = iota // EffectiveAvailable > 0
+    PoolWarning                    // EffectiveAvailable == 0 但 TotalAccounts > 0（可扩展）
+    PoolCritical                   // TotalAccounts == 0 或 EffectiveAvailable == 0
 )
 ```
+
+**说明**：
+- `QuotaMetrics` 存储 Token/Request 两个维度的原始用量指标，由业务层自行判断是否告警
+- `RemainRatio` 方便业务层快速判断，无需再次计算
 
 ### 3.2 指标快照结构（`observer/snapshot.go`）
 
 ```go
-// BaseMetrics 是 ProviderMetrics 和 GlobalMetrics 的公共字段集，保证两者完全对齐。
-type BaseMetrics struct {
-    TotalAccounts      int         // 账号总数
-    EffectiveAvailable int         // 真实可用账号数（三重过滤后）
-    StatusDist         StatusDist  // 状态分布
-    OccupancyTotal     int64       // 当前总并发占用数
-    SuccessRate        float64     // 近期成功率（0.0 - 1.0）
-    QuotaHealth        QuotaHealth // 额度健康度
-    Health             PoolHealth  // 综合健康状态
-    GeneratedAt        time.Time   // 快照生成时间
+// GlobalProviderType / GlobalProviderName 是全局指标在 MetricStore 中的特殊标识。
+// Metrics.ProviderType == GlobalProviderType 且 ProviderName == GlobalProviderName 时代表全局维度。
+const (
+    GlobalProviderType = "__global__"
+    GlobalProviderName = "__global__"
+)
+
+// Metrics 账号池指标快照，统一表示 Provider 维度和全局维度。
+//
+// 全局维度：ProviderType = GlobalProviderType，ProviderName = GlobalProviderName
+// Provider 维度：ProviderType/ProviderName 为实际的 Provider 标识
+//
+// ProviderType + ProviderName 是 MetricStore 的唯一存储键。
+type Metrics struct {
+    // 标识
+    ProviderType string // Provider 类型；全局时为 GlobalProviderType
+    ProviderName string // Provider 名称；全局时为 GlobalProviderName
+
+    // 账号统计
+    TotalAccounts      int        // 账号总数
+    EffectiveAvailable int        // 真实可用账号数（三重过滤后）
+    StatusDist         StatusDist // 状态分布
+
+    // 并发情况
+    OccupancyTotal int64 // 当前总并发占用数
+
+    // 质量指标
+    SuccessRate  float64      // 近期成功率（0.0 - 1.0）；无历史调用时为 1.0
+    TokenQuota   QuotaMetrics // Token/积分维度的额度汇总
+    RequestQuota QuotaMetrics // 请求次数维度的额度汇总
+    Health       PoolHealth   // 综合健康状态
+
+    // 元数据
+    GeneratedAt time.Time // 快照生成时间
 }
 
-// ProviderMetrics 单个 Provider 维度的指标快照。
-// ProviderType + ProviderName 是存储层的唯一索引（拆分存储，便于 SQL/非SQL 检索）。
-type ProviderMetrics struct {
-    BaseMetrics
-    ProviderType string
-    ProviderName string
-}
-
-// GlobalMetrics 全局维度的指标快照，字段与 ProviderMetrics 完全对齐（都是 BaseMetrics），
-// 额外包含 SuggestNewProvider 字段供业务层参考（不存储，由业务层根据 Provider 列表状态判断）。
-// 注意：SuggestNewProvider 不由 collector 写入，始终为零值，
-//       业务层在读到快照后根据 []ProviderMetrics 中 Health == Critical 的数量自行判断。
-type GlobalMetrics struct {
-    BaseMetrics
+// IsGlobal 判断当前 Metrics 是否为全局维度。
+func (m *Metrics) IsGlobal() bool {
+    return m.ProviderType == GlobalProviderType && m.ProviderName == GlobalProviderName
 }
 ```
 
 > **"真实可用"定义**（与 Pick 流程对齐）：
 > 1. `account.Status == StatusAvailable`
-> 2. `UsageTracker.IsQuotaAvailable() == true`（未触发限流）
-> 3. 当前并发占用 < OccupancyController 上限（通过 `OccupancyStore.GetOccupancies` 批量查询）
+> 2. 所有 `UsageRule` 的 `estimatedUsed / rule.Total < safetyRatio`（未触发限流）
+> 3. 当前并发占用 < `account.MaxConcurrency`（通过 `OccupancyStore.GetOccupancies` 批量查询，`MaxConcurrency == 0` 时视为无上限）
 
 ---
 
-## 四、存储接口（`storage.SnapshotStore`）
+## 四、存储接口（`storage.MetricStore`）
 
 ```go
-// SnapshotStore 是第 7 个存储子接口，负责持久化账号池指标快照。
+// MetricStore 是第 7 个存储子接口，负责持久化账号池指标快照。
 //
-// 存储语义：upsert（覆盖写），同一 ProviderType+ProviderName 只保留最新一条记录；
-// 全局指标只保留一条记录。
+// 存储键：ProviderType + ProviderName 的组合，全局维度使用
+// GlobalProviderType / GlobalProviderName 常量标识。
+// 存储语义：upsert（覆盖写），同一 ProviderType+ProviderName 只保留最新一条记录。
 // 生命周期：由 PoolObserver 后台周期性写入，查询侧频繁读取。
-type SnapshotStore interface {
-    // SaveProviderMetrics 保存单个 Provider 的指标快照（upsert）。
-    SaveProviderMetrics(ctx context.Context, metrics *observer.ProviderMetrics) error
+type MetricStore interface {
+    // SaveMetrics 保存指标快照（upsert）。
+    // 相同的 ProviderType + ProviderName 将覆盖之前的记录。
+    SaveMetrics(ctx context.Context, metrics *observer.Metrics) error
 
-    // GetProviderMetrics 读取单个 Provider 的指标快照。
+    // GetMetrics 读取指定 ProviderType + ProviderName 的指标快照。
     // 不存在时返回 ErrNotFound。
-    GetProviderMetrics(ctx context.Context, providerType, providerName string) (*observer.ProviderMetrics, error)
+    GetMetrics(ctx context.Context, providerType, providerName string) (*observer.Metrics, error)
 
-    // GetAllProviderMetrics 读取所有 Provider 的指标快照列表。
+    // ListMetrics 读取所有已存储的指标快照列表（含全局维度和所有 Provider 维度）。
     // 无快照时返回空切片。
-    GetAllProviderMetrics(ctx context.Context) ([]*observer.ProviderMetrics, error)
-
-    // SaveGlobalMetrics 保存全局指标快照（upsert，只保留一条）。
-    SaveGlobalMetrics(ctx context.Context, metrics *observer.GlobalMetrics) error
-
-    // GetGlobalMetrics 读取全局指标快照。
-    // 不存在时返回 ErrNotFound。
-    GetGlobalMetrics(ctx context.Context) (*observer.GlobalMetrics, error)
+    ListMetrics(ctx context.Context) ([]*observer.Metrics, error)
 
     // ClearMetrics 清空所有快照数据（仅用于测试）。
     ClearMetrics(ctx context.Context) error
@@ -197,12 +207,12 @@ type SnapshotStore interface {
 
 各后端存储实现要点：
 
-| 后端   | SaveProviderMetrics 实现方式 | SaveGlobalMetrics 实现方式 |
-|--------|----------------------------|-----------------------------|
-| Memory | `sync.RWMutex` + map，key 为 `providerType:providerName` | `sync.RWMutex` + 单字段 |
-| Redis  | `HSET lumin:snapshot:provider:{type}:{name} ...` JSON 序列化 | `SET lumin:snapshot:global` JSON 序列化 |
-| MySQL  | `INSERT ... ON DUPLICATE KEY UPDATE`，联合唯一索引 `(provider_type, provider_name)` | 单行 upsert，固定 key |
-| SQLite | 同 MySQL，使用 `INSERT OR REPLACE` | 同 MySQL |
+| 后端   | SaveMetrics 实现方式 | GetMetrics 实现方式 |
+|--------|--------------------|--------------------|
+| Memory | `sync.RWMutex` + `map[string]*Metrics`，key 为 `providerType:providerName` | map 直接读取 |
+| Redis  | `SET lumin:metrics:{type}:{name}` JSON 序列化，TTL 可配置 | `GET lumin:metrics:{type}:{name}` |
+| MySQL  | `INSERT ... ON DUPLICATE KEY UPDATE`，联合唯一索引 `(provider_type, provider_name)` | `SELECT WHERE provider_type=? AND provider_name=?` |
+| SQLite | `INSERT OR REPLACE`，联合唯一索引同 MySQL | 同 MySQL |
 
 聚合接口 `storage.Storage` 同步扩展：
 
@@ -214,7 +224,7 @@ type Storage interface {
     UsageStore
     OccupancyStore
     AffinityStore
-    SnapshotStore  // 新增第 7 个
+    MetricStore  // 新增第 7 个
 }
 ```
 
@@ -245,14 +255,14 @@ type PoolObserver interface {
     // Stop 停止后台刷新并等待 goroutine 退出。
     Stop()
 
-    // GetGlobalMetrics 从 SnapshotStore 读取最新全局指标快照。
-    GetGlobalMetrics(ctx context.Context) (*GlobalMetrics, error)
+    // GetMetrics 获取指定 ProviderType + ProviderName 的指标快照。
+    // 传入 GlobalProviderType / GlobalProviderName 获取全局维度快照。
+    // 从 MetricStore 直接读取，无阻塞。
+    GetMetrics(ctx context.Context, providerType, providerName string) (*Metrics, error)
 
-    // GetProviderMetrics 从 SnapshotStore 读取指定 Provider 的指标快照。
-    GetProviderMetrics(ctx context.Context, providerType, providerName string) (*ProviderMetrics, error)
-
-    // GetAllProviderMetrics 从 SnapshotStore 读取所有 Provider 的指标快照。
-    GetAllProviderMetrics(ctx context.Context) ([]*ProviderMetrics, error)
+    // ListMetrics 获取所有已存储的指标快照（含全局维度和所有 Provider 维度）。
+    // 从 MetricStore 直接读取，无阻塞。
+    ListMetrics(ctx context.Context) ([]*Metrics, error)
 
     // RefreshNow 立即触发一次全量指标计算与写入（同步）。
     // 用于测试或紧急刷新场景。
@@ -260,12 +270,25 @@ type PoolObserver interface {
 }
 ```
 
+**调用惯例**：
+
+```go
+// 获取全局指标
+global, _ := obs.GetMetrics(ctx, observer.GlobalProviderType, observer.GlobalProviderName)
+
+// 获取指定 Provider 指标
+pm, _ := obs.GetMetrics(ctx, "kiro", "kiro-prod")
+
+// 获取所有指标（含全局 + 所有 Provider）
+all, _ := obs.ListMetrics(ctx)
+```
+
 ### 5.3 Options 与 With* 配置（`observer/option.go`）
 
 ```go
 type Options struct {
     // 后端存储（必填）
-    SnapshotStore   storage.SnapshotStore
+    MetricStore     storage.MetricStore
     AccountStorage  storage.AccountStorage
     ProviderStorage storage.ProviderStorage
     StatsStore      storage.StatsStore
@@ -276,15 +299,15 @@ type Options struct {
     RefreshInterval time.Duration // 默认 30s
 
     // 指标计算参数
-    SafetyRatio float64 // 限流安全阈值，用于判断 IsQuotaAvailable，默认 0.95
+    SafetyRatio float64 // 限流安全阈值，用于判断账号是否触发限流，默认 0.95
 
     // 集群选举（可选）
     LeaderElector    LeaderElector
     LeaderElectorKey string
 }
 
-// 对外暴露的 With* 函数（举例）：
-func WithSnapshotStore(s storage.SnapshotStore) Option
+// 对外暴露的 With* 函数：
+func WithMetricStore(s storage.MetricStore) Option
 func WithAccountStorage(s storage.AccountStorage) Option
 func WithProviderStorage(s storage.ProviderStorage) Option
 func WithStatsStore(s storage.StatsStore) Option
@@ -303,14 +326,29 @@ func WithLeaderElector(key string, le LeaderElector) Option
 
 ```
 ① 过滤 Status != Available
-② 从 UsageStore.GetCurrentUsages() 获取用量，
-   计算 estimatedUsed / rule.Total >= safetyRatio 则排除
-③ 从 OccupancyStore.GetOccupancies() 批量获取并发数，
+② 从 UsageStore.GetCurrentUsages() 获取各账号用量追踪数据，
+   遍历所有规则：estimatedUsed / rule.Total >= safetyRatio 则该账号排除
+③ 从 OccupancyStore.GetOccupancies() 批量获取并发占用数，
    当前占用 >= account.MaxConcurrency 则排除
-   （MaxConcurrency 为 0 时视为无上限，不过滤）
+   （MaxConcurrency == 0 时视为无上限，不过滤）
 ```
 
-### 6.2 PoolHealth 计算规则
+### 6.2 QuotaMetrics 聚合计算
+
+```
+TokenQuota：
+  遍历所有账号，从 UsageStore.GetCurrentUsages() 取 SourceType == Token 的规则
+  TotalQuota      = sum(rule.Total)
+  EstimatedUsed   = sum(EstimatedUsed())
+  EstimatedRemain = sum(EstimatedRemain())
+  RemainRatio     = EstimatedRemain / TotalQuota（TotalQuota == 0 时为 1.0）
+
+RequestQuota：同上，取 SourceType == Request 的规则
+
+无规则的账号贡献 0，不影响比例。
+```
+
+### 6.3 PoolHealth 计算规则
 
 ```
 TotalAccounts == 0              → PoolCritical
@@ -318,20 +356,12 @@ EffectiveAvailable == 0         → PoolCritical
 EffectiveAvailable > 0          → PoolHealthy
 ```
 
-> 业务层如需 Warning 等级，在读取 `EffectiveAvailable / TotalAccounts` 后自行与配置阈值对比。
-
-### 6.3 QuotaHealth 计算规则
-
-```
-任意账号有 IsExhausted() == true → QuotaExhausted
-Available 账号中 RemainRatio() < 0.2 的数量 > totalAccounts / 2 → QuotaLow
-其他 → QuotaHealthy
-```
+> 业务层如需 Warning 等级，读取 `EffectiveAvailable / TotalAccounts` 后自行与自定义阈值对比。
 
 ### 6.4 SuccessRate 计算规则
 
 ```
-遍历 Provider 下所有账号，从 StatsStore.GetStats() 汇总 TotalCalls 与 SuccessCalls
+从 StatsStore.GetStats() 汇总 Provider（或全局）下所有账号的 TotalCalls / SuccessCalls
 SuccessRate = sum(SuccessCalls) / sum(TotalCalls)
 TotalCalls == 0 时返回 1.0（无历史调用，默认健康）
 ```
@@ -339,11 +369,11 @@ TotalCalls == 0 时返回 1.0（无历史调用，默认健康）
 ### 6.5 RefreshNow 执行顺序
 
 ```
-1. ProviderStorage.SearchProviders(nil)         // 枚举所有 Provider
-2. 对每个 Provider 执行 collectProviderMetrics()
-3. SnapshotStore.SaveProviderMetrics()           // 逐个写入
-4. 全量账号 collectGlobalMetrics()
-5. SnapshotStore.SaveGlobalMetrics()
+1. ProviderStorage.SearchProviders(nil)       // 枚举所有 Provider
+2. 对每个 Provider 执行 collectMetrics(providerType, providerName)
+3. MetricStore.SaveMetrics(providerMetrics)   // 逐个写入
+4. 全量账号 collectMetrics(GlobalProviderType, GlobalProviderName)
+5. MetricStore.SaveMetrics(globalMetrics)
 6. 单个 Provider 计算失败时 continue，不中断整体流程
 ```
 
@@ -355,9 +385,9 @@ TotalCalls == 0 时返回 1.0（无历史调用，默认健康）
 |------|------|
 | **单机部署** | 不注入 `LeaderElector`，默认 `isLeader()` 返回 true，单实例执行计算 |
 | **集群 + Memory 后端** | 不适用（Memory 不跨进程共享），此组合下每实例独立计算 |
-| **集群 + Redis/MySQL 后端** | 注入基于分布式锁的 `LeaderElector`，仅 leader 实例计算并写入，其他实例直接读 `SnapshotStore` |
+| **集群 + Redis/MySQL 后端** | 注入基于分布式锁的 `LeaderElector`，仅 leader 实例计算并写入，其他实例直接读 `MetricStore` |
 | **leader 宕机** | `LeaderElector.IsLeader()` 约定：分布式锁不可用时返回 `true`，保证至少有一个实例继续执行 |
-| **并发写入** | `SnapshotStore` 采用 upsert 语义，last-write-wins，无版本冲突问题 |
+| **并发写入** | `MetricStore` 采用 upsert 语义，last-write-wins，无版本冲突问题 |
 
 ---
 
@@ -367,25 +397,25 @@ TotalCalls == 0 时返回 1.0（无历史调用，默认健康）
 observer/
 ├── observer.go          // PoolObserver 接口定义 + NewPoolObserver 构造函数
 ├── default_observer.go  // defaultPoolObserver 实现
-├── snapshot.go          // BaseMetrics / ProviderMetrics / GlobalMetrics
-├── metric.go            // StatusDist / QuotaHealth / PoolHealth
+├── snapshot.go          // Metrics / GlobalProviderType / GlobalProviderName 常量
+├── metric.go            // StatusDist / QuotaMetrics / PoolHealth
 ├── collector.go         // collector（内部类型，不导出）
 ├── option.go            // Options + With* Functional Options
 ├── leader.go            // LeaderElector 接口
 └── observer_test.go     // 单元测试（Table-Driven，覆盖率 ≥ 90%）
 
 storage/
-├── interface.go         // 新增 SnapshotStore 第 7 个子接口 + Storage 聚合接口扩展
+├── interface.go         // 新增 MetricStore 第 7 个子接口 + Storage 聚合接口扩展
 ├── memory/
-│   └── snapshot.go      // Memory 实现
+│   └── metric.go        // MetricStore Memory 实现
 ├── redis/
-│   └── snapshot.go      // Redis 实现（JSON 序列化，HSET/GET/HGETALL）
+│   └── metric.go        // MetricStore Redis 实现（JSON 序列化，SET/GET/SCAN）
 ├── mysql/
-│   └── snapshot.go      // MySQL 实现（upsert，联合唯一索引）
+│   ├── metric.go        // MetricStore MySQL 实现（upsert，联合唯一索引）
 │   └── migrations/
-│       └── xxx_create_snapshot_tables.sql
+│       └── xxx_create_metrics_table.sql
 └── sqlite/
-    └── snapshot.go      // SQLite 实现（INSERT OR REPLACE）
+    └── metric.go        // MetricStore SQLite 实现（INSERT OR REPLACE）
 ```
 
 ---
@@ -399,46 +429,47 @@ storage/
 | # | 验收条件 | 验证方式 |
 |---|----------|---------|
 | AC-1.1 | `Status != Available` 的账号不计入 `EffectiveAvailable` | 单元测试：构造含 CoolingDown/CircuitOpen 账号的列表，验证过滤结果 |
-| AC-1.2 | `UsageTracker.IsQuotaAvailable() == false` 的账号不计入 | 单元测试：模拟 UsageStore 返回已超限额的 TrackedUsage，验证排除逻辑 |
+| AC-1.2 | 用量超过 safetyRatio 阈值的账号不计入（estimatedUsed / rule.Total >= safetyRatio） | 单元测试：模拟 UsageStore 返回已超限额的 TrackedUsage，验证排除逻辑 |
 | AC-1.3 | 并发占用 >= MaxConcurrency 的账号不计入（MaxConcurrency > 0 时） | 单元测试：模拟 OccupancyStore 返回满占用，验证排除逻辑 |
 | AC-1.4 | MaxConcurrency == 0（无上限）的账号不受并发过滤影响 | 单元测试：MaxConcurrency=0 场景下，有占用记录的账号仍计入 |
 | AC-1.5 | `EffectiveAvailable + 非可用账号数 == TotalAccounts`（StatusDist 总和一致） | 单元测试：混合状态账号列表，验证 StatusDist 各字段之和等于 TotalAccounts |
 
 ---
 
-### AC-2：PoolHealth 与 QuotaHealth 判断准确性
+### AC-2：PoolHealth 与 QuotaMetrics 计算准确性
 
 | # | 验收条件 | 验证方式 |
 |---|----------|---------|
 | AC-2.1 | `TotalAccounts == 0` 时 `Health == PoolCritical` | 单元测试：空 Provider 场景 |
 | AC-2.2 | `EffectiveAvailable == 0` 且 `TotalAccounts > 0` 时 `Health == PoolCritical` | 单元测试：所有账号均不可用（均在冷却中）场景 |
 | AC-2.3 | `EffectiveAvailable > 0` 时 `Health == PoolHealthy` | 单元测试：至少一个账号可用场景 |
-| AC-2.4 | 任意账号 `IsExhausted() == true` 时 `QuotaHealth == QuotaExhausted` | 单元测试：一个账号 EstimatedRemain <= 0 |
-| AC-2.5 | 超过一半 Available 账号 `RemainRatio() < 0.2` 时 `QuotaHealth == QuotaLow` | 单元测试：3 个账号中 2 个剩余 < 20% |
-| AC-2.6 | 额度充足时 `QuotaHealth == QuotaHealthy` | 单元测试：所有账号剩余比例 > 0.5 |
+| AC-2.4 | `TokenQuota.TotalQuota` = 各账号 Token 规则的 `rule.Total` 之和 | 单元测试：3 个账号各有不同 Total，验证汇总值 |
+| AC-2.5 | `TokenQuota.EstimatedRemain` = 各账号 `EstimatedRemain()` 之和，`RemainRatio = EstimatedRemain / TotalQuota` | 单元测试：构造已用一半额度的账号，验证 RemainRatio ≈ 0.5 |
+| AC-2.6 | `RequestQuota` 独立按 `SourceType == Request` 规则汇总，与 `TokenQuota` 互不干扰 | 单元测试：账号同时有 Token 和 Request 规则，验证两个维度分别正确 |
+| AC-2.7 | 账号无任何用量规则时，`TokenQuota` 和 `RequestQuota` 的 `TotalQuota == 0`，`RemainRatio == 1.0` | 单元测试：无规则账号场景 |
 
 ---
 
-### AC-3：SnapshotStore 各后端实现正确性
+### AC-3：MetricStore 各后端实现正确性
 
 | # | 验收条件 | 验证方式 |
 |---|----------|---------|
-| AC-3.1 | `SaveProviderMetrics` 后 `GetProviderMetrics` 能读到相同数据 | 各后端单元测试（Memory 用 mock，Redis 用 miniredis，MySQL 用 sqlmock，SQLite 用内存库） |
-| AC-3.2 | 相同 `ProviderType + ProviderName` 第二次写入覆盖第一次（upsert 语义） | 单元测试：写入两次，第二次 GeneratedAt 更新，`GetProviderMetrics` 返回最新 |
-| AC-3.3 | `GetAllProviderMetrics` 返回所有已保存的 Provider 快照 | 单元测试：写入 3 个 Provider，验证返回列表长度为 3 |
-| AC-3.4 | `SaveGlobalMetrics` 后 `GetGlobalMetrics` 返回一致数据 | 各后端单元测试 |
-| AC-3.5 | `GetProviderMetrics` / `GetGlobalMetrics` 对不存在的数据返回 `ErrNotFound` | 单元测试：空 store 直接 Get |
-| AC-3.6 | `ClearMetrics` 后所有 Get 方法返回 `ErrNotFound` | 单元测试：写入后清空，再读取验证 |
+| AC-3.1 | `SaveMetrics` 后 `GetMetrics` 能读到相同数据（含 QuotaMetrics 数值字段） | 各后端单元测试（Memory 直接测，Redis 用 miniredis，MySQL 用 sqlmock，SQLite 用内存库） |
+| AC-3.2 | 相同 `ProviderType + ProviderName` 第二次写入覆盖第一次（upsert 语义） | 单元测试：写入两次，第二次 GeneratedAt 更新，`GetMetrics` 返回最新 |
+| AC-3.3 | `ListMetrics` 返回所有已保存的快照（含全局维度 + 所有 Provider 维度） | 单元测试：写入全局 + 3 个 Provider，验证返回列表长度为 4 |
+| AC-3.4 | 全局维度通过 `GlobalProviderType / GlobalProviderName` 读写，与 Provider 维度隔离不冲突 | 单元测试：全局写入后读取 Provider 维度，验证不互相覆盖 |
+| AC-3.5 | `GetMetrics` 对不存在的 key 返回 `ErrNotFound` | 单元测试：空 store 直接 Get |
+| AC-3.6 | `ClearMetrics` 后 `ListMetrics` 返回空切片，`GetMetrics` 返回 `ErrNotFound` | 单元测试：写入后清空，再验证 |
 
 ---
 
-### AC-4：多实例一致性（SnapshotStore 共享后端）
+### AC-4：多实例一致性（MetricStore 共享后端）
 
 | # | 验收条件 | 验证方式 |
 |---|----------|---------|
-| AC-4.1 | 两个 `defaultPoolObserver` 实例共享同一 Redis/MySQL `SnapshotStore`，实例 A 写入后实例 B 读取到相同数据 | 集成测试（Redis 用 miniredis，MySQL 用 sqlmock） |
-| AC-4.2 | 注入非 leader 的 `LeaderElector` 时，`Start()` 后后台 goroutine 不执行写入（`RefreshNow` 不触发） | 单元测试：mock `LeaderElector.IsLeader()` 返回 false，验证 `SnapshotStore.SaveGlobalMetrics` 未被调用 |
-| AC-4.3 | 注入 leader `LeaderElector` 时，后台 goroutine 正常触发写入 | 单元测试：mock `IsLeader()` 返回 true，等待一次 tick，验证 `SaveGlobalMetrics` 被调用 |
+| AC-4.1 | 两个 `defaultPoolObserver` 实例共享同一 Redis/MySQL `MetricStore`，实例 A 写入后实例 B 读取到相同数据 | 集成测试（Redis 用 miniredis，MySQL 用 sqlmock） |
+| AC-4.2 | 注入非 leader 的 `LeaderElector` 时，`Start()` 后后台 goroutine 不执行写入 | 单元测试：mock `LeaderElector.IsLeader()` 返回 false，验证 `MetricStore.SaveMetrics` 未被调用 |
+| AC-4.3 | 注入 leader `LeaderElector` 时，后台 goroutine 正常触发写入 | 单元测试：mock `IsLeader()` 返回 true，等待一次 tick，验证 `MetricStore.SaveMetrics` 被调用 |
 | AC-4.4 | 未注入 `LeaderElector` 时（nil），`isLeader()` 默认返回 true | 单元测试：验证 nil leaderElector 时执行写入 |
 
 ---
@@ -449,7 +480,7 @@ storage/
 |---|----------|---------|
 | AC-5.1 | `Start()` 后立即调用 `Stop()` 不会 panic，goroutine 正常退出 | 单元测试：`Start(); Stop()` 快速序列 |
 | AC-5.2 | `Start()` 重复调用返回错误，不启动多个后台 goroutine | 单元测试：两次 `Start()` 验证第二次返回 error |
-| AC-5.3 | `RefreshNow()` 在 `SnapshotStore` 写入失败时返回错误，不 panic | 单元测试：mock `SnapshotStore.SaveGlobalMetrics` 返回 error |
+| AC-5.3 | `RefreshNow()` 在 `MetricStore` 写入失败时返回错误，不 panic | 单元测试：mock `MetricStore.SaveMetrics`（全局维度）返回 error |
 | AC-5.4 | 单个 Provider 指标计算失败时，`RefreshNow` 继续处理其他 Provider，不中断整体流程 | 单元测试：mock `AccountStorage.SearchAccounts` 对某 Provider 返回 error，验证其他 Provider 正常写入 |
 | AC-5.5 | `NewPoolObserver` 缺少必填 storage 时返回 error，不返回 nil observer | 单元测试：逐一缺省各必填 storage 参数 |
 
@@ -459,7 +490,7 @@ storage/
 
 | # | 验收条件 | 验证方式 |
 |---|----------|---------|
-| AC-6.1 | `GetGlobalMetrics` / `GetAllProviderMetrics` 的 P99 延迟 < 10ms（Memory 后端） | 基准测试：`BenchmarkGetGlobalMetrics`，验证 ns/op |
+| AC-6.1 | `GetMetrics` / `ListMetrics` 的 P99 延迟 < 10ms（Memory 后端） | 基准测试：`BenchmarkGetMetrics`、`BenchmarkListMetrics`，验证 ns/op |
 | AC-6.2 | `RefreshNow` 对 100 个账号（10 个 Provider，每 Provider 10 账号）的全量计算耗时 < 500ms（Memory 后端） | 基准测试：`BenchmarkRefreshNow_100Accounts` |
 | AC-6.3 | `RefreshNow` 不在 Pick 流程（100ms 约束）的关键路径上执行（后台独立 goroutine） | 代码审查：确认 `Balancer.Pick()` 中无对 `PoolObserver` 的调用 |
 
@@ -470,8 +501,8 @@ storage/
 | # | 验收条件 | 验证方式 |
 |---|----------|---------|
 | AC-7.1 | `observer/` 包单元测试覆盖率 ≥ 90% | `go test -cover ./observer/...` |
-| AC-7.2 | `storage/memory/snapshot.go`、`storage/redis/snapshot.go` 等各后端实现覆盖率 ≥ 90% | `go test -cover ./storage/...` |
-| AC-7.3 | 并发相关测试（`Start/Stop`、`SaveProviderMetrics` 并发写）通过 `-race` 检测 | `go test -race ./observer/... ./storage/...` |
+| AC-7.2 | `storage/memory/metric.go`、`storage/redis/metric.go` 等各后端实现覆盖率 ≥ 90% | `go test -cover ./storage/...` |
+| AC-7.3 | 并发相关测试（`Start/Stop`、`SaveMetrics` 并发写）通过 `-race` 检测 | `go test -race ./observer/... ./storage/...` |
 | AC-7.4 | 所有测试使用 Table-Driven 模式，禁止 testify，使用原生 `testing` 包 | 代码审查 |
 | AC-7.5 | `collector`、`defaultPoolObserver` 等实现类型不导出 | 代码审查：确认无 `export` 的实现类型 |
 
@@ -485,7 +516,7 @@ storage/
 - **指标历史时序存储**：本模块只保留最新快照，历史趋势由上游监控系统（Prometheus/Grafana）负责
 - **HTTP / Prometheus exporter**：本模块是 SDK 库，不提供网络服务端点，由上游 lumin-proxy / lumin-admin 自行暴露
 - **告警触发**：不在本模块处理，由业务层订阅快照后决定
-- **SnapshotStore 的 LeaderElector 实现**：业务层或上游项目自行提供基于 Redis/MySQL 的实现
+- **MetricStore 的 LeaderElector 实现**：业务层或上游项目自行提供基于 Redis/MySQL 的实现
 
 ---
 
