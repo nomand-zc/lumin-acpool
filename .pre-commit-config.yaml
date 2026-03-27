@@ -55,6 +55,16 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
+  # go doc sync - 文档同步门禁（pre-push，codebuddy CLI 不可用时软性降级）
+  - repo: local
+    hooks:
+      - id: go-doc-sync
+        name: go doc sync
+        entry: ./git-hooks/run-doc-sync.sh
+        language: script
+        pass_filenames: false
+        stages: [pre-push]
+
   # go mod tidy - 依赖整理（commit 阶段）
   - repo: https://github.com/tekwizely/pre-commit-golang
     rev: v1.0.0-rc.4
