@@ -199,7 +199,7 @@ make test-all
 
 包含以下 Balancer 基准场景：
 
-| 基准名称 | 测试内容 | 
+| 基准名称 | 测试内容 |
 |---------|---------|
 | `BenchmarkPick_AutoMode` | 自动模式 Pick（全自动供应商和账号选择）|
 | `BenchmarkPick_ExactMode` | 精确模式 Pick（指定 Provider，快于自动模式）|

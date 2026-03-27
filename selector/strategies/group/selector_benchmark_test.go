@@ -23,7 +23,7 @@ func createCandidateProviders(count int) []*account.ProviderInfo {
 			Status:                account.ProviderStatusActive,
 			Priority:              (count - i) % 100, // 递减优先级
 			Weight:                (i % 10) + 1,
-			AccountCount:          (i%50) + 1,
+			AccountCount:          (i % 50) + 1,
 			AvailableAccountCount: (i % 30) + 1,
 		}
 	}

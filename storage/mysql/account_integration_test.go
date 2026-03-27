@@ -77,15 +77,15 @@ func IntegrationTest_MySQLAccountCRUD(t *testing.T) {
 
 	// 3.2 创建 Account 聚合根
 	acct := &account.Account{
-		ID:            "test-account-1",
-		ProviderType:  testProviderTypeIT,
-		ProviderName:  "test-provider-it",
-		Credential:    &mockCredentialIT{token: "test-token-123"},
-		Status:        account.StatusAvailable,
-		Priority:      10,
-		Tags:          map[string]string{"region": "us-west"},
-		Metadata:      map[string]any{"quota": 1000},
-		UsageRules:    []*usagerule.UsageRule{}, // 空用量规则
+		ID:           "test-account-1",
+		ProviderType: testProviderTypeIT,
+		ProviderName: "test-provider-it",
+		Credential:   &mockCredentialIT{token: "test-token-123"},
+		Status:       account.StatusAvailable,
+		Priority:     10,
+		Tags:         map[string]string{"region": "us-west"},
+		Metadata:     map[string]any{"quota": 1000},
+		UsageRules:   []*usagerule.UsageRule{}, // 空用量规则
 	}
 
 	// ========== 4. CREATE 操作测试 ==========
@@ -269,12 +269,12 @@ func IntegrationTest_MySQLAccountCRUD(t *testing.T) {
 	t.Run("DeleteAccount", func(t *testing.T) {
 		// 添加第二个账号（便于后续测试）
 		acct2 := &account.Account{
-			ID:            "test-account-2",
-			ProviderType:  testProviderTypeIT,
-			ProviderName:  "test-provider-it",
-			Credential:    &mockCredentialIT{token: "test-token-456"},
-			Status:        account.StatusAvailable,
-			Priority:      15,
+			ID:           "test-account-2",
+			ProviderType: testProviderTypeIT,
+			ProviderName: "test-provider-it",
+			Credential:   &mockCredentialIT{token: "test-token-456"},
+			Status:       account.StatusAvailable,
+			Priority:     15,
 		}
 		if err := store.AddAccount(ctx, acct2); err != nil {
 			t.Fatalf("failed to add second account: %v", err)
