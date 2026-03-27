@@ -148,10 +148,10 @@ type Metrics struct {
     // 统计范围：全量，含所有状态（Available / CoolingDown / CircuitOpen / Expired / Invalidated / Banned / Disabled）。
     TotalAccounts int
     // EffectiveAvailable 当前真正可被 Pick 流程选出的账号数。
-    // 统计范围：在 TotalAccounts 基础上经过三重过滤：
+    // 统计范围：在 TotalAccounts 基础上经过二重过滤：
     //   ① Status == Available
     //   ② 所有 UsageRule 的 estimatedUsed/rule.Total < safetyRatio（未触发限流）
-    //   ③ 当前并发占用 < account.MaxConcurrency（MaxConcurrency==0 视为无上限）
+    // 说明：并发占用在 OccupancyTotal 中单独统计暴露，业务层可结合两者自行评估。
     EffectiveAvailable int
     // StatusDist 各状态的账号数量分布。
     // 统计范围：全量，StatusDist 各字段之和 == TotalAccounts。
@@ -195,7 +195,8 @@ func (m *Metrics) IsGlobal() bool {
 > **"真实可用"定义**（与 Pick 流程对齐）：
 > 1. `account.Status == StatusAvailable`
 > 2. 所有 `UsageRule` 的 `estimatedUsed / rule.Total < safetyRatio`（未触发限流）
-> 3. 当前并发占用 < `account.MaxConcurrency`（通过 `OccupancyStore.GetOccupancies` 批量查询，`MaxConcurrency == 0` 时视为无上限）
+> 
+> **说明**：并发占用限制由 `balancer/occupancy.Controller` 管理（与 Account 解耦），observer 无法感知各账号的并发上限配置，故不做并发过滤。业务层可结合 `EffectiveAvailable` + `OccupancyTotal` 进行综合评估。
 
 ### 3.3 指标统计口径对照表
 
@@ -203,7 +204,7 @@ func (m *Metrics) IsGlobal() bool {
 |------|----------|------|
 | `TotalAccounts` | 全量（含所有状态） | 池内账号总数，反映"资产"规模 |
 | `StatusDist` | 全量（含所有状态） | 各状态计数之和 == TotalAccounts |
-| `EffectiveAvailable` | Available → 三重过滤 | 当前真正可被 Pick 的账号数 |
+| `EffectiveAvailable` | Available → 二重过滤 | 当前真正可被 Pick 的账号数（不含并发过滤） |
 | `OccupancyTotal` | 全量（不按状态过滤） | 直接汇总 OccupancyStore，含 CoolingDown/CircuitOpen 残留占用 |
 | `SuccessRate` | Available + CoolingDown + CircuitOpen | 服务生命周期内账号；排除 Expired / Invalidated / Banned / Disabled |
 | `TokenQuota` | Available + CoolingDown + CircuitOpen | 同 SuccessRate；CoolingDown/CircuitOpen 恢复后额度仍可用 |
@@ -243,11 +244,11 @@ type MetricStore interface {
 | 后端   | SaveMetrics 实现方式 | GetMetrics 实现方式 |
 |--------|--------------------|--------------------|
 | Memory | `sync.RWMutex` + `map[string]*Metrics`，key 为 `providerType:providerName` | map 直接读取 |
-| Redis  | `SET lumin:metrics:{type}:{name}` JSON 序列化，TTL 可配置 | `GET lumin:metrics:{type}:{name}` |
+| Redis  | `HSET lumin:metrics:{type}:{name}` JSON 序列化 + `SADD lumin:metrics:index {type}:{name}`（参照 ProviderStorage 模式）| `GET lumin:metrics:{type}:{name}` |
 | MySQL  | `INSERT ... ON DUPLICATE KEY UPDATE`，联合唯一索引 `(provider_type, provider_name)` | `SELECT WHERE provider_type=? AND provider_name=?` |
 | SQLite | `INSERT OR REPLACE`，联合唯一索引同 MySQL | 同 MySQL |
 
-聚合接口 `storage.Storage` 同步扩展：
+聚合接口 `storage.Storage` 同步扩展（加入第 7 个子接口）：
 
 ```go
 type Storage interface {
@@ -355,15 +356,14 @@ func WithLeaderElector(key string, le LeaderElector) Option
 
 ## 六、核心计算逻辑（`observer/collector.go`）
 
-### 6.1 EffectiveAvailable 三重过滤
+### 6.1 EffectiveAvailable 二重过滤
 
 ```
 ① 过滤 Status != Available
 ② 从 UsageStore.GetCurrentUsages() 获取各账号用量追踪数据，
    遍历所有规则：estimatedUsed / rule.Total >= safetyRatio 则该账号排除
-③ 从 OccupancyStore.GetOccupancies() 批量获取并发占用数，
-   当前占用 >= account.MaxConcurrency 则排除
-   （MaxConcurrency == 0 时视为无上限，不过滤）
+
+注：并发占用信息通过 OccupancyTotal 单独暴露，业务层可结合 EffectiveAvailable 进行综合评估。
 ```
 
 ### 6.2 QuotaMetrics 聚合计算
@@ -374,6 +374,7 @@ func WithLeaderElector(key string, le LeaderElector) Option
 
 TokenQuota：
   遍历范围内账号，从 UsageStore.GetCurrentUsages() 取 SourceType == Token 的规则
+  （GetCurrentUsages 已过滤掉 WindowEnd < 当前时间的过期规则，返回当前有效窗口数据）
   TotalQuota      = sum(rule.Total)
   EstimatedUsed   = sum(EstimatedUsed())
   EstimatedRemain = sum(EstimatedRemain())
@@ -396,15 +397,20 @@ SuccessRate = sum(SuccessCalls) / sum(TotalCalls)
 TotalCalls == 0 时返回 1.0（无历史调用，默认健康）
 ```
 
-### 6.5 RefreshNow 执行顺序
+### 6.4 RefreshNow 执行顺序
 
 ```
 1. ProviderStorage.SearchProviders(nil)       // 枚举所有 Provider
 2. 对每个 Provider 执行 collectMetrics(providerType, providerName)
-3. MetricStore.SaveMetrics(providerMetrics)   // 逐个写入
+   （每个 Provider 调用一次 AccountStorage.SearchAccounts()）
+3. MetricStore.SaveMetrics(providerMetrics)   // 逐个写入 Provider 指标
 4. 全量账号 collectMetrics(GlobalProviderType, GlobalProviderName)
+   （第二次调用 AccountStorage.SearchAccounts()，获取全量账号）
 5. MetricStore.SaveMetrics(globalMetrics)
 6. 单个 Provider 计算失败时 continue，不中断整体流程
+
+说明：步骤 2 和 4 会对全量账号各查一遍，这是有意设计（不做复用优化）。
+原因：30s 刷新一次，代价可接受；复用数据会增加函数耦合度，不符合 YAGNI 原则。
 ```
 
 ---
@@ -456,7 +462,7 @@ storage/
 
 ---
 
-### AC-1：EffectiveAvailable 三重过滤准确性（单元测试）
+### AC-1：EffectiveAvailable 二重过滤准确性（单元测试）
 
 **目标**：指标中的 `EffectiveAvailable` 必须与 Pick 流程中可被选出的账号数量严格一致。
 
@@ -466,11 +472,9 @@ storage/
 |---|----------|------------|
 | AC-1.1 | `Status != Available` 的账号不计入 `EffectiveAvailable` | 构造含 CoolingDown/CircuitOpen/Expired/Banned 账号的混合列表，验证只有 Available 的账号参与后续过滤 |
 | AC-1.2 | `estimatedUsed / rule.Total >= safetyRatio` 的账号不计入 | 模拟 UsageStore 返回 RemoteUsed=950、Total=1000（safetyRatio=0.95），验证该账号被排除 |
-| AC-1.3 | 并发占用 >= MaxConcurrency 的账号不计入（MaxConcurrency > 0 时） | 模拟 OccupancyStore 返回 occupancy=5、account.MaxConcurrency=5，验证排除 |
-| AC-1.4 | MaxConcurrency == 0（无上限）时不过滤并发 | MaxConcurrency=0 场景，OccupancyStore 返回任意正数，账号仍计入 |
-| AC-1.5 | StatusDist 各字段之和 == TotalAccounts | 混合 7 种状态各 2 个账号（共 14 个），验证 StatusDist 总和 == 14，EffectiveAvailable 仅计 Available 中通过三重过滤的数量 |
-| AC-1.6 | UsageStore 查询失败时，该账号保守处理为不可用（不计入 EffectiveAvailable） | 模拟 UsageStore.GetCurrentUsages 对某账号返回 error，验证该账号排除 |
-| AC-1.7 | OccupancyStore 批量查询失败时，整体 EffectiveAvailable 降为 0（保守策略） | 模拟 GetOccupancies 返回 error，验证返回 0 而非 panic |
+| AC-1.3 | StatusDist 各字段之和 == TotalAccounts | 混合 7 种状态各 2 个账号（共 14 个），验证 StatusDist 总和 == 14，EffectiveAvailable 仅计 Available 中通过二重过滤的数量 |
+| AC-1.4 | UsageStore 查询失败时，该账号保守处理为不可用（不计入 EffectiveAvailable） | 模拟 UsageStore.GetCurrentUsages 对某账号返回 error，验证该账号排除 |
+| AC-1.5 | OccupancyTotal 正确汇总所有账号的并发占用 | 构造 5 个账号各有不同占用数，验证 OccupancyTotal == 汇总值，与 EffectiveAvailable 无关联 |
 
 ---
 
