@@ -356,6 +356,18 @@ func WithLeaderElector(key string, le LeaderElector) Option
 
 ## 六、核心计算逻辑（`observer/collector.go`）
 
+### 前置：存储层扩展需求
+
+为避免 N 个账号导致 N 次 UsageStore 查询，需在 `storage.UsageStore` 接口增加批量接口：
+
+```go
+// GetCurrentUsagesBatch 批量获取多个账号的用量追踪数据。
+// 返回 accountID → []*TrackedUsage 映射，未找到的账号不包含（视为无规则）。
+GetCurrentUsagesBatch(ctx context.Context, accountIDs []string) (map[string][]*account.TrackedUsage, error)
+```
+
+collector 中 EffectiveAvailable 计算时调用 `GetCurrentUsagesBatch` 一次性获取所有账号数据，减少网络往返。
+
 ### 6.1 EffectiveAvailable 二重过滤
 
 ```
@@ -456,11 +468,40 @@ storage/
 
 ---
 
-## 九、验收标准
+## 九、验收标准与测试策略
 
 > 测试规范遵循 [docs/TESTING.md](../../TESTING.md)：单元测试必须 Table-Driven、禁止 testify；集成测试文件名以 `_integration_test.go` 结尾并添加 `//go:build integration` 构建标签；基准测试文件名以 `_benchmark_test.go` 结尾。
 
+### 测试 Mock 策略
+
+根据 TESTING.md 规范，不同存储后端的 mock 方式如下：
+
+| 存储后端 | Mock 库 | 说明 |
+|--------|--------|------|
+| Memory | 无需 mock（直接使用 memory store 实现） | memory store 自身无外部依赖，直接创建实例 |
+| Redis | `miniredis` | 轻量级 Redis 内存实现，用于单元测试 |
+| MySQL | `sqlmock` | SQL 模拟库，拦截数据库调用 |
+| SQLite | `os.TempDir()` 内存库 | SQLite 支持 `:memory:` URI 创建内存库 |
+
+PoolObserver 逻辑测试（如 LeaderElector、RefreshNow 流程）使用**手写 mock struct**（不依赖具体存储实现），接口示例：
+
+```go
+type mockMetricStore struct {
+    saveMetricsErr error
+    getMetricsErr  error
+    savedMetrics   []*observer.Metrics
+}
+func (m *mockMetricStore) SaveMetrics(ctx context.Context, metrics *observer.Metrics) error {
+    if m.saveMetricsErr != nil { return m.saveMetricsErr }
+    m.savedMetrics = append(m.savedMetrics, metrics)
+    return nil
+}
+// ... 其他接口实现
+```
+
 ---
+
+## 十、验收标准
 
 ### AC-1：EffectiveAvailable 二重过滤准确性（单元测试）
 
