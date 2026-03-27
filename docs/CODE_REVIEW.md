@@ -140,6 +140,7 @@ Review agent 输出的 `.code-review-report.md` 格式如下：
 
 **Commit Range:** <base_sha>..<head_sha>
 **Reviewed Files:** <变更文件数>
+**Branch:** <branch_name>
 **Timestamp:** <ISO8601 时间>
 
 ## Verdict: PASS | FAIL

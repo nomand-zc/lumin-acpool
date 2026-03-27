@@ -9,7 +9,7 @@ set -euo pipefail
 #   - SKIP_CODE_REVIEW=1：强制跳过（仅限紧急情况，须在 PR 中注明）
 #   - codebuddy CLI 不可用：打印警告并放行（软性降级）
 #   - review PASS：放行 push
-#   - review FAIL：阻断 push，打印摘要，创建修复任务
+#   - review FAIL：阻断 push，打印摘要，自动执行修复
 # ==============================================================================
 
 REPORT_PATH=".code-review-report.md"
@@ -76,7 +76,7 @@ export REVIEW_HEAD_SHA="$HEAD_SHA"
 export REVIEW_BRANCH="$CURRENT_BRANCH"
 export REVIEW_REPORT_PATH="$REPORT_PATH"
 
-# 构造 review prompt（包含完整的 diff 内容），写入临时文件避免 shell 特殊字符问题
+# 构造 review prompt（agent 定义 + 任务上下文），写入临时文件避免 shell 特殊字符问题
 PROMPT_FILE=$(mktemp /tmp/code-review-prompt.XXXXXX.md)
 trap 'rm -f "$PROMPT_FILE"' EXIT
 
@@ -93,13 +93,6 @@ trap 'rm -f "$PROMPT_FILE"' EXIT
   echo ""
   echo "变更的 Go 文件（共 ${CHANGED_GO_COUNT} 个）："
   echo "${CHANGED_GO_FILES}"
-  echo ""
-  echo "## Git Diff"
-  echo ""
-  echo '```diff'
-  git diff --unified=5 "${BASE_SHA}".."${HEAD_SHA}" -- '*.go' \
-    | grep -v -E '(_generated\.go|testdata/|docs/references/)' || true
-  echo '```'
   echo ""
   echo "请严格按照 agent 定义中的报告格式输出审查结果，将完整报告写入 ${REVIEW_REPORT_PATH}。"
   echo "最终报告必须包含 '## Verdict: PASS' 或 '## Verdict: FAIL' 行。"
@@ -181,39 +174,25 @@ if [[ "$VERDICT" == "FAIL" ]]; then
   fi
 
   # ------------------------------------------------------------------------------
-  # Step 8: 触发修复子任务（通过 codebuddy agent 创建）
+  # Step 8: 触发修复（通过 codebuddy agent 直接执行）
   # ------------------------------------------------------------------------------
-  echo "==> Creating fix task via codebuddy agent..."
-
-  CRITICAL_SECTION=$(awk '/^## Critical Issues/,/^## (Important Issues|Minor Issues|Strengths|Summary)/' "$REPORT_PATH" | head -60 || echo "(see report)")
-  IMPORTANT_SECTION=$(awk '/^## Important Issues/,/^## (Minor Issues|Strengths|Summary)/' "$REPORT_PATH" | head -60 || echo "(see report)")
+  echo "==> Invoking fix agent via codebuddy..."
 
   FIX_PROMPT_FILE=$(mktemp /tmp/code-review-fix-prompt.XXXXXX.md)
+  trap 'rm -f "$FIX_PROMPT_FILE"' EXIT
 
   {
-    echo "你是 lumin-acpool 代码修复助手。请根据以下 code review 报告创建一个修复任务（使用 TaskCreate 工具），不要执行修复，只创建任务。"
+    echo "你是 lumin-acpool 代码修复助手。code review 门禁拦截了本次 push，请直接执行修复。"
     echo ""
-    echo "task subject: 修复 code review 拦截问题 — ${CURRENT_BRANCH} @ ${HEAD_SHA_SHORT}"
-    echo "task description 包含："
-    echo "1. review 报告路径：${REPORT_PATH}"
-    echo "2. 所有 Critical 问题的完整描述和修复建议"
-    echo "3. 所有 Important 问题的完整描述和修复建议"
-    echo "4. 修复完成后验证步骤：pre-commit run go-code-review --hook-stage pre-push --all-files"
-    echo "5. 验证通过后执行：git push"
-    echo ""
-    echo "Critical Issues:"
-    echo "${CRITICAL_SECTION}"
-    echo ""
-    echo "Important Issues:"
-    echo "${IMPORTANT_SECTION}"
+    echo "review 报告路径：${REPORT_PATH}"
+    echo "请读取该报告，了解所有 Critical 和 Important 问题，然后逐一修复代码。"
+    echo "修复完成后，验证步骤：pre-commit run go-code-review --hook-stage pre-push --all-files"
+    echo "验证通过后执行：git push"
   } > "$FIX_PROMPT_FILE"
 
-  codebuddy --print -y < "$FIX_PROMPT_FILE" &>/dev/null || true
+  codebuddy --print -y < "$FIX_PROMPT_FILE" || true
   rm -f "$FIX_PROMPT_FILE"
 
-  echo ""
-  echo "  Fix task created. Check CodeBuddy task list to start fixing."
-  echo "  After fixing, run: git push"
   echo ""
 
   exit 1

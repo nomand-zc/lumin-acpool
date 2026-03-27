@@ -83,112 +83,16 @@ git log --oneline "$REVIEW_BASE_SHA".."$REVIEW_HEAD_SHA"
 - `important_count >= 1` → **FAIL**
 - `critical_count == 0 && important_count == 0` → **PASS**（minor 不阻断）
 
-**报告格式（严格遵守，门禁脚本通过正则解析 verdict 行）：**
+**报告格式**：严格遵循 `docs/CODE_REVIEW.md` 第 3 节的模板。注意报告 header 须包含 `**Branch:**` 字段，门禁脚本通过正则解析 `## Verdict:` 行判定结果。
 
-```markdown
-# Code Review Report
+### Step 5：FAIL 时直接执行修复
 
-**Commit Range:** <base_sha>..<head_sha>
-**Reviewed Files:** <n> Go files changed
-**Branch:** <branch_name>
-**Timestamp:** <RFC3339>
+若 verdict 为 **FAIL**，在输出报告后，**直接开始修复工作**：
 
-## Verdict: PASS
-
-**Critical:** 0 | **Important:** 0 | **Minor:** <n>
-
----
-
-## Minor Issues
-
-### [M1] <标题>
-- **File:** `path/to/file.go:<line>`
-- **Suggestion:** <建议>
-
----
-
-## Strengths
-
-- <具体的优点>
-
----
-
-## Summary
-
-<1-3句技术评估>
-```
-
-若有 FAIL，格式如下：
-
-```markdown
-# Code Review Report
-
-**Commit Range:** <base_sha>..<head_sha>
-**Reviewed Files:** <n> Go files changed
-**Branch:** <branch_name>
-**Timestamp:** <RFC3339>
-
-## Verdict: FAIL
-
-**Critical:** <n> | **Important:** <n> | **Minor:** <n>
-
----
-
-## Critical Issues
-
-### [C1] <标题>
-- **File:** `path/to/file.go:<line>`
-- **Problem:** <问题描述，清晰具体>
-- **Impact:** <为什么这会造成问题>
-- **Fix:** <具体修复方向>
-
----
-
-## Important Issues
-
-### [I1] <标题>
-- **File:** `path/to/file.go:<line>`
-- **Problem:** <问题描述>
-- **Impact:** <影响说明>
-- **Fix:** <修复建议>
-
----
-
-## Minor Issues
-
-### [M1] <标题>
-- **File:** `path/to/file.go:<line>`
-- **Suggestion:** <改进建议>
-
----
-
-## Strengths
-
-- <做得好的地方>
-
----
-
-## Summary
-
-<1-3句技术评估，说明主要问题和修复优先级>
-```
-
-### Step 5：FAIL 时触发修复任务
-
-若 verdict 为 **FAIL**，在输出报告后，**创建一个修复子任务**：
-
-使用 TaskCreate 工具创建任务，内容如下：
-
-- **subject**: `修复 code review 拦截问题 — <branch_name> @ <head_sha_short>`
-- **description**: 包含以下内容：
-  1. review 报告路径（`.code-review-report.md`）
-  2. 所有 Critical 问题的完整描述和修复建议
-  3. 所有 Important 问题的完整描述和修复建议
-  4. 修复完成后的验证步骤：重新运行 `pre-commit run go-code-review --hook-stage pre-push --all-files`
-  5. 验证通过后执行 `git push`
-
-任务创建后，**不要自动开始修复**。等待开发者确认后由任务系统调度执行。
-输出提示：`修复任务已创建，请在 CodeBuddy 任务列表中查看并执行修复。`
+1. 读取报告文件（`$REVIEW_REPORT_PATH`），梳理所有 Critical 和 Important 问题
+2. 按严重程度由高到低逐一修复代码（给出具体 file:line 定位）
+3. 修复完成后运行验证：`pre-commit run go-code-review --hook-stage pre-push --all-files`
+4. 验证通过后执行：`git push`
 
 ## 审查纪律
 
