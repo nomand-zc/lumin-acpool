@@ -22,6 +22,7 @@ Golang 1.24 + mysql + redis + sqlite
 | 架构设计 | [ARCHITECTURE.md](ARCHITECTURE.md) | 系统定位、调度流程、组件依赖图、状态机 |
 | 编码规范 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | 强制约束、命名规范 |
 | 验收标准 | [docs/COMMIT_ACCEPTANCE.md](docs/COMMIT_ACCEPTANCE.md) | 覆盖率、通过率、pre-commit 门禁的完整验收条件 |
+| 本地环境 | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | Docker 依赖启动、集成测试、基准测试、Makefile 命令速览 |
 
 ## 目录结构（一句话速览）
 

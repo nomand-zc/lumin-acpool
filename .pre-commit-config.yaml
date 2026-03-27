@@ -1,4 +1,4 @@
-# Pre-commit configuration for lumin-client
+# Pre-commit configuration for lumin-acpool
 # 确保代码质量符合项目"统一抽象、简洁高效"的设计理念
 
 repos:
@@ -30,6 +30,17 @@ repos:
         language: script
         types: [go]
         pass_filenames: false
+
+  # go integration test - 集成测试门禁（pre-push，Docker 不可用时软性降级）
+  - repo: local
+    hooks:
+      - id: go-integration-test
+        name: go integration test
+        entry: ./git-hooks/run-integration-tests.sh
+        language: script
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
 
   # go mod tidy - 依赖整理
   - repo: https://github.com/tekwizely/pre-commit-golang
