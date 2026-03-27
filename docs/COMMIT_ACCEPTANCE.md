@@ -101,6 +101,7 @@ benchstat before.txt after.txt   # go install golang.org/x/perf/cmd/benchstat@la
 | `go-test` | `git-hooks/run-tests.sh` | 测试全部通过（见第 2 节） |
 | `go-integration-test` | `git-hooks/run-integration-tests.sh` | 集成测试全部通过（pre-push，见第 3 节） |
 | `go-code-review` | `git-hooks/run-code-review.sh` | AI 代码审查通过（pre-push，见第 6.1 节） |
+| `go-doc-sync` | `git-hooks/run-doc-sync.sh` | 文档同步检查通过（pre-push，见第 6.2 节） |
 | `go-mod-tidy` | go mod tidy | `go.mod` / `go.sum` 整洁，无多余依赖 |
 
 > `golangci-lint` 不检查 `_test.go`、`_mock.go` 及文档文件，但测试文件本身须通过 `go-test`。
@@ -156,6 +157,19 @@ SKIP_CODE_REVIEW=1 git push
 
 > 必须在 PR 描述中注明跳过原因，滥用视为违规。
 
+## 6.2 文档同步门禁
+
+`git push` 时由 `git-hooks/run-doc-sync.sh` 自动触发，详见 [DOC_SYNC.md](DOC_SYNC.md)。
+
+核心模块路径变更或 `feat:` / `refactor:` / `breaking:` / `api:` commit 前缀时触发。
+纯文档/测试/CLI 变更自动跳过。agent 直接修改小幅文档漂移并创建独立 commit，大幅变更输出建议。
+
+**紧急跳过**（仅限热修复）：
+
+```bash
+SKIP_DOC_SYNC=1 git push
+```
+
 ## 7. 覆盖率排除范围
 
 以下包**不计入**全局覆盖率统计（在 `git-hooks/run-tests.sh` 的 `EXCLUDE_PKG_PREFIXES` 中配置）：
@@ -198,6 +212,12 @@ pre-commit run go-integration-test --hook-stage pre-push --all-files
 # 手动触发 code review hook
 pre-commit run go-code-review --hook-stage pre-push --all-files
 
+# 手动触发 doc sync hook
+pre-commit run go-doc-sync --hook-stage pre-push --all-files
+
+# 手动执行文档同步（强制，不受跳过条件影响）
+./git-hooks/run-doc-sync.sh --manual
+
 # 仅执行单元测试 hook
 pre-commit run go-test --all-files
 
@@ -219,3 +239,4 @@ SKIP_CODE_REVIEW=1 git push
 | Code Review FAIL | push 被拒绝，修复 Critical/Important 问题后重新 push |
 | 绕过 `--no-verify` | 视为违规，代码审查阶段强制回滚 |
 | 滥用 `SKIP_CODE_REVIEW=1` | 视为违规，需在 PR 中说明原因并获得审查者明确批准 |
+| 滥用 `SKIP_DOC_SYNC=1` | 视为违规，需在 PR 中说明原因并获得审查者明确批准 |
