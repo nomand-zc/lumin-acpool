@@ -26,17 +26,22 @@
 
 ## 2. 文档映射表
 
-| 变更路径 | 需检查的文档 |
-|---------|-----------|
-| `account/**` | `docs/design-docs/account-lifecycle.md`, `ARCHITECTURE.md` |
-| `balancer/**` | `docs/design-docs/pick-flow.md`, `ARCHITECTURE.md` |
-| `selector/**` | `docs/design-docs/pick-flow.md`, `docs/design-docs/add-strategy.md` |
-| `health/**` | `docs/design-docs/health-check.md` |
-| `storage/**` | `docs/design-docs/storage.md`, `ARCHITECTURE.md` |
-| `usagetracker/**` | `docs/design-docs/usage-and-cooldown.md` |
-| `circuitbreaker/**` | `docs/design-docs/usage-and-cooldown.md` |
-| `cooldown/**` | `docs/design-docs/usage-and-cooldown.md` |
-| `docs/CODE_REVIEW.md` | `.codebuddy/agents/code-review.md` |
+文档按 harness engineering 四类职能组织，代码变更可能同时触及多类：
+
+| 类型 | 职能 | 文档 | 触发路径 |
+|------|------|------|--------|
+| **inform** | 描述系统是什么、为什么这样设计 | `ARCHITECTURE.md` | 任意核心模块 |
+| **inform** | 账号状态机 | `docs/design-docs/account-lifecycle.md` | `account/**` |
+| **inform** | Pick 选号流程 | `docs/design-docs/pick-flow.md` | `balancer/**`, `selector/**` |
+| **inform** | 健康检查系统 | `docs/design-docs/health-check.md` | `health/**` |
+| **inform** | 存储层设计 | `docs/design-docs/storage.md` | `storage/**` |
+| **inform** | 用量与冷却 | `docs/design-docs/usage-and-cooldown.md` | `usagetracker/**`, `circuitbreaker/**`, `cooldown/**` |
+| **inform** | 新增策略指南 | `docs/design-docs/add-strategy.md` | `selector/**` |
+| **constrain** | 编码规范（命名/架构/测试） | `docs/CONVENTIONS.md` | 任意 `*.go` |
+| **constrain + verify** | 验收标准（覆盖率/门禁） | `docs/COMMIT_ACCEPTANCE.md` | `git-hooks/**`, `.pre-commit-config.yaml` |
+| **constrain + feedback** | Code Review 规范与 checklist | `docs/CODE_REVIEW.md` | 任意核心模块 |
+| **verify** | 本地环境与基准值 | `docs/ENVIRONMENT.md` | `go.mod`, `docker-compose.yml`, 核心路径性能变化 |
+| **feedback** | Code Review agent 配置 | `.codebuddy/agents/code-review.md` | `docs/CODE_REVIEW.md` |
 
 > 路径规则仅作初步筛选，agent 自主判断最终范围。
 
@@ -83,21 +88,29 @@
 
 - [ ] 新增策略流程与 `selector/strategies/` 注册机制一致
 
-### docs/CONVENTIONS.md
+### docs/CONVENTIONS.md（constrain）
 
 - [ ] 命名规范与实际项目模式一致（如 `default` 前缀惯例）
 - [ ] 测试规范中的覆盖率阈值与 `git-hooks/run-tests.sh` 配置一致
 
-### docs/CODE_REVIEW.md
+### docs/COMMIT_ACCEPTANCE.md（constrain + verify）
+
+- [ ] pre-commit hook 列表与 `.pre-commit-config.yaml` 实际 hook 一致
+- [ ] 覆盖率阈值与 `git-hooks/run-tests.sh` 中 `COVERAGE_*_MIN` 配置一致
+- [ ] 关键包排除列表与 `EXCLUDE_PKG_PREFIXES` 一致
+
+### docs/CODE_REVIEW.md（constrain + feedback）
 
 - [ ] Critical/Important checklist 与当前架构约束一致
+- [ ] pre-push 门禁图与 `.pre-commit-config.yaml` 实际顺序一致
 
-### docs/ENVIRONMENT.md
+### docs/ENVIRONMENT.md（verify）
 
 - [ ] 基准测试基线值反映当前性能水平（`BenchmarkPick_AutoMode` 等）
 - [ ] 依赖工具版本与 `.pre-commit-config.yaml` / `go.mod` 一致
+- [ ] Docker 服务配置与 `docker-compose.yml` 一致
 
-### .codebuddy/agents/code-review.md
+### .codebuddy/agents/code-review.md（feedback）
 
 - [ ] 审查检查项与 `docs/CODE_REVIEW.md` 中的 checklist 保持对齐
 
