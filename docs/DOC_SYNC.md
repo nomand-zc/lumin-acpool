@@ -37,7 +37,9 @@
 | **inform** | 存储层设计 | `docs/design-docs/storage.md` | `storage/**` |
 | **inform** | 用量与冷却 | `docs/design-docs/usage-and-cooldown.md` | `usagetracker/**`, `circuitbreaker/**`, `cooldown/**` |
 | **inform** | 新增策略指南 | `docs/design-docs/add-strategy.md` | `selector/**` |
-| **constrain** | 编码规范（命名/架构/测试） | `docs/CONVENTIONS.md` | 任意 `*.go` |
+| **constrain** | 文档编写质量规范（内容准入/格式/生命周期） | `docs/DOC_CONVENTIONS.md` | `docs/**` |
+| **constrain** | 编码规范（命名/架构原则） | `docs/CONVENTIONS.md` | 任意 `*.go` |
+| **constrain** | 测试规范（单元/集成/基准） | `docs/TESTING.md` | 任意 `*_test.go` |
 | **constrain + verify** | 验收标准（覆盖率/门禁） | `docs/COMMIT_ACCEPTANCE.md` | `git-hooks/**`, `.pre-commit-config.yaml` |
 | **constrain + feedback** | Code Review 规范与 checklist | `docs/CODE_REVIEW.md` | 任意核心模块 |
 | **verify** | 本地环境与基准值 | `docs/ENVIRONMENT.md` | `go.mod`, `docker-compose.yml`, 核心路径性能变化 |
@@ -95,7 +97,11 @@
 ### docs/CONVENTIONS.md（constrain）
 
 - [ ] 命名规范与实际项目模式一致（如 `default` 前缀惯例）
-- [ ] 测试规范中的覆盖率阈值与 `git-hooks/run-tests.sh` 配置一致
+
+### docs/TESTING.md（constrain）
+
+- [ ] 覆盖率阈值与 `git-hooks/run-tests.sh` 中 `COVERAGE_*_MIN` 配置一致
+- [ ] Mock 工具规范（sqlmock / miniredis）与实际使用一致
 
 ### docs/COMMIT_ACCEPTANCE.md（constrain + verify）
 
@@ -118,44 +124,33 @@
 
 - [ ] 审查检查项与 `docs/CODE_REVIEW.md` 中的 checklist 保持对齐
 
+### docs/DOC_CONVENTIONS.md（constrain）
+
+- [ ] 四类职能定义与 Harness Engineering 框架保持一致，无私自扩充
+- [ ] "写入前核心判断"标准未被弱化或替换为更宽松的表述
+- [ ] 大幅修改阈值数值（30 行 / 10 行 / 20%）与 `DOC_SYNC.md § 4.2` 保持一致
+
 ---
 
 ## 4. 内容约束
 
 这是 agent 的核心行为准则，**优先级高于一切**。
 
-### 4.1 准入原则（只写三类）
+> 完整内容约束规则（准入原则、禁止写入、修改门槛、大幅修改阈值）见
+> [docs/DOC_CONVENTIONS.md § 2–4](DOC_CONVENTIONS.md#2-准入原则按职能写对的内容)，
+> 本节仅作快速索引。
 
-| 类型 | 说明 |
-|------|------|
-| 架构决策 | 为什么这样设计，代码无法表达的 why |
-| 接口约束 | 调用方必须知道的契约、状态机规则 |
-| 流程全景 | 跨模块协作，读代码无法一目了然的 |
+### 4.1 核心原则（摘要）
 
-### 4.2 禁止写入
+- 只写三类：**架构决策**（代码无法表达的 why）、**接口约束**（契约/状态机）、**流程全景**（跨模块协作）
+- 禁止：实现细节 / 重复块 / 假设性内容 / 超过 3 层嵌套列表
+- 修改前三问：事实错误？读代码无法替代？等长或更短？
 
-- 代码能直接表达的实现细节（字段类型、函数签名）
-- 已有内容的换一种说法（无增量信息）
-- 多文档间的重复块 — 用引用 / 链接 / Markdown Include 替代（**DRY 原则适用于文档间**）
-- 假设性内容（"可能"、"将来考虑"）
-- 超过 3 层嵌套的列表
+### 4.2 复杂修改的执行原则
 
-### 4.3 修改门槛（三条件须全部满足）
+复杂修改直接执行，无需切换建议模式。完整规则见 [DOC_CONVENTIONS.md § 4.3](DOC_CONVENTIONS.md#43-复杂修改的执行原则)。
 
-1. 代码变更导致现有文档**事实错误**或**流程漂移**
-2. 该信息是**读代码无法替代**或者**读代码成本非常高**的（必须在文档中存在）
-3. 修改后文档**等长或更短**（有等量删除才允许增长）
-
-### 4.4 大幅修改阈值
-
-满足以下任一条件 → 切换为**建议模式**，不直接修改：
-
-| 条件 | 说明 |
-|------|------|
-| 文档 diff ≥ 30 行 | 单次修改行数过大 |
-| 涉及架构图（ASCII/Mermaid） | 图形理解成本高 |
-| 删除 > 10 行内容 | 高破坏性操作 |
-| 新增 > 已有内容 20% | 防止内容爆发式增长 |
+架构图（ASCII/Mermaid）改动需在报告中标注 `DIAGRAM_UPDATED` 并附说明。
 
 ---
 
@@ -165,7 +160,7 @@
 Step 1  读取 DOC_SYNC_CONTEXT，确认受影响文档列表
 Step 2  git diff 理解变更语义（聚焦接口/流程/状态变化，非实现细节）
 Step 3  逐一读取受影响文档，对照第 3 节 checklist 判断漂移点
-Step 4  对每处漂移：判断修改幅度 → 直接修改 or 切建议模式
+Step 4  对每处漂移：直接修改（复杂修改见 DOC_CONVENTIONS.md § 4.3）
 Step 5  交叉验证 ARCHITECTURE.md 与 design-docs 描述不冲突
 Step 6  生成 .doc-sync-report.md（见第 7 节格式）
 ```
@@ -195,17 +190,15 @@ Step 6  生成 .doc-sync-report.md（见第 7 节格式）
 **Timestamp:** <ISO8601>
 **Triggered By:** <path-match: balancer/** | commit-prefix: feat:>
 
-## Verdict: UPDATED | SKIPPED | NO_CHANGES | SUGGESTIONS_ONLY
+## Verdict: UPDATED | SKIPPED | NO_CHANGES
 
-**Auto Updated:** <n> | **Suggestions:** <n> | **No Changes:** <n>
+**Updated:** <n> | **No Changes:** <n>
 
 ---
 
-## Auto Updated
+## Updated
 - [x] docs/design-docs/pick-flow.md — <一句话说明改了什么>
-
-## Suggestions (Manual Review Required)
-- [ ] ARCHITECTURE.md — <原因> + <建议修改位置和内容>
+- [x] ARCHITECTURE.md — DIAGRAM_UPDATED: <说明>（如涉及架构图）
 
 ## No Changes Needed
 - [ ] docs/design-docs/health-check.md — 未涉及

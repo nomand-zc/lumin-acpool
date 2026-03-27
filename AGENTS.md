@@ -21,6 +21,7 @@ Golang 1.24 + mysql + redis + sqlite
 |------|------|------|
 | 架构设计 | [ARCHITECTURE.md](ARCHITECTURE.md) | 系统定位、调度流程、组件依赖图、状态机 |
 | 编码规范 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | 强制约束、命名规范 |
+| 测试规范 | [docs/TESTING.md](docs/TESTING.md) | 单元/集成/基准测试规范 |
 | 验收标准 | [docs/COMMIT_ACCEPTANCE.md](docs/COMMIT_ACCEPTANCE.md) | 覆盖率、通过率、pre-commit 门禁的完整验收条件 |
 | Code Review 规范 | [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) | pre-push AI 代码审查机制、三级 checklist、报告格式 |
 | 文档同步规范 | [docs/DOC_SYNC.md](docs/DOC_SYNC.md) | pre-push 文档漂移检测、11 个文档 checklist、内容约束 |

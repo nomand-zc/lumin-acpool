@@ -195,8 +195,9 @@ export DOC_SYNC_REPORT_PATH="$REPORT_PATH"
   echo "context_path: ${DOC_SYNC_CONTEXT_PATH}"
   echo "report_path: ${DOC_SYNC_REPORT_PATH}"
   echo ""
-  echo "请严格按照 docs/DOC_SYNC.md 的规范执行文档同步，将完整报告写入 ${DOC_SYNC_REPORT_PATH}。"
-  echo "报告必须包含 '## Verdict:' 行（UPDATED / SKIPPED / NO_CHANGES / SUGGESTIONS_ONLY）。"
+  echo "请严格按照 docs/DOC_CONVENTIONS.md 和 docs/DOC_SYNC.md 的规范执行文档同步，将完整报告写入 ${DOC_SYNC_REPORT_PATH}。"
+  echo "报告必须包含 '## Verdict:' 行（UPDATED / SKIPPED / NO_CHANGES）。"
+  echo "所有漂移直接修改，无需切换建议模式。涉及架构图的改动在报告中标注 DIAGRAM_UPDATED。"
 } > "$PROMPT_FILE"
 
 set +e
@@ -219,7 +220,7 @@ if [[ ! -f "$REPORT_PATH" ]]; then
 fi
 
 VERDICT="UNKNOWN"
-for v in UPDATED SKIPPED NO_CHANGES SUGGESTIONS_ONLY; do
+for v in UPDATED SKIPPED NO_CHANGES; do
   grep -q "## Verdict:.*${v}" "$REPORT_PATH" 2>/dev/null && VERDICT="$v" && break
 done
 
@@ -247,10 +248,6 @@ EOF
 )" || true
       echo "  Created: docs: auto sync commit (${UPDATED_LIST})"
     fi
-    ;;
-  SUGGESTIONS_ONLY)
-    echo "! Doc sync: large changes require manual review."
-    echo "  See ${REPORT_PATH} for suggestions."
     ;;
   *)
     echo "WARN: Could not parse verdict from ${REPORT_PATH}, doc sync gate bypassed."

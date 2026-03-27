@@ -125,7 +125,7 @@ benchstat before.txt after.txt   # go install golang.org/x/perf/cmd/benchstat@la
 
 ## 6. 代码审查要求
 
-提交前需满足以下编码规范（详见 [CONVENTIONS.md](CONVENTIONS.md)）：
+提交前需满足以下编码规范（详见 [CONVENTIONS.md](CONVENTIONS.md) 和 [TESTING.md](TESTING.md)）：
 
 - 命名遵循规范（包名小写、接口行为命名、实现以 `default` 前缀）
 - 新增配置项使用 `With*` Functional Options 模式

@@ -6,6 +6,7 @@
 
 - 📐 **架构设计** → [ARCHITECTURE.md](ARCHITECTURE.md)
 - 📋 **编码规范** → [docs/CONVENTIONS.md](docs/CONVENTIONS.md)
+- 🧪 **测试规范** → [docs/TESTING.md](docs/TESTING.md)
 - 🔍 **核心原则** → [docs/design-docs/core-beliefs.md](docs/design-docs/core-beliefs.md)
 - 🎯 **内置策略** → [docs/references/strategies.md](docs/references/strategies.md)
 
