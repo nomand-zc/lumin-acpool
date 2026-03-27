@@ -215,10 +215,11 @@ git commit → pre-commit hooks
 
 git push   → pre-push hooks
                ├─ go-integration-test    (集成测试)
-               └─ go-code-review ◄──── 本门禁（最后执行）
+               ├─ go-code-review ◄──── 本门禁
+               └─ go-doc-sync            (文档同步，最后执行)
 ```
 
-Code Review 在所有自动化检查通过后才执行，专注于**人类视角的问题**：
+Code Review 在集成测试通过后执行，专注于**人类视角的问题**：
 架构符合度、业务逻辑正确性、设计决策合理性。
 
 ---
