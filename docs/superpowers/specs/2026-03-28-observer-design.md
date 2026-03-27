@@ -19,7 +19,7 @@
 ### 1.2 目标
 
 1. **账号池可用资源可监控**：上游（lumin-proxy / lumin-admin）可查询全局和 Provider 维度的指标快照，快速判断是否需要补充账号或新增 Provider
-2. **账号状态实时性**：快照数据通过 `SnapshotStore` 持久化，多实例部署时各实例读到一致数据，快照刷新间隔默认 30s（可配置）
+2. **账号状态实时性**：快照数据通过 `MetricStore` 持久化，多实例部署时各实例读到一致数据，快照刷新间隔默认 30s（可配置）
 3. **零侵入调度流程**：`PoolObserver` 完全独立于 `Balancer.Pick()` 流程，不影响选号性能
 
 ### 1.3 设计约束
@@ -40,12 +40,12 @@
 lumin-acpool/
 ├── observer/               # 新增：可观测性模块
 │   ├── observer.go         # PoolObserver 接口 + NewPoolObserver 构造
-│   ├── snapshot.go         # BaseMetrics / ProviderMetrics / GlobalMetrics 数据结构
-│   ├── metric.go           # StatusDist / QuotaHealth / PoolHealth 枚举与类型
+│   ├── snapshot.go         # Metrics / GlobalProviderType / GlobalProviderName 常量
+│   ├── metric.go           # StatusDist / QuotaMetrics / PoolHealth 类型定义
 │   ├── collector.go        # 从 storage 层聚合计算指标（内部，不导出）
 │   ├── option.go           # With* Functional Options + Options 结构
 │   ├── leader.go           # LeaderElector 接口定义
-│   └── observer_test.go    # 单元测试
+│   └── observer_test.go    # 单元测试 + 集成测试 + 基准测试
 │
 └── storage/
     └── interface.go        # 新增第 7 个子接口：MetricStore
@@ -70,15 +70,15 @@ lumin-acpool/
   ├─ StatsStore.GetStats()             → 计算成功率
   ├─ ProviderStorage.SearchProviders() → 枚举 Provider
   │
-  └─ [计算 EffectiveAvailable、StatusDist、SuccessRate、QuotaHealth、Health]
+  └─ [计算 EffectiveAvailable、StatusDist、TokenQuota/RequestQuota、SuccessRate、Health]
        │
-       └─ SnapshotStore.SaveProviderMetrics() / SaveGlobalMetrics()
+       └─ MetricStore.SaveMetrics()  // Provider 维度 + 全局维度各写一条
 
 [上游 admin/proxy 查询侧]
   │
-  └─ PoolObserver.GetAllProviderMetrics() / GetGlobalMetrics()
+  └─ PoolObserver.GetMetrics() / ListMetrics()
        │
-       └─ SnapshotStore.GetAllProviderMetrics() / GetGlobalMetrics()
+       └─ MetricStore.GetMetrics() / ListMetrics()
 ```
 
 ---
@@ -422,89 +422,141 @@ storage/
 
 ## 九、验收标准
 
-### AC-1：EffectiveAvailable 准确性
-
-**目标**：快照中的 `EffectiveAvailable` 必须与 Pick 流程中可被选出的账号数量一致。
-
-| # | 验收条件 | 验证方式 |
-|---|----------|---------|
-| AC-1.1 | `Status != Available` 的账号不计入 `EffectiveAvailable` | 单元测试：构造含 CoolingDown/CircuitOpen 账号的列表，验证过滤结果 |
-| AC-1.2 | 用量超过 safetyRatio 阈值的账号不计入（estimatedUsed / rule.Total >= safetyRatio） | 单元测试：模拟 UsageStore 返回已超限额的 TrackedUsage，验证排除逻辑 |
-| AC-1.3 | 并发占用 >= MaxConcurrency 的账号不计入（MaxConcurrency > 0 时） | 单元测试：模拟 OccupancyStore 返回满占用，验证排除逻辑 |
-| AC-1.4 | MaxConcurrency == 0（无上限）的账号不受并发过滤影响 | 单元测试：MaxConcurrency=0 场景下，有占用记录的账号仍计入 |
-| AC-1.5 | `EffectiveAvailable + 非可用账号数 == TotalAccounts`（StatusDist 总和一致） | 单元测试：混合状态账号列表，验证 StatusDist 各字段之和等于 TotalAccounts |
+> 测试规范遵循 [docs/TESTING.md](../../TESTING.md)：单元测试必须 Table-Driven、禁止 testify；集成测试文件名以 `_integration_test.go` 结尾并添加 `//go:build integration` 构建标签；基准测试文件名以 `_benchmark_test.go` 结尾。
 
 ---
 
-### AC-2：PoolHealth 与 QuotaMetrics 计算准确性
+### AC-1：EffectiveAvailable 三重过滤准确性（单元测试）
 
-| # | 验收条件 | 验证方式 |
-|---|----------|---------|
-| AC-2.1 | `TotalAccounts == 0` 时 `Health == PoolCritical` | 单元测试：空 Provider 场景 |
-| AC-2.2 | `EffectiveAvailable == 0` 且 `TotalAccounts > 0` 时 `Health == PoolCritical` | 单元测试：所有账号均不可用（均在冷却中）场景 |
-| AC-2.3 | `EffectiveAvailable > 0` 时 `Health == PoolHealthy` | 单元测试：至少一个账号可用场景 |
-| AC-2.4 | `TokenQuota.TotalQuota` = 各账号 Token 规则的 `rule.Total` 之和 | 单元测试：3 个账号各有不同 Total，验证汇总值 |
-| AC-2.5 | `TokenQuota.EstimatedRemain` = 各账号 `EstimatedRemain()` 之和，`RemainRatio = EstimatedRemain / TotalQuota` | 单元测试：构造已用一半额度的账号，验证 RemainRatio ≈ 0.5 |
-| AC-2.6 | `RequestQuota` 独立按 `SourceType == Request` 规则汇总，与 `TokenQuota` 互不干扰 | 单元测试：账号同时有 Token 和 Request 规则，验证两个维度分别正确 |
-| AC-2.7 | 账号无任何用量规则时，`TokenQuota` 和 `RequestQuota` 的 `TotalQuota == 0`，`RemainRatio == 1.0` | 单元测试：无规则账号场景 |
+**目标**：快照中的 `EffectiveAvailable` 必须与 Pick 流程中可被选出的账号数量严格一致。
 
----
+**测试文件**：`observer/observer_test.go`，函数前缀 `TestCollector_EffectiveAvailable`
 
-### AC-3：MetricStore 各后端实现正确性
-
-| # | 验收条件 | 验证方式 |
-|---|----------|---------|
-| AC-3.1 | `SaveMetrics` 后 `GetMetrics` 能读到相同数据（含 QuotaMetrics 数值字段） | 各后端单元测试（Memory 直接测，Redis 用 miniredis，MySQL 用 sqlmock，SQLite 用内存库） |
-| AC-3.2 | 相同 `ProviderType + ProviderName` 第二次写入覆盖第一次（upsert 语义） | 单元测试：写入两次，第二次 GeneratedAt 更新，`GetMetrics` 返回最新 |
-| AC-3.3 | `ListMetrics` 返回所有已保存的快照（含全局维度 + 所有 Provider 维度） | 单元测试：写入全局 + 3 个 Provider，验证返回列表长度为 4 |
-| AC-3.4 | 全局维度通过 `GlobalProviderType / GlobalProviderName` 读写，与 Provider 维度隔离不冲突 | 单元测试：全局写入后读取 Provider 维度，验证不互相覆盖 |
-| AC-3.5 | `GetMetrics` 对不存在的 key 返回 `ErrNotFound` | 单元测试：空 store 直接 Get |
-| AC-3.6 | `ClearMetrics` 后 `ListMetrics` 返回空切片，`GetMetrics` 返回 `ErrNotFound` | 单元测试：写入后清空，再验证 |
+| # | 验收条件 | 测试用例场景 |
+|---|----------|------------|
+| AC-1.1 | `Status != Available` 的账号不计入 `EffectiveAvailable` | 构造含 CoolingDown/CircuitOpen/Expired/Banned 账号的混合列表，验证只有 Available 的账号参与后续过滤 |
+| AC-1.2 | `estimatedUsed / rule.Total >= safetyRatio` 的账号不计入 | 模拟 UsageStore 返回 RemoteUsed=950、Total=1000（safetyRatio=0.95），验证该账号被排除 |
+| AC-1.3 | 并发占用 >= MaxConcurrency 的账号不计入（MaxConcurrency > 0 时） | 模拟 OccupancyStore 返回 occupancy=5、account.MaxConcurrency=5，验证排除 |
+| AC-1.4 | MaxConcurrency == 0（无上限）时不过滤并发 | MaxConcurrency=0 场景，OccupancyStore 返回任意正数，账号仍计入 |
+| AC-1.5 | StatusDist 各字段之和 == TotalAccounts | 混合 7 种状态各 2 个账号（共 14 个），验证 StatusDist 总和 == 14，EffectiveAvailable 仅计 Available 中通过三重过滤的数量 |
+| AC-1.6 | UsageStore 查询失败时，该账号保守处理为不可用（不计入 EffectiveAvailable） | 模拟 UsageStore.GetCurrentUsages 对某账号返回 error，验证该账号排除 |
+| AC-1.7 | OccupancyStore 批量查询失败时，整体 EffectiveAvailable 降为 0（保守策略） | 模拟 GetOccupancies 返回 error，验证返回 0 而非 panic |
 
 ---
 
-### AC-4：多实例一致性（MetricStore 共享后端）
+### AC-2：指标计算准确性（单元测试）
 
-| # | 验收条件 | 验证方式 |
-|---|----------|---------|
-| AC-4.1 | 两个 `defaultPoolObserver` 实例共享同一 Redis/MySQL `MetricStore`，实例 A 写入后实例 B 读取到相同数据 | 集成测试（Redis 用 miniredis，MySQL 用 sqlmock） |
-| AC-4.2 | 注入非 leader 的 `LeaderElector` 时，`Start()` 后后台 goroutine 不执行写入 | 单元测试：mock `LeaderElector.IsLeader()` 返回 false，验证 `MetricStore.SaveMetrics` 未被调用 |
-| AC-4.3 | 注入 leader `LeaderElector` 时，后台 goroutine 正常触发写入 | 单元测试：mock `IsLeader()` 返回 true，等待一次 tick，验证 `MetricStore.SaveMetrics` 被调用 |
-| AC-4.4 | 未注入 `LeaderElector` 时（nil），`isLeader()` 默认返回 true | 单元测试：验证 nil leaderElector 时执行写入 |
+**测试文件**：`observer/observer_test.go`，函数前缀 `TestCollector_Metrics`
 
----
+#### AC-2a：PoolHealth 计算
 
-### AC-5：PoolObserver 生命周期
+| # | 验收条件 | 测试用例场景 |
+|---|----------|------------|
+| AC-2.1 | `TotalAccounts == 0` 时 `Health == PoolCritical` | 空 Provider（无任何账号） |
+| AC-2.2 | `EffectiveAvailable == 0` 且 `TotalAccounts > 0` 时 `Health == PoolCritical` | 所有账号处于 CoolingDown 状态 |
+| AC-2.3 | `EffectiveAvailable > 0` 时 `Health == PoolHealthy` | 至少一个账号通过三重过滤 |
 
-| # | 验收条件 | 验证方式 |
-|---|----------|---------|
-| AC-5.1 | `Start()` 后立即调用 `Stop()` 不会 panic，goroutine 正常退出 | 单元测试：`Start(); Stop()` 快速序列 |
-| AC-5.2 | `Start()` 重复调用返回错误，不启动多个后台 goroutine | 单元测试：两次 `Start()` 验证第二次返回 error |
-| AC-5.3 | `RefreshNow()` 在 `MetricStore` 写入失败时返回错误，不 panic | 单元测试：mock `MetricStore.SaveMetrics`（全局维度）返回 error |
-| AC-5.4 | 单个 Provider 指标计算失败时，`RefreshNow` 继续处理其他 Provider，不中断整体流程 | 单元测试：mock `AccountStorage.SearchAccounts` 对某 Provider 返回 error，验证其他 Provider 正常写入 |
-| AC-5.5 | `NewPoolObserver` 缺少必填 storage 时返回 error，不返回 nil observer | 单元测试：逐一缺省各必填 storage 参数 |
+#### AC-2b：QuotaMetrics 聚合
 
----
+| # | 验收条件 | 测试用例场景 |
+|---|----------|------------|
+| AC-2.4 | `TokenQuota.TotalQuota = sum(rule.Total)` for Token 规则 | 3 个账号各有 Token 规则 Total=100/200/300，验证 TotalQuota=600 |
+| AC-2.5 | `TokenQuota.EstimatedRemain` = 各账号 EstimatedRemain() 之和，`RemainRatio = EstimatedRemain / TotalQuota` | 已用一半额度，验证 RemainRatio ≈ 0.5（精度 1e-6） |
+| AC-2.6 | `RequestQuota` 独立按 `SourceType == Request` 规则汇总，与 `TokenQuota` 不干扰 | 账号同时有 Token 和 Request 规则，验证两个维度分别正确，数值互不影响 |
+| AC-2.7 | 无任何用量规则时 `TotalQuota == 0`，`RemainRatio == 1.0` | 无 UsageRule 账号，QuotaMetrics 零值且 RemainRatio=1.0 |
+| AC-2.8 | `EstimatedRemain < 0` 时 `RemainRatio` 钳制为 0.0，不返回负值 | EstimatedRemain=-10，验证 RemainRatio == 0.0 |
 
-### AC-6：性能要求
+#### AC-2c：SuccessRate 计算
 
-| # | 验收条件 | 验证方式 |
-|---|----------|---------|
-| AC-6.1 | `GetMetrics` / `ListMetrics` 的 P99 延迟 < 10ms（Memory 后端） | 基准测试：`BenchmarkGetMetrics`、`BenchmarkListMetrics`，验证 ns/op |
-| AC-6.2 | `RefreshNow` 对 100 个账号（10 个 Provider，每 Provider 10 账号）的全量计算耗时 < 500ms（Memory 后端） | 基准测试：`BenchmarkRefreshNow_100Accounts` |
-| AC-6.3 | `RefreshNow` 不在 Pick 流程（100ms 约束）的关键路径上执行（后台独立 goroutine） | 代码审查：确认 `Balancer.Pick()` 中无对 `PoolObserver` 的调用 |
+| # | 验收条件 | 测试用例场景 |
+|---|----------|------------|
+| AC-2.9 | `SuccessRate = sum(SuccessCalls) / sum(TotalCalls)` | 账号 A 成功 80/100，账号 B 成功 60/100，验证 SuccessRate = 0.7 |
+| AC-2.10 | `TotalCalls == 0` 时 `SuccessRate == 1.0` | 新建账号无历史调用 |
 
 ---
 
-### AC-7：代码质量要求
+### AC-3：MetricStore 存储后端正确性（单元测试）
 
-| # | 验收条件 | 验证方式 |
+**测试文件**：各后端 `storage/{backend}/metric_test.go`
+
+**执行命令**：`go test ./storage/...`（Memory 直接测，Redis 用 miniredis，MySQL 用 sqlmock，SQLite 用内存库）
+
+| # | 验收条件 | 测试用例场景 |
+|---|----------|------------|
+| AC-3.1 | `SaveMetrics` 后 `GetMetrics` 读到完全相同的结构（含所有数值字段，含 QuotaMetrics） | 构造完整 Metrics，写入后读取，逐字段比对 |
+| AC-3.2 | 相同 `ProviderType+ProviderName` 第二次写入覆盖第一次（upsert 语义） | 写入两次，第二次修改 EffectiveAvailable 和 GeneratedAt，`GetMetrics` 返回第二次的值 |
+| AC-3.3 | `ListMetrics` 返回全局 + 所有 Provider 的完整列表 | 写入全局维度 + 3 个 Provider，验证返回 4 条，且可通过 `IsGlobal()` 区分 |
+| AC-3.4 | 全局维度与 Provider 维度同 key 不冲突 | 分别写入全局 `(__global__, __global__)` 和 Provider `(kiro, kiro-prod)`，互不覆盖 |
+| AC-3.5 | `GetMetrics` 对不存在的 key 返回 `ErrNotFound` | 空 store 直接 Get 任意 key |
+| AC-3.6 | `ClearMetrics` 后 `ListMetrics` 返回空切片，`GetMetrics` 返回 `ErrNotFound` | 写入若干条后清空，全量验证 |
+| AC-3.7 | 4 种后端（Memory/Redis/MySQL/SQLite）均通过 AC-3.1～AC-3.6 全部用例 | 同一测试逻辑分别在各后端运行 |
+
+---
+
+### AC-4：PoolObserver 生命周期（单元测试）
+
+**测试文件**：`observer/observer_test.go`，函数前缀 `TestPoolObserver_`
+
+**执行命令**：`go test -race ./observer/...`（并发相关用例强制加 -race）
+
+| # | 验收条件 | 测试用例场景 |
+|---|----------|------------|
+| AC-4.1 | `Start()` 后立即 `Stop()` 不 panic，goroutine 正常退出 | `Start(); Stop()`，通过 `done` channel 或 WaitGroup 确认退出 |
+| AC-4.2 | `Start()` 重复调用返回 error，不启动多个 goroutine | 连续两次 `Start()`，第二次 error 不为 nil |
+| AC-4.3 | `Stop()` 可安全多次调用，不 panic | 连续调用两次 `Stop()` |
+| AC-4.4 | 未注入 `LeaderElector`（nil）时默认为 leader，`RefreshNow` 正常触发写入 | mock MetricStore，验证 SaveMetrics 被调用 |
+| AC-4.5 | 注入非 leader 的 `LeaderElector` 时，tick 触发时不执行写入 | mock `IsLeader()` 返回 false，等待两个 tick，验证 `MetricStore.SaveMetrics` 调用次数为 0 |
+| AC-4.6 | 注入 leader 的 `LeaderElector` 时，tick 触发时正常写入 | mock `IsLeader()` 返回 true，等待一个 tick，验证 `MetricStore.SaveMetrics` 被调用 |
+| AC-4.7 | `RefreshNow()` 在 MetricStore 写入失败时返回 error，不 panic | mock `SaveMetrics` 返回 error，验证返回值不为 nil |
+| AC-4.8 | 单个 Provider 指标计算失败时 `RefreshNow` 仍继续处理其余 Provider | mock `AccountStorage.SearchAccounts` 对 Provider A 返回 error，Provider B/C 正常，验证 B/C 写入成功 |
+| AC-4.9 | `NewPoolObserver` 缺少任一必填 storage 时返回 error，不返回 nil | 逐一缺省 MetricStore/AccountStorage/ProviderStorage/StatsStore/UsageStore/OccupancyStore，各自返回 error |
+
+---
+
+### AC-5：多实例一致性（集成测试）
+
+**测试文件**：`observer/observer_integration_test.go`
+
+**构建标签**：`//go:build integration`
+
+**执行命令**：`go test -tags=integration -v ./observer/...`
+
+| # | 验收条件 | 测试场景 |
 |---|----------|---------|
-| AC-7.1 | `observer/` 包单元测试覆盖率 ≥ 90% | `go test -cover ./observer/...` |
-| AC-7.2 | `storage/memory/metric.go`、`storage/redis/metric.go` 等各后端实现覆盖率 ≥ 90% | `go test -cover ./storage/...` |
-| AC-7.3 | 并发相关测试（`Start/Stop`、`SaveMetrics` 并发写）通过 `-race` 检测 | `go test -race ./observer/... ./storage/...` |
-| AC-7.4 | 所有测试使用 Table-Driven 模式，禁止 testify，使用原生 `testing` 包 | 代码审查 |
-| AC-7.5 | `collector`、`defaultPoolObserver` 等实现类型不导出 | 代码审查：确认无 `export` 的实现类型 |
+| AC-5.1 | 两个 `defaultPoolObserver` 共享同一 Redis（miniredis）`MetricStore`，实例 A `RefreshNow` 后实例 B `GetMetrics` 读到相同数据 | 实例 A 写入，实例 B 独立读取，对比全部字段 |
+| AC-5.2 | 两个实例共享同一 MySQL（sqlmock）`MetricStore`，行为与 AC-5.1 相同 | 同上，换 sqlmock 后端 |
+| AC-5.3 | leader 实例写入后，非 leader 实例通过 `ListMetrics` 可读到最新快照 | 实例 A leader 写入，实例 B IsLeader=false 只读，验证读取结果与写入一致 |
+| AC-5.4 | 两个实例并发 `RefreshNow` 时（upsert 竞争），最终 MetricStore 中数据为其中一次写入的合法值，不出现部分写/混合数据 | goroutine A、B 同时调用 `RefreshNow`，写入后读取，验证结构合法无混乱 |
+
+---
+
+### AC-6：性能（基准测试）
+
+**测试文件**：`observer/observer_benchmark_test.go`
+
+**执行命令**：`go test -bench=. -benchmem -count=5 ./observer/...`
+
+| # | 验收条件 | 基准函数 | 通过标准 |
+|---|----------|---------|---------|
+| AC-6.1 | Memory 后端 `GetMetrics` 单次调用耗时 | `BenchmarkGetMetrics_Memory` | ns/op < 10,000（即 P99 < 10µs） |
+| AC-6.2 | Memory 后端 `ListMetrics`（10 个 Provider + 全局）单次调用耗时 | `BenchmarkListMetrics_Memory_10Providers` | ns/op < 50,000 |
+| AC-6.3 | Memory 后端 `RefreshNow` 对 100 个账号（10 Provider × 10 账号）全量计算耗时 | `BenchmarkRefreshNow_100Accounts` | 单次 < 500ms（即 ns/op < 500,000,000） |
+| AC-6.4 | Memory 后端 `SaveMetrics` 并发写（100 goroutine）吞吐量 | `BenchmarkSaveMetrics_Concurrent` | 无 data race（配合 `-race` 运行） |
+| AC-6.5 | `RefreshNow` 全程不在 `Balancer.Pick()` 调用栈内（零侵入调度流程） | 代码审查 | 确认 `balancer/` 目录下无 `observer` 包导入 |
+
+---
+
+### AC-7：代码质量（执行命令汇总）
+
+| # | 验收条件 | 执行命令 | 通过标准 |
+|---|----------|---------|---------|
+| AC-7.1 | `observer/` 包单元测试覆盖率 ≥ 90% | `go test -cover ./observer/...` | coverage ≥ 90% |
+| AC-7.2 | `storage/` 各后端 MetricStore 实现覆盖率 ≥ 90% | `go test -cover ./storage/...` | coverage ≥ 90% |
+| AC-7.3 | `observer/` 和 `storage/` 并发测试通过 `-race` 检测 | `go test -race ./observer/... ./storage/...` | 无 data race 报告 |
+| AC-7.4 | 集成测试（需 `-tags=integration`）通过 | `go test -tags=integration -v ./observer/...` | 全部 PASS |
+| AC-7.5 | 所有测试使用 Table-Driven 模式，禁止 testify，使用原生 `testing` 包 | 代码审查 | 无 `github.com/stretchr/testify` 导入 |
+| AC-7.6 | `collector`、`defaultPoolObserver` 等实现类型不导出 | 代码审查 | `observer/` 包中无以大写开头的实现类型 |
+| AC-7.7 | `balancer/` 目录下无 `observer` 包导入（零侵入） | `grep -r "observer" balancer/` | 输出为空 |
 
 ---
 
@@ -522,6 +574,6 @@ storage/
 
 ## 十一、后续可扩展方向（YAGNI，当前不实现）
 
-- `ProviderMetrics` 增加 `P99Latency` 等延迟分布字段（需要 StatsStore 扩展）
-- `GlobalMetrics` 增加模型维度的分组统计
-- `SnapshotStore` 增加历史快照版本保留，支持时序查询
+- `Metrics` 增加 `P99Latency` 等延迟分布字段（需要 StatsStore 扩展）
+- 全局维度 `Metrics` 增加模型维度的分组统计
+- `MetricStore` 增加历史快照版本保留，支持时序查询
