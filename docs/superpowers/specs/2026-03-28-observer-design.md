@@ -41,7 +41,7 @@ lumin-acpool/
 ├── observer/               # 新增：可观测性模块
 │   ├── observer.go         # PoolObserver 接口 + NewPoolObserver 构造
 │   ├── snapshot.go         # Metrics / GlobalProviderType / GlobalProviderName 常量
-│   ├── metric.go           # StatusDist / QuotaMetrics / PoolHealth 类型定义
+│   ├── metric.go           # StatusDist / QuotaMetrics 类型定义
 │   ├── collector.go        # 从 storage 层聚合计算指标（内部，不导出）
 │   ├── option.go           # With* Functional Options + Options 结构
 │   ├── leader.go           # LeaderElector 接口定义
@@ -70,7 +70,7 @@ lumin-acpool/
   ├─ StatsStore.GetStats()             → 计算成功率
   ├─ ProviderStorage.SearchProviders() → 枚举 Provider
   │
-  └─ [计算 EffectiveAvailable、StatusDist、TokenQuota/RequestQuota、SuccessRate、Health]
+  └─ [计算 EffectiveAvailable、StatusDist、TokenQuota/RequestQuota、SuccessRate]
        │
        └─ MetricStore.SaveMetrics()  // Provider 维度 + 全局维度各写一条
 
@@ -112,20 +112,12 @@ type QuotaMetrics struct {
     RemainRatio float64
 }
 
-// PoolHealth 综合健康等级（基于 EffectiveAvailable 计算，业务层可自定义更细粒度）
-type PoolHealth int
-
-const (
-    PoolHealthy  PoolHealth = iota // EffectiveAvailable > 0
-    PoolWarning                    // EffectiveAvailable == 0 但 TotalAccounts > 0（可扩展）
-    PoolCritical                   // TotalAccounts == 0 或 EffectiveAvailable == 0
-)
 ```
 
 **说明**：
 - `QuotaMetrics` 存储 Token/Request 两个维度的原始用量指标，由业务层自行判断是否告警
 - `RemainRatio` 方便业务层快速判断，无需再次计算
-- `QuotaMetrics` 统计范围为「服务生命周期内」的账号，见下方指标统计口径对照表
+- `QuotaMetrics` 统计范围为「服务生命周期内」的账号（Available + CoolingDown + CircuitOpen），见下方指标统计口径对照表
 
 ### 3.2 指标快照结构（`observer/snapshot.go`）
 
@@ -143,34 +135,55 @@ const (
 // Provider 维度：ProviderType/ProviderName 为实际的 Provider 标识
 //
 // ProviderType + ProviderName 是 MetricStore 的唯一存储键。
+// 所有字段均为原始指标，健康状态评估由业务层根据自身阈值自行判断。
 type Metrics struct {
-    // 标识
-    ProviderType string // Provider 类型；全局时为 GlobalProviderType
-    ProviderName string // Provider 名称；全局时为 GlobalProviderName
+    // ---- 标识 ----
+    // ProviderType Provider 类型。全局维度时为 GlobalProviderType（"__global__"）。
+    ProviderType string
+    // ProviderName Provider 名称。全局维度时为 GlobalProviderName（"__global__"）。
+    ProviderName string
 
-    // 账号统计
-    TotalAccounts      int        // 账号总数（全量，含所有状态）
-    EffectiveAvailable int        // 真实可用账号数（三重过滤后，见下方说明）
-    StatusDist         StatusDist // 状态分布（全量统计，各状态之和 == TotalAccounts）
+    // ---- 账号数量统计 ----
+    // TotalAccounts 该 Provider（或全局）下的账号总数。
+    // 统计范围：全量，含所有状态（Available / CoolingDown / CircuitOpen / Expired / Invalidated / Banned / Disabled）。
+    TotalAccounts int
+    // EffectiveAvailable 当前真正可被 Pick 流程选出的账号数。
+    // 统计范围：在 TotalAccounts 基础上经过三重过滤：
+    //   ① Status == Available
+    //   ② 所有 UsageRule 的 estimatedUsed/rule.Total < safetyRatio（未触发限流）
+    //   ③ 当前并发占用 < account.MaxConcurrency（MaxConcurrency==0 视为无上限）
+    EffectiveAvailable int
+    // StatusDist 各状态的账号数量分布。
+    // 统计范围：全量，StatusDist 各字段之和 == TotalAccounts。
+    StatusDist StatusDist
 
-    // 并发情况
-    // OccupancyTotal 当前池内所有账号的并发占用总量（直接从 OccupancyStore 汇总，不按账号状态过滤）
+    // ---- 并发占用 ----
+    // OccupancyTotal 当前池内所有账号的并发占用槽总数。
+    // 统计范围：全量，直接从 OccupancyStore 汇总，不按账号状态过滤。
+    // 说明：CoolingDown/CircuitOpen 账号在进入该状态前可能已有请求在途，
+    // 其残留占用同样计入，待请求完成后自然归零。
     OccupancyTotal int64
 
-    // 质量指标
-    // SuccessRate 统计范围：仍在服务生命周期内的账号（Available + CoolingDown + CircuitOpen），
-    // 排除 Expired / Invalidated / Banned / Disabled。无历史调用时为 1.0。
+    // ---- 质量指标 ----
+    // SuccessRate 近期请求成功率（0.0～1.0）。
+    // 统计范围：Status ∈ {Available, CoolingDown, CircuitOpen} 的账号，
+    // 排除已永久退出服务的账号（Expired / Invalidated / Banned / Disabled）。
+    // 特殊值：TotalCalls == 0 时为 1.0（无历史调用，默认健康）。
+    // 计算：sum(SuccessCalls) / sum(TotalCalls)，数据来自 StatsStore.GetStats()。
     SuccessRate float64
-    // TokenQuota / RequestQuota 统计范围同 SuccessRate：
-    // 仅统计 Available + CoolingDown + CircuitOpen 的账号，
-    // 排除已退出服务生命周期的账号（Expired / Invalidated / Banned / Disabled），
-    // 反映池子当前实际可用的额度容量。
-    TokenQuota   QuotaMetrics // Token/积分维度的额度汇总
-    RequestQuota QuotaMetrics // 请求次数维度的额度汇总
-    Health       PoolHealth   // 综合健康状态
+    // TokenQuota Token/积分维度的额度用量汇总。
+    // 统计范围：同 SuccessRate，Status ∈ {Available, CoolingDown, CircuitOpen}。
+    // 说明：CoolingDown/CircuitOpen 为临时状态，恢复后额度仍可用，故纳入统计，
+    // 以反映池子当前真实可用的额度容量而非资产总量。
+    // 数据来源：UsageStore.GetCurrentUsages()，取 SourceType == Token 的规则聚合。
+    TokenQuota QuotaMetrics
+    // RequestQuota 请求次数维度的额度用量汇总。
+    // 统计范围、说明、数据来源同 TokenQuota，取 SourceType == Request 的规则聚合。
+    RequestQuota QuotaMetrics
 
-    // 元数据
-    GeneratedAt time.Time // 快照生成时间
+    // ---- 元数据 ----
+    // GeneratedAt 本次快照的生成时间（UTC）。
+    GeneratedAt time.Time
 }
 
 // IsGlobal 判断当前 Metrics 是否为全局维度。
@@ -195,7 +208,6 @@ func (m *Metrics) IsGlobal() bool {
 | `SuccessRate` | Available + CoolingDown + CircuitOpen | 服务生命周期内账号；排除 Expired / Invalidated / Banned / Disabled |
 | `TokenQuota` | Available + CoolingDown + CircuitOpen | 同 SuccessRate；CoolingDown/CircuitOpen 恢复后额度仍可用 |
 | `RequestQuota` | Available + CoolingDown + CircuitOpen | 同 SuccessRate |
-| `Health` | 基于 EffectiveAvailable 推导 | TotalAccounts==0 或 EffectiveAvailable==0 → Critical |
 
 ---
 
@@ -373,17 +385,7 @@ RequestQuota：同上，取 SourceType == Request 的规则
 EstimatedRemain < 0 时 RemainRatio 钳制为 0.0。
 ```
 
-### 6.3 PoolHealth 计算规则
-
-```
-TotalAccounts == 0              → PoolCritical
-EffectiveAvailable == 0         → PoolCritical
-EffectiveAvailable > 0          → PoolHealthy
-```
-
-> 业务层如需 Warning 等级，读取 `EffectiveAvailable / TotalAccounts` 后自行与自定义阈值对比。
-
-### 6.4 SuccessRate 计算规则
+### 6.3 SuccessRate 计算规则
 
 ```
 统计范围：Status ∈ {Available, CoolingDown, CircuitOpen} 的账号
@@ -426,7 +428,7 @@ observer/
 ├── observer.go          // PoolObserver 接口定义 + NewPoolObserver 构造函数
 ├── default_observer.go  // defaultPoolObserver 实现
 ├── snapshot.go          // Metrics / GlobalProviderType / GlobalProviderName 常量
-├── metric.go            // StatusDist / QuotaMetrics / PoolHealth
+├── metric.go            // StatusDist / QuotaMetrics
 ├── collector.go         // collector（内部类型，不导出）
 ├── option.go            // Options + With* Functional Options
 ├── leader.go            // LeaderElector 接口
@@ -476,15 +478,7 @@ storage/
 
 **测试文件**：`observer/observer_test.go`，函数前缀 `TestCollector_Metrics`
 
-#### AC-2a：PoolHealth 计算
-
-| # | 验收条件 | 测试用例场景 |
-|---|----------|------------|
-| AC-2.1 | `TotalAccounts == 0` 时 `Health == PoolCritical` | 空 Provider（无任何账号） |
-| AC-2.2 | `EffectiveAvailable == 0` 且 `TotalAccounts > 0` 时 `Health == PoolCritical` | 所有账号处于 CoolingDown 状态 |
-| AC-2.3 | `EffectiveAvailable > 0` 时 `Health == PoolHealthy` | 至少一个账号通过三重过滤 |
-
-#### AC-2b：QuotaMetrics 聚合
+#### AC-2a：QuotaMetrics 聚合
 
 | # | 验收条件 | 测试用例场景 |
 |---|----------|------------|
@@ -592,7 +586,7 @@ storage/
 
 以下内容明确排除在本次实现之外：
 
-- **补账号/补 Provider 的判断逻辑**：上游业务层根据 `EffectiveAvailable`、`Health` 等指标自定义阈值判断，本模块只提供原始指标
+- **补账号/补 Provider 的判断逻辑**：上游业务层根据 `EffectiveAvailable`、`TokenQuota`、`SuccessRate` 等原始指标自定义阈值判断，本模块只提供原始指标
 - **指标历史时序存储**：本模块只保留最新快照，历史趋势由上游监控系统（Prometheus/Grafana）负责
 - **HTTP / Prometheus exporter**：本模块是 SDK 库，不提供网络服务端点，由上游 lumin-proxy / lumin-admin 自行暴露
 - **告警触发**：不在本模块处理，由业务层订阅快照后决定
