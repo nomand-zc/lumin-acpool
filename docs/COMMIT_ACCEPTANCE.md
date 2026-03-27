@@ -7,7 +7,7 @@
 | 指标 | 要求 |
 |------|------|
 | 全局行覆盖率 | ≥ 80% |
-| 关键调度路径（balancer / selector / resolver） | ≥ 90% |
+| 关键调度路径（balancer / selector / resolver / storage） | ≥ 90% |
 
 > 覆盖率由 `git-hooks/run-tests.sh` 在测试完成后自动解析，低于阈值时脚本以非零状态退出，pre-commit 拒绝本次提交。
 > 阈值常量定义在脚本顶部（`COVERAGE_GLOBAL_MIN` / `COVERAGE_CRITICAL_MIN`），如需调整直接修改脚本。

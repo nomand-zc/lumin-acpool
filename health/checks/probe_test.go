@@ -2,8 +2,10 @@ package checks
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/nomand-zc/lumin-acpool/account"
 	"github.com/nomand-zc/lumin-acpool/health"
@@ -164,6 +166,187 @@ func TestProbeCheck_BuildProbeRequest_ModelInheritedFromConfig(t *testing.T) {
 	// 原始共享对象 Model 不应被修改
 	if sharedReq.Model != "" {
 		t.Fatalf("original sharedReq.Model should stay empty, got %s", sharedReq.Model)
+	}
+}
+
+// ============================================================
+// ProbeCheck.Check() 表驱动测试
+// ============================================================
+
+func TestProbeCheck_Check(t *testing.T) {
+	type args struct {
+		provider *mockProvider
+		cred     *mockCredential
+	}
+	type want struct {
+		status          health.CheckStatus
+		severity        health.CheckSeverity
+		suggestedStatus *account.Status
+	}
+
+	banned := account.StatusBanned
+	coolingDown := account.StatusCoolingDown
+	expired := account.StatusExpired
+
+	futureTime := time.Now().Add(time.Hour)
+
+	cases := []struct {
+		name string
+		args args
+		want want
+	}{
+		{
+			name: "成功响应_返回CheckPassed",
+			args: args{
+				cred:     &mockCredential{},
+				provider: &mockProvider{generateErr: nil, generateResponse: &providers.Response{}},
+			},
+			want: want{
+				status:          health.CheckPassed,
+				severity:        health.SeverityWarning,
+				suggestedStatus: nil,
+			},
+		},
+		{
+			name: "HTTP_Forbidden_建议标记为Banned",
+			args: args{
+				cred: &mockCredential{},
+				provider: &mockProvider{
+					generateErr: &providers.HTTPError{
+						ErrorType: providers.ErrorTypeForbidden,
+						Message:   "your account is banned",
+					},
+				},
+			},
+			want: want{
+				status:          health.CheckFailed,
+				severity:        health.SeverityWarning,
+				suggestedStatus: &banned,
+			},
+		},
+		{
+			name: "HTTP_RateLimit_建议标记为CoolingDown",
+			args: args{
+				cred: &mockCredential{},
+				provider: &mockProvider{
+					generateErr: &providers.HTTPError{
+						ErrorType:     providers.ErrorTypeRateLimit,
+						CooldownUntil: &futureTime,
+					},
+				},
+			},
+			want: want{
+				status:          health.CheckFailed,
+				severity:        health.SeverityWarning,
+				suggestedStatus: &coolingDown,
+			},
+		},
+		{
+			name: "HTTP_Unauthorized_建议标记为Expired",
+			args: args{
+				cred: &mockCredential{},
+				provider: &mockProvider{
+					generateErr: &providers.HTTPError{
+						ErrorType: providers.ErrorTypeUnauthorized,
+					},
+				},
+			},
+			want: want{
+				status:          health.CheckFailed,
+				severity:        health.SeverityWarning,
+				suggestedStatus: &expired,
+			},
+		},
+		{
+			name: "HTTP_BadRequest_账号可正常通信_返回CheckPassed",
+			args: args{
+				cred: &mockCredential{},
+				provider: &mockProvider{
+					generateErr: &providers.HTTPError{
+						ErrorType: providers.ErrorTypeBadRequest,
+					},
+				},
+			},
+			want: want{
+				status:          health.CheckPassed,
+				severity:        health.SeverityWarning,
+				suggestedStatus: nil,
+			},
+		},
+		{
+			name: "网络超时等其他错误_返回CheckError",
+			args: args{
+				cred: &mockCredential{},
+				provider: &mockProvider{
+					generateErr: errors.New("dial tcp: connection refused"),
+				},
+			},
+			want: want{
+				status:          health.CheckError,
+				severity:        health.SeverityWarning,
+				suggestedStatus: nil,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &ProbeCheck{Model: "test-model"} // 设置 Model 避免调用 client.Models
+			target := newTestTarget(tc.args.cred, tc.args.provider)
+
+			result := c.Check(context.Background(), target)
+
+			if result == nil {
+				t.Fatalf("got nil result, want non-nil")
+			}
+			if result.CheckName != ProbeCheckName {
+				t.Errorf("got CheckName=%q, want %q", result.CheckName, ProbeCheckName)
+			}
+			if result.Status != tc.want.status {
+				t.Errorf("got Status=%v, want %v (message: %s)", result.Status, tc.want.status, result.Message)
+			}
+			if result.Severity != tc.want.severity {
+				t.Errorf("got Severity=%v, want %v", result.Severity, tc.want.severity)
+			}
+			if tc.want.suggestedStatus == nil {
+				if result.SuggestedStatus != nil {
+					t.Errorf("got SuggestedStatus=%v, want nil", *result.SuggestedStatus)
+				}
+			} else {
+				if result.SuggestedStatus == nil {
+					t.Fatalf("got SuggestedStatus=nil, want %v", *tc.want.suggestedStatus)
+				}
+				if *result.SuggestedStatus != *tc.want.suggestedStatus {
+					t.Errorf("got SuggestedStatus=%v, want %v", *result.SuggestedStatus, *tc.want.suggestedStatus)
+				}
+			}
+		})
+	}
+}
+
+// TestProbeCheck_Check_RateLimit_CooldownUntilInData 验证 RateLimit 时 Data 中包含 cooldown_until
+func TestProbeCheck_Check_RateLimit_CooldownUntilInData(t *testing.T) {
+	cooldownUntil := time.Now().Add(2 * time.Hour)
+	prov := &mockProvider{
+		generateErr: &providers.HTTPError{
+			ErrorType:     providers.ErrorTypeRateLimit,
+			CooldownUntil: &cooldownUntil,
+		},
+	}
+	c := &ProbeCheck{Model: "test-model"}
+	target := newTestTarget(&mockCredential{}, prov)
+
+	result := c.Check(context.Background(), target)
+
+	if result.Status != health.CheckFailed {
+		t.Fatalf("got Status=%v, want CheckFailed", result.Status)
+	}
+	dataMap, ok := result.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("got Data type=%T, want map[string]any", result.Data)
+	}
+	if _, exists := dataMap["cooldown_until"]; !exists {
+		t.Errorf("got Data missing key %q, want it present", "cooldown_until")
 	}
 }
 
