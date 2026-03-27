@@ -6,22 +6,24 @@ repos:
   # Go 代码质量检查
   # =========================
 
-  # go fmt - 格式化 Go 代码
+  # go fmt - 格式化 Go 代码（commit 阶段）
   - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
     rev: v2.16.0
     hooks:
       - id: pretty-format-golang
         args: [--autofix]
+        stages: [pre-commit]
 
-  # golangci-lint - 综合代码检查（包含 goimports, go vet 等）
+  # golangci-lint - 综合代码检查（包含 goimports, go vet 等，commit 阶段）
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.64.8
     hooks:
       - id: golangci-lint
         args: [--timeout=5m]
         exclude: ^(.*_test\.go|.*\.md|testdata/|.*_mock\.go)$
+        stages: [pre-commit]
 
-  # go test - 单元测试门禁（本地脚本）
+  # go test - 单元测试门禁（commit 阶段）
   - repo: local
     hooks:
       - id: go-test
@@ -30,6 +32,7 @@ repos:
         language: script
         types: [go]
         pass_filenames: false
+        stages: [pre-commit]
 
   # go integration test - 集成测试门禁（pre-push，Docker 不可用时软性降级）
   - repo: local
@@ -52,42 +55,50 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
-  # go mod tidy - 依赖整理
+  # go mod tidy - 依赖整理（commit 阶段）
   - repo: https://github.com/tekwizely/pre-commit-golang
     rev: v1.0.0-rc.4
     hooks:
       - id: go-mod-tidy
+        stages: [pre-commit]
 
   # =========================
   # 通用代码质量检查
   # =========================
 
-  # 通用代码质量检查
+  # 通用代码质量检查（commit 阶段）
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         exclude: ^testdata/
+        stages: [pre-commit]
       - id: end-of-file-fixer
         exclude: ^testdata/
+        stages: [pre-commit]
       - id: check-added-large-files
         args: [--maxkb=500]
+        stages: [pre-commit]
       - id: check-yaml
         args: [--unsafe]
+        stages: [pre-commit]
       - id: check-json
         exclude: ^testdata/
+        stages: [pre-commit]
       - id: check-merge-conflict
+        stages: [pre-commit]
 
   # =========================
   # Markdown 文档检查
   # =========================
 
-  # Markdown 格式化 - 保持文档整洁
+  # Markdown 格式化 - 保持文档整洁（commit 阶段）
   - repo: https://github.com/jackdewinter/pymarkdown
     rev: v0.9.36
     hooks:
       - id: pymarkdown
         args: [fix]
+        stages: [pre-commit]
 
 # =========================
 # 全局配置

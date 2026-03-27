@@ -5,3 +5,4 @@
 
 # Code review 报告（pre-push 自动生成，不纳入版本控制）
 .code-review-report.md
+full_diff_output.txt
